@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Definition Descent - Classroom Edition</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: #0b0e14;
+      color: #fff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+    #game-container { position: relative; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7); }
+    canvas { display: block; background: #0d1117; border-radius: 8px; cursor: pointer; }
+  </style>
+</head>
+<body>
+<div id="game-container">
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
+</div>
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+// Vocabulary Dataset
+const dictionary = [
+  { word: "insight", def: "The capacity to gain an accurate and deep intuitive understanding." },
+  { word: "climate", def: "The weather conditions prevailing in an area over a long period." },
+  { word: "formula", def: "A mathematical relationship or rule expressed in symbols." },
+  { word: "collapse", def: "To fall down or in suddenly; cave in." },
+  { word: "tolerance", def: "The ability or willingness to tolerate something." }
+];
+// Game State Variables - Speed lowered to 0.4 for easy reading
+let score = 0;
+let multiplier = 1;
+let health = 3;
+let gameOver = false;
+let gameSpeed = 0.4; // Very slow speed for students
+let flashRedTimer = 0;
+let freezeTimer = 0;
+const MAX_HEALTH = 5;
+let currentDefinition = null;
+let blocks = [];
+let spawnTimer = 0;
+const spawnInterval = 180; // Longer interval between block spawns (~3 seconds)
+const deadlineY = 430;     // Lowered boundary line to give more room for definition box
+function getRandomInt(min, max) {
+  return Math.floor(Math.random() * (max - min)) + min;
+}
+function selectNewTargetDefinition() {
+  const randomIndex = getRandomInt(0, dictionary.length);
+  currentDefinition = dictionary[randomIndex];
+  const exists = blocks.some(b => b.word === currentDefinition.word);
+  if (!exists) {
+    spawnBlock(currentDefinition.word);
+  }
+}
+function spawnBlock(forcedWord = null) {
+  const blockWidth = 180;
+  const blockHeight = 55;
+  const padding = 20;
+  const x = getRandomInt(padding, canvas.width - blockWidth - padding);
+  const y = -blockHeight;
+
+  let type = 'standard';
+  let word = forcedWord;
+
+  if (!forcedWord) {
+    const rand = Math.random();
+    if (rand < 0.10) {
+      type = 'freeze';
+      word = "❄️ FREEZE";
+    } else if (rand < 0.15) {
+      type = 'health';
+      word = "❤️ +1 HP";
+    } else {
+      const randomDict = dictionary[getRandomInt(0, dictionary.length)];
+      word = randomDict.word;
+    }
+  }
+
+  blocks.push({ x, y, width: blockWidth, height: blockHeight,
+    word, type, speed: gameSpeed });
+}
+function resetGame() {
+  score = 0;
+  multiplier = 1;
+  health = 3;
+  gameOver = false;
+  gameSpeed = 0.4;
+  flashRedTimer = 0;
+  blocks = [];
+  spawnTimer = 0;
+  selectNewTargetDefinition();
+}
+// Text wrapping utility for multi-line definitions
+function wrapText(context, text, maxWidth) {
+  const words = text.split(' ');
+  const lines = [];
+  let currentLine = words[0];
+  for (let i = 1; i < words.length; i++) {
+    const word = words[i];
+    const width = context.measureText(
+currentLine + " " + word).width;
+    if (width < maxWidth) {
+      currentLine += " " + word;
+    } else {
+      lines.push(currentLine);
+      currentLine = word;
+    }
+  }
+  lines.push(currentLine);
+  return lines;
+}
+// Input Handling
+canvas.addEventListener('click', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const clickX = e.clientX - rect.left;
+  const clickY = e.clientY - rect.top;
+
+  if (gameOver) { resetGame(); return; }
+
+  for (let i = blocks.length - 1; i >= 0; i--) {
+    const b = blocks[i];
+    if (clickX >= b.x && clickX <= b.x + b.width &&
+        clickY >= b.y && clickY <= b.y + b.height) {
+
+      if (b.type === 'freeze') {
+        freezeTimer = 300;
+        blocks.splice(i, 1);
+        break;
+      }
+
+      if (b.type === 'health') {
+        if (health < MAX_HEALTH) health += 1;
+        blocks.splice(i, 1);
+        break;
+      }
+
+      if (b.word === currentDefinition.word) {
+        score += 100 * multiplier;
+        multiplier += 1;
+        gameSpeed += 0.01;
+        blocks.splice(i, 1);
+        selectNewTargetDefinition();
+      } else {
+        multiplier = 1;
+        flashRedTimer = 15;
+      }
+      break;
+    }
+  }
+});
+// Main Update Loop
+function update() {
+  if (gameOver) return;
+
+  if (flashRedTimer > 0) flashRedTimer--;
+  if (freezeTimer > 0) freezeTimer--;
+
+  const currentSpeedMultiplier = freezeTimer > 0 ? 0.3 : 1.0;
+
+  spawnTimer++;
+  if (spawnTimer >= spawnInterval) {
+    spawnBlock();
+    spawnTimer = 0;
+  }
+
+  for (let i = blocks.length - 1; i >= 0; i--) {
+    const b = blocks[i];
+    b.y += b.speed * currentSpeedMultiplier;
+
+    if (b.y + b.height >= deadlineY) {
+      if (b.type === 'standard') {
+        health -= 1;
+        if (b.word === currentDefinition.word) selectNewTargetDefinition();
+      }
+
+      blocks.splice(i, 1);
+      if (health <= 0) gameOver = true;
+    }
+  }
+}
+// Main Render Loop
+function draw() {
+  ctx.fillStyle = '#0d1117';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  if (flashRedTimer > 0) {
+    ctx.fillStyle = 'rgba(235, 57, 66, 0.3)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+  // Deadline Line
+  ctx.strokeStyle = '#f85149';
+  ctx.lineWidth = 3;
+  ctx.setLineDash([8, 6]);
+  ctx.beginPath();
+  ctx.moveTo(0, deadlineY);
+  ctx.lineTo(canvas.width, deadlineY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  // Word Blocks with custom styles.
+  blocks.forEach(b => {
+    if (b.type === 'freeze') {
+      ctx.fillStyle = '#00b4d8';
+      ctx.strokeStyle = '#90e0ef';
+    } else if (b.type === 'health') {
+      ctx.fillStyle = '#2a9d8f';
+      ctx.strokeStyle = '#e9c46a';
+    } else {
+      ctx.fillStyle = '#1f6feb';
+      ctx.strokeStyle = '#58a6ff';
+    }
+
+    ctx.fillRect(b.x, b.y, b.width, b.height);
+    ctx.lineWidth = 3;
+    ctx.strokeRect(b.x, b.y, b.width, b.height);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 18px "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(b.word, b.x + b.width / 2, b.y + b.height / 2);
+  });
+
+  // Freeze visual tint.
+  if (freezeTimer > 0) {
+    ctx.fillStyle = 'rgba(0, 180, 216, 0.15)';
+    ctx.fillRect(0, 0, canvas.width, deadlineY);
+  }
+
+  // Target Panel at Bottom
+  ctx.fillStyle = '#161b22';
+  ctx.fillRect(0, deadlineY, canvas.width, canvas.height - deadlineY);
+  ctx.strokeStyle = '#30363d';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(0, deadlineY, canvas.width, canvas.height - deadlineY);
+  if (currentDefinition) {
+    ctx.fillStyle = '#8b949e';
+    ctx.font = 'bold 16px "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('TARGET DEFINITION', canvas.width / 2, deadlineY + 28);
+    // Large 22px Definition Text with Multi-line Formatting
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 22px "Segoe UI", sans-serif';
+   
+ 
+    const lines = wrapText(ctx, `"${currentDefinition.def}"`, canvas.width - 60);
+    const lineHeight = 28;
+    const startY = deadlineY + 65;
+    lines.forEach((line, index) => {
+      ctx.fillText(line, canvas.width / 2, startY + (index * lineHeight));
+    });
+  }
+  // Large HUD Overlay (Top)
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 20px "Segoe UI", sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(`Score: ${score}`, 20, 35);
+  ctx.fillText(`Multiplier: ${multiplier}x`, 20, 65);
+  ctx.textAlign = 'right';
+  ctx.fillStyle = '#ff5555';
+  ctx.font = 'bold 22px "Segoe UI", sans-serif';
+  ctx.fillText(`Health: ${'❤️ '.repeat(health)}`, canvas.width - 20, 35);
+  if (freezeTimer > 0) {
+    ctx.fillStyle = '#90e0ef';
+    ctx.font = 'bold 16px "Segoe UI", sans-serif';
+    ctx.fillText(`❄️ Freeze: ${Math.ceil(freezeTimer / 60)}s`, canvas.width - 20, 65);
+  }
+  // Game Over Screen
+  if (gameOver) {
+    ctx.fillStyle = 'rgba(13, 17, 23, 0.92)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#f85149';
+    ctx.font = 'bold 48px "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2 - 40);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '24px "Segoe UI", sans-serif';
+    ctx.fillText(`Final Score: ${score}`, canvas.width / 2, canvas.height / 2 + 10);
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '20px "Segoe UI", sans-serif';
+    ctx.fillText('Click anywhere to play again', canvas.width / 2, canvas.height / 2 + 60);
+  }
+}
+function gameLoop() {
+  update();
+  draw();
+  requestAnimationFrame(gameLoop);
+}
+resetGame();
+gameLoop();
+</script>
+</body>
+</html>
