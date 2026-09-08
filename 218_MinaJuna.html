@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Cyberpunk Snake-Definition Hunt</title>
+  <style>
+    :root {
+      --bg-color: #0d0f18;
+      --neon-cyan: #00f3ff;
+      --neon-magenta: #ff0055;
+      --neon-green: #0ff06a;
+      --neon-yellow: #ffe600;
+      --panel-bg: rgba(20, 24, 38, 0.85);
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: #fff;
+      font-family: 'Courier New', Courier, monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    #game-container {
+      position: relative;
+      border: 3px solid var(--neon-cyan);
+      box-shadow: 0 0 20px var(--neon-cyan);
+      background: #05070a;
+    }
+
+    #ui-bar {
+      width: 800px;
+      background: var(--panel-bg);
+      border: 2px solid var(--neon-magenta);
+      border-bottom: none;
+      box-sizing: border-box;
+      padding: 12px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      box-shadow: 0 0 10px var(--neon-magenta);
+    }
+
+    .hud-top {
+      display: flex;
+      justify-content: space-between;
+      font-weight: bold;
+      font-size: 18px;
+    }
+
+    .hud-top span {
+      color: var(--neon-green);
+    }
+
+    .definition-box {
+      font-size: 16px;
+      color: var(--neon-yellow);
+      background: rgba(0, 0, 0, 0.5);
+      padding: 8px;
+      border-left: 4px solid var(--neon-yellow);
+    }
+
+    #canvas {
+      display: block;
+      background: #080b12;
+    }
+
+    #overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(13, 15, 24, 0.92);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+
+    #overlay h1 {
+      color: var(--neon-magenta);
+      font-size: 38px;
+      margin-bottom: 10px;
+      text-shadow: 0 0 10px var(--neon-magenta);
+      text-transform: uppercase;
+    }
+
+    #overlay p {
+      font-size: 16px;
+      margin-bottom: 25px;
+      color: var(--neon-cyan);
+      text-align: center;
+      max-width: 80%;
+      line-height: 1.4;
+    }
+
+    .mode-select {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    button {
+      background: transparent;
+      color: var(--neon-cyan);
+      border: 2px solid var(--neon-cyan);
+      padding: 12px 24px;
+      font-size: 16px;
+      font-family: inherit;
+      cursor: pointer;
+      text-transform: uppercase;
+      box-shadow: 0 0 10px var(--neon-cyan);
+      transition: 0.2s;
+    }
+
+    button:hover {
+      background: var(--neon-cyan);
+      color: #000;
+      box-shadow: 0 0 20px var(--neon-cyan);
+    }
+
+    button.secondary {
+      color: var(--neon-yellow);
+      border-color: var(--neon-yellow);
+      box-shadow: 0 0 10px var(--neon-yellow);
+    }
+
+    button.secondary:hover {
+      background: var(--neon-yellow);
+      color: #000;
+      box-shadow: 0 0 20px var(--neon-yellow);
+    }
+
+    .locked-status {
+      color: var(--neon-magenta) !important;
+      animation: blink 0.3s infinite alternate;
+    }
+
+    @keyframes blink {
+      from { opacity: 1; }
+      to { opacity: 0.3; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="ui-bar">
+    <div class="hud-top">
+      <div>SCORE: <span id="score">0</span></div>
+      <div id="timer-container" style="display: none;">TIMER: <span id="timer" style="color:var(--neon-yellow)">30.0s</span></div>
+      <div id="status-text">STATUS: <span style="color:var(--neon-cyan)">READY</span></div>
+    </div>
+    <div class="definition-box">
+      TARGET DEF: <span id="definition-display">Select a game mode to start...</span>
+    </div>
+  </div>
+
+  <div id="game-container">
+    <canvas id="canvas" width="800" height="600"></canvas>
+
+    <div id="overlay">
+      <h1 id="overlay-title">CYBERPUNK HUNTER</h1>
+      <p id="overlay-msg">Use Arrow Keys to navigate and eat the matching word pellet. Avoid distractors, walls, and self-collision.</p>
+      
+      <div class="mode-select">
+        <button onclick="startGame('CLASSIC')">Classic Mode</button>
+        <button class="secondary" onclick="startGame('OVERCLOCK')">Overclock Mode</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Vocabulary Data
+    const vocabularyList = [
+      { word: "encounter", definition: "To unexpectedly be faced with or come upon." },
+      { word: "feast", definition: "A large meal, typically one in celebration of something." },
+      { word: "merge", definition: "To combine or cause to combine to form a single entity." },
+      { word: "distinct", definition: "Recognizably different in nature from something else." },
+      { word: "endure", definition: "To suffer something painful or difficult patiently." },
+      { word: "reminder", definition: "A thing that causes someone to remember something." }
+    ];
+
+    const extraDistractors = ["isolate", "preserve", "vanish", "disrupt", "expand", "conceal"];
+
+    // Canvas Setup
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    const GRID_SIZE = 20;
+    const COLS = canvas.width / GRID_SIZE; // 40
+    const ROWS = canvas.height / GRID_SIZE; // 30
+
+    // Game Variables
+    let snake = [];
+    let dir = { x: 1, y: 0 };
+    let nextDir = { x: 1, y: 0 };
+    let score = 0;
+    let pellets = [];
+    let currentTarget = null;
+    let gameLoopId = null;
+    let timerInterval = null;
+    let lockTimeout = null;
+    
+    let isControlsLocked = false;
+    let gameMode = "CLASSIC"; // 'CLASSIC' or 'OVERCLOCK'
+    let timeLeft = 30.0;
+    let currentSpeed = 100; // ms per tick
+
+    // DOM Elements
+    const scoreEl = document.getElementById("score");
+    const timerEl = document.getElementById("timer");
+    const timerContainer = document.getElementById("timer-container");
+    const defDisplay = document.getElementById("definition-display");
+    const statusText = document.getElementById("status-text");
+    const overlay = document.getElementById("overlay");
+    const overlayTitle = document.getElementById("overlay-title");
+    const overlayMsg = document.getElementById("overlay-msg");
+
+    window.addEventListener("keydown", handleKeyPress);
+
+    function handleKeyPress(e) {
+      if (isControlsLocked) return;
+
+      switch (e.key) {
+        case "ArrowUp":
+          if (dir.y === 0) nextDir = { x: 0, y: -1 };
+          break;
+        case "ArrowDown":
+          if (dir.y === 0) nextDir = { x: 0, y: 1 };
+          break;
+        case "ArrowLeft":
+          if (dir.x === 0) nextDir = { x: -1, y: 0 };
+          break;
+        case "ArrowRight":
+          if (dir.x === 0) nextDir = { x: 1, y: 0 };
+          break;
+      }
+    }
+
+    function startGame(mode) {
+      gameMode = mode;
+      
+      // Reset Snake Array & Direction
+      snake = [
+        { x: 10, y: 15 },
+        { x: 9, y: 15 },
+        { x: 8, y: 15 },
+        { x: 7, y: 15 }
+      ];
+      dir = { x: 1, y: 0 };
+      nextDir = { x: 1, y: 0 };
+      
+      score = 0;
+      scoreEl.innerText = score;
+      isControlsLocked = false;
+
+      if (lockTimeout) clearTimeout(lockTimeout);
+      if (gameLoopId) clearInterval(gameLoopId);
+      if (timerInterval) clearInterval(timerInterval);
+
+      // Mode-specific configuration
+      if (gameMode === "OVERCLOCK") {
+        timeLeft = 30.0;
+        currentSpeed = 100;
+        timerContainer.style.display = "block";
+        timerEl.innerText = timeLeft.toFixed(1) + "s";
+        statusText.innerHTML = `STATUS: <span style="color:var(--neon-yellow)">OVERCLOCK ACTIVE</span>`;
+        timerInterval = setInterval(updateTimer, 100);
+      } else {
+        currentSpeed = 100;
+        timerContainer.style.display = "none";
+        statusText.innerHTML = `STATUS: <span style="color:var(--neon-cyan)">ACTIVE</span>`;
+      }
+
+      overlay.style.display = "none";
+      setupRound();
+      gameLoopId = setInterval(gameLoop, currentSpeed);
+    }
+
+    function updateTimer() {
+      timeLeft -= 0.1;
+      if (timeLeft <= 0) {
+        timeLeft = 0;
+        timerEl.innerText = "0.0s";
+        triggerGameOver("SYSTEM OVERHEAT (TIME EXPIRED)");
+        return;
+      }
+      timerEl.innerText = timeLeft.toFixed(1) + "s";
+    }
+
+    function setupRound() {
+      // Pick random vocabulary target
+      currentTarget = vocabularyList[Math.floor(Math.random() * vocabularyList.length)];
+      defDisplay.innerText = currentTarget.definition;
+
+      // Pick 2 distractors
+      const pool = vocabularyList
+        .map(v => v.word)
+        .filter(w => w !== currentTarget.word)
+        .concat(extraDistractors);
+
+      const shuffled = pool.sort(() => 0.5 - Math.random());
+      const distractor1 = shuffled[0];
+      const distractor2 = shuffled[1];
+
+      const roundWords = [
+        { word: currentTarget.word, isCorrect: true },
+        { word: distractor1, isCorrect: false },
+        { word: distractor2, isCorrect: false }
+      ].sort(() => 0.5 - Math.random());
+
+      // Place 3 pellets at non-overlapping coordinates
+      pellets = [];
+      for (let wordObj of roundWords) {
+        let pos = getRandomPosition();
+        pellets.push({
+          x: pos.x,
+          y: pos.y,
+          word: wordObj.word,
+          isCorrect: wordObj.isCorrect
+        });
+      }
+    }
+
+    function getRandomPosition() {
+      let position;
+      let collision = true;
+      while (collision) {
+        position = {
+          x: Math.floor(Math.random() * (COLS - 4)) + 2,
+          y: Math.floor(Math.random() * (ROWS - 4)) + 2
+        };
+
+        let snakeCollision = snake.some(s => s.x === position.x && s.y === position.y);
+        let pelletCollision = pellets.some(p => p.x === position.x && p.y === position.y);
+        
+        if (!snakeCollision && !pelletCollision) {
+          collision = false;
+        }
+      }
+      return position;
+    }
+
+    function gameLoop() {
+      dir = nextDir;
+      const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+
+      // Wall Collision Detection
+      if (head.x < 0 || head.x >= COLS || head.y < 0 || head.y >= ROWS) {
+        return triggerGameOver("WALL COLLISION DETECTED");
+      }
+
+      // Self Collision Detection
+      if (snake.some(segment => segment.x === head.x && segment.y === head.y)) {
+        return triggerGameOver("SELF TRAJECTORY INTERCEPTED");
+      }
+
+      // Advance Head
+      snake.unshift(head);
+
+      // Check Pellet Collision
+      let eatenIndex = pellets.findIndex(p => p.x === head.x && p.y === head.y);
+
+      if (eatenIndex !== -1) {
+        let eaten = pellets[eatenIndex];
+
+        if (eaten.isCorrect) {
+          // Correct Pellet Action
+          score += (gameMode === "OVERCLOCK") ? 150 : 100;
+          scoreEl.innerText = score;
+
+          if (gameMode === "OVERCLOCK") {
+            timeLeft = Math.min(60, timeLeft + 5.0); // +5s reward
+            currentSpeed = Math.max(40, currentSpeed - 3); // Increase speed
+            clearInterval(gameLoopId);
+            gameLoopId = setInterval(gameLoop, currentSpeed);
+          }
+
+          setupRound();
+        } else {
+          // Incorrect Pellet Action ("Poison")
+          snake.pop(); // Remove standard movement advancement tail
+
+          // Chop off up to 2 tail segments
+          if (snake.length > 1) snake.pop();
+          if (snake.length > 1) snake.pop();
+
+          if (gameMode === "OVERCLOCK") {
+            timeLeft = Math.max(0, timeLeft - 8.0); // -8s penalty
+          }
+
+          applyPoisonPenalty();
+          setupRound();
+        }
+      } else {
+        // Normal movement (remove tail)
+        snake.pop();
+      }
+
+      render();
+    }
+
+    function applyPoisonPenalty() {
+      isControlsLocked = true;
+      statusText.innerHTML = `<span class="locked-status">SYSTEM CORRUPTED (LOCKED 1.5s)</span>`;
+
+      if (lockTimeout) clearTimeout(lockTimeout);
+      lockTimeout = setTimeout(() => {
+        isControlsLocked = false;
+        let color = (gameMode === "OVERCLOCK") ? "var(--neon-yellow)" : "var(--neon-cyan)";
+        statusText.innerHTML = `STATUS: <span style="color:${color}">${gameMode === "OVERCLOCK" ? "OVERCLOCK ACTIVE" : "ACTIVE"}</span>`;
+      }, 1500);
+    }
+
+    function triggerGameOver(reason) {
+      clearInterval(gameLoopId);
+      if (timerInterval) clearInterval(timerInterval);
+
+      overlayTitle.innerText = "GAME OVER";
+      overlayMsg.innerText = `${reason} | FINAL SCORE: ${score}`;
+      overlay.style.display = "flex";
+    }
+
+    // Grid & Entity Rendering
+    function render() {
+      ctx.fillStyle = "#080b12";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw Grid Lines
+      ctx.strokeStyle = "rgba(0, 243, 255, 0.05)";
+      ctx.lineWidth = 1;
+      for (let x = 0; x < canvas.width; x += GRID_SIZE) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+      for (let y = 0; y < canvas.height; y += GRID_SIZE) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+
+      // Draw Snake
+      snake.forEach((segment, index) => {
+        if (index === 0) {
+          ctx.fillStyle = "#00f3ff";
+          ctx.shadowBlur = 10;
+          ctx.shadowColor = "#00f3ff";
+        } else {
+          ctx.fillStyle = "rgba(0, 243, 255, 0.6)";
+          ctx.shadowBlur = 0;
+        }
+        ctx.fillRect(segment.x * GRID_SIZE + 1, segment.y * GRID_SIZE + 1, GRID_SIZE - 2, GRID_SIZE - 2);
+      });
+      ctx.shadowBlur = 0;
+
+      // Draw Pellets
+      pellets.forEach(pellet => {
+        let px = pellet.x * GRID_SIZE;
+        let py = pellet.y * GRID_SIZE;
+
+        ctx.fillStyle = "#ff0055";
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = "#ff0055";
+        ctx.fillRect(px + 4, py + 4, GRID_SIZE - 8, GRID_SIZE - 8);
+        ctx.shadowBlur = 0;
+
+        ctx.font = "bold 12px 'Courier New', monospace";
+        ctx.fillStyle = "#ffe600";
+        ctx.textAlign = "center";
+        ctx.fillText(pellet.word, px + GRID_SIZE / 2, py - 5);
+      });
+    }
+
+    render();
+  </script>
+</body>
+</html>

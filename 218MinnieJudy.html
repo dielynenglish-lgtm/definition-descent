@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word-Chain Miner</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #1a1a1a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+            flex-direction: column;
+        }
+        canvas {
+            border: 4px solid #4a2e18;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+            background-color: #87CEEB;
+        }
+        .instructions {
+            margin-top: 10px;
+            color: #ccc;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <div class="instructions">Press <strong>DOWN ARROW</strong> to drop the claw!</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// --- Vocabulary Data ---
+const vocabData = [
+    { word: "formula", def: "A mathematical relationship or rule expressed in symbols." },
+    { word: "equation", def: "A statement that the values of two mathematical expressions are equal." },
+    { word: "orbit", def: "The curved path of a celestial object or spacecraft around a star, planet, or moon." },
+    { word: "abstract", def: "Existing in thought or as an idea but not having a physical or concrete existence." },
+    { word: "contribution", def: "A gift or payment to a common fund or collection; a role played in achieving something." },
+    { word: "forge", def: "To make or shape a metal object using a furnace and hammer; to create or produce." }
+];
+
+// --- Game State Variables ---
+let score = 0;
+let timeLeft = 60;
+let gameOver = false;
+let currentTargetIndex = 0;
+
+// --- Claw & Rope Physics ---
+const originX = canvas.width / 2;
+const originY = 80;
+let angle = 0;
+let angleSpeed = 0.03;
+let maxAngle = Math.PI / 3;
+
+let clawLength = 40;
+let maxLength = 580;
+let baseSpeed = 8;
+let currentSpeed = baseSpeed;
+
+// States: 'swinging', 'shooting', 'reeling'
+let clawState = 'swinging'; 
+let grabbedNugget = null;
+
+// --- Nugget Objects ---
+let nuggets = [];
+
+function initNuggets() {
+    nuggets = [];
+    const undergroundStart = 160;
+    const padding = 60;
+    
+    // Shuffle vocab words
+    let shuffled = [...vocabData].sort(() => Math.random() - 0.5);
+
+    for (let i = 0; i < shuffled.length; i++) {
+        // Distribute positions across the underground canvas area
+        let col = i % 3;
+        let row = Math.floor(i / 3);
+        
+        let x = padding + col * 260 + Math.random() * 80;
+        let y = undergroundStart + row * 180 + Math.random() * 80;
+        
+        nuggets.push({
+            x: x,
+            y: y,
+            radius: 35,
+            word: shuffled[i].word,
+            def: shuffled[i].def,
+            depth: Math.floor(y - originY) // Depth used for scoring
+        });
+    }
+    
+    // Set initial target word definition
+    setNewTarget();
+}
+
+function setNewTarget() {
+    if (nuggets.length > 0) {
+        let randomIndex = Math.floor(Math.random() * nuggets.length);
+        currentTargetIndex = randomIndex;
+    }
+}
+
+// --- Inputs ---
+window.addEventListener('keydown', (e) => {
+    if (e.key === "ArrowDown" && clawState === 'swinging' && !gameOver) {
+        clawState = 'shooting';
+        currentSpeed = baseSpeed;
+    }
+});
+
+// --- Timer Loop ---
+const timerInterval = setInterval(() => {
+    if (!gameOver) {
+        timeLeft--;
+        if (timeLeft <= 0) {
+            timeLeft = 0;
+            gameOver = true;
+            clearInterval(timerInterval);
+        }
+    }
+}, 1000);
+
+// --- Main Game Loop ---
+function update() {
+    if (gameOver) return;
+
+    // 1. Swing State
+    if (clawState === 'swinging') {
+        angle += angleSpeed;
+        if (angle > maxAngle || angle < -maxAngle) {
+            angleSpeed = -angleSpeed;
+        }
+    } 
+    // 2. Shooting State
+    else if (clawState === 'shooting') {
+        clawLength += currentSpeed;
+
+        let clawX = originX + Math.sin(angle) * clawLength;
+        let clawY = originY + Math.cos(angle) * clawLength;
+
+        // Check canvas boundary collision
+        if (clawLength >= maxLength || clawX < 0 || clawX > canvas.width || clawY > canvas.height) {
+            clawState = 'reeling';
+        }
+
+        // Check collision with nuggets
+        for (let i = 0; i < nuggets.length; i++) {
+            let n = nuggets[i];
+            let dist = Math.hypot(clawX - n.x, clawY - n.y);
+            if (dist < n.radius) {
+                grabbedNugget = nuggets.splice(i, 1)[0];
+                clawState = 'reeling';
+
+                // Check correctness & apply physics/scoring logic
+                if (grabbedNugget.word === nuggets[currentTargetIndex]?.word || 
+                   (nuggets.length === 0 && grabbedNugget)) {
+                    // Correct answer speed and scoring
+                    currentSpeed = baseSpeed; 
+                } else {
+                    // Incorrect answer speed (3x slowdown)
+                    currentSpeed = baseSpeed / 3; 
+                }
+                break;
+            }
+        }
+    } 
+    // 3. Reeling State
+    else if (clawState === 'reeling') {
+        clawLength -= currentSpeed;
+
+        let clawX = originX + Math.sin(angle) * clawLength;
+        let clawY = originY + Math.cos(angle) * clawLength;
+
+        if (grabbedNugget) {
+            grabbedNugget.x = clawX;
+            grabbedNugget.y = clawY + 15;
+        }
+
+        // Returned back to top
+        if (clawLength <= 40) {
+            clawLength = 40;
+            clawState = 'swinging';
+
+            if (grabbedNugget) {
+                let targetNugget = nuggets[currentTargetIndex];
+                
+                // Scoring evaluation
+                if (targetNugget && grabbedNugget.word === targetNugget.word) {
+                    score += grabbedNugget.depth;
+                } else {
+                    score -= 50; // Penalty
+                }
+                
+                grabbedNugget = null;
+
+                // Refresh target or end game if all items collected
+                if (nuggets.length > 0) {
+                    setNewTarget();
+                } else {
+                    gameOver = true;
+                }
+            }
+        }
+    }
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // --- Background / Layers ---
+    // Sky
+    ctx.fillStyle = "#87CEEB";
+    ctx.fillRect(0, 0, canvas.width, 100);
+
+    // Ground
+    ctx.fillStyle = "#5c3a21";
+    ctx.fillRect(0, 100, canvas.width, canvas.height - 100);
+
+    // Miner Rig Stand
+    ctx.fillStyle = "#333";
+    ctx.fillRect(originX - 25, originY - 30, 50, 30);
+
+    // --- Winding Pulley/Rope Animation ---
+    let clawX = originX + Math.sin(angle) * clawLength;
+    let clawY = originY + Math.cos(angle) * clawLength;
+
+    ctx.strokeStyle = "#222";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(originX, originY);
+    ctx.lineTo(clawX, clawY);
+    ctx.stroke();
+
+    // Winding Wheel Animation
+    ctx.save();
+    ctx.translate(originX, originY - 15);
+    if (clawState === 'shooting' || clawState === 'reeling') {
+        ctx.rotate(Date.now() * 0.02 * (clawState === 'reeling' ? -1 : 1));
+    }
+    ctx.strokeStyle = "#aaa";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(0, 0, 12, 0, Math.PI * 2);
+    ctx.moveTo(-12, 0); ctx.lineTo(12, 0);
+    ctx.moveTo(0, -12); ctx.lineTo(0, 12);
+    ctx.stroke();
+    ctx.restore();
+
+    // --- Claw ---
+    ctx.save();
+    ctx.translate(clawX, clawY);
+    ctx.rotate(-angle);
+    ctx.strokeStyle = "#aaa";
+    ctx.lineWidth = 5;
+    
+    // Open/Closed Claw animation state
+    let openAngle = grabbedNugget ? 0.2 : 0.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, 10, 0, Math.PI);
+    ctx.stroke();
+    
+    // Left claw arm
+    ctx.beginPath();
+    ctx.moveTo(-10, 0);
+    ctx.lineTo(-20, 20);
+    ctx.lineTo(-10, 30);
+    ctx.stroke();
+
+    // Right claw arm
+    ctx.beginPath();
+    ctx.moveTo(10, 0);
+    ctx.lineTo(20, 20);
+    ctx.lineTo(10, 30);
+    ctx.stroke();
+    ctx.restore();
+
+    // --- Nuggets ---
+    let drawList = [...nuggets];
+    if (grabbedNugget) drawList.push(grabbedNugget);
+
+    drawList.forEach(n => {
+        // Draw Gold Nugget Shape
+        ctx.fillStyle = "#FFD700";
+        ctx.strokeStyle = "#DAA520";
+        ctx.lineWidth = 3;
+        
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Nugget Word Label
+        ctx.fillStyle = "#000";
+        ctx.font = "bold 13px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(n.word, n.x, n.y + 4);
+    });
+
+    // --- GUI Header ---
+    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+    ctx.fillRect(0, 0, canvas.width, 70);
+
+    // Score & Timer
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 18px Arial";
+    ctx.textAlign = "left";
+    ctx.fillText(`Score: ${score}`, 20, 30);
+    ctx.fillText(`Time: ${timeLeft}s`, 20, 55);
+
+    // Target Definition Display
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#FFD700";
+    ctx.font = "bold 14px Arial";
+    ctx.fillText("TARGET DEFINITION:", canvas.width / 2 + 50, 25);
+    
+    ctx.fillStyle = "#FFF";
+    ctx.font = "italic 13px Arial";
+    let targetDef = nuggets[currentTargetIndex] ? nuggets[currentTargetIndex].def : "All items cleared!";
+    ctx.fillText(`"${targetDef}"`, canvas.width / 2 + 50, 48);
+
+    // --- Game Over Overlay ---
+    if (gameOver) {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = "#FFD700";
+        ctx.font = "bold 40px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 20);
+
+        ctx.fillStyle = "#FFF";
+        ctx.font = "20px Arial";
+        ctx.fillText(`Final Score: ${score}`, canvas.width / 2, canvas.height / 2 + 30);
+    }
+}
+
+function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+// Start Game
+initNuggets();
+gameLoop();
+</script>
+
+</body>
+</html>

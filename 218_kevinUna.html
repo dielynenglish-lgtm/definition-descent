@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Hidden Vault: Codebreaker</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background: #11141a; color: #fff; display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow: hidden; }
+        
+        #game-container {
+            width: 800px; height: 600px; background: radial-gradient(circle, #2a3240 0%, #11141a 100%);
+            border: 4px solid #3a4659; border-radius: 12px; position: relative; display: flex;
+            flex-direction: column; justify-content: space-between; padding: 20px; box-shadow: 0 0 30px rgba(0,0,0,0.8);
+        }
+
+        /* Top Bar */
+        .top-bar { display: flex; justify-content: space-between; background: rgba(0,0,0,0.4); padding: 12px 24px; border-radius: 8px; border: 1px solid #3a4659; }
+        .stat-box { font-size: 20px; font-weight: bold; color: #ffd700; text-shadow: 0 0 8px rgba(255,215,0,0.5); }
+
+        /* Vault Area */
+        .vault-area { flex-grow: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; }
+        
+        .vault {
+            width: 180px; height: 180px; background: linear-gradient(135deg, #8a9ba8, #485563);
+            border: 6px solid #2c3e50; border-radius: 50%; display: flex; justify-content: center;
+            align-items: center; position: relative; box-shadow: 0 8px 16px rgba(0,0,0,0.6);
+            transition: transform 0.1s;
+        }
+        .vault-wheel {
+            width: 80px; height: 80px; border: 8px dashed #1a252f; border-radius: 50%;
+            transition: transform 0.5s ease-out;
+        }
+
+        /* Animations */
+        .shake-red { animation: shake 0.4s; border-color: #e74c3c !important; box-shadow: 0 0 25px #e74c3c !important; }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-12px); }
+            40%, 80% { transform: translateX(12px); }
+        }
+
+        /* Clue Tablet */
+        .clue-tablet {
+            background: #0f2027; border: 2px solid #00d2ff; border-radius: 8px;
+            padding: 15px 20px; margin-top: 20px; width: 90%; text-align: center;
+            box-shadow: 0 0 15px rgba(0, 210, 255, 0.2);
+        }
+        .clue-title { font-size: 12px; color: #00d2ff; letter-spacing: 2px; margin-bottom: 5px; }
+        .clue-text { font-size: 18px; color: #e0f7fa; line-height: 1.4; }
+
+        /* Chest Options */
+        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px; }
+        .chest-btn {
+            background: linear-gradient(135deg, #8B4513, #5c2d0c); border: 2px solid #ffd700;
+            border-radius: 8px; color: #fff; font-size: 18px; font-weight: bold; padding: 15px;
+            cursor: pointer; transition: transform 0.1s, background 0.2s; text-align: center;
+        }
+        .chest-btn:hover { transform: translateY(-3px); background: linear-gradient(135deg, #a0522d, #70380e); }
+        .chest-btn:active { transform: translateY(0); }
+
+        /* Overlays */
+        .overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(17, 20, 26, 0.95); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; border-radius: 12px; z-index: 10;
+        }
+        .overlay h1 { font-size: 36px; color: #ffd700; margin-bottom: 15px; text-shadow: 0 0 10px rgba(255,215,0,0.5); }
+        .overlay p { font-size: 16px; color: #ccc; max-width: 80%; text-align: center; margin-bottom: 25px; line-height: 1.5; }
+        .action-btn {
+            background: #27ae60; color: #fff; border: none; padding: 12px 30px; font-size: 20px;
+            font-weight: bold; border-radius: 6px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+        }
+        .action-btn:hover { background: #2ecc71; }
+
+        /* Gold Particles */
+        .coin {
+            position: absolute; width: 15px; height: 15px; background: #ffd700; border-radius: 50%;
+            border: 1px solid #b8860b; pointer-events: none; animation: drop 0.8s ease-out forwards;
+        }
+        @keyframes drop {
+            0% { transform: translateY(-50px) scale(1); opacity: 1; }
+            100% { transform: translateY(150px) scale(0.5); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="stat-box">TIME: <span id="timer">01:00</span></div>
+        <div class="stat-box">SCORE: <span id="score">0</span></div>
+    </div>
+
+    <!-- Vault Graphic & Clue Tablet -->
+    <div class="vault-area">
+        <div class="vault" id="vault">
+            <div class="vault-wheel" id="wheel"></div>
+        </div>
+        <div class="clue-tablet">
+            <div class="clue-title">CLUE TABLET</div>
+            <div class="clue-text" id="clue-display">Loading definition...</div>
+        </div>
+    </div>
+
+    <!-- Chest Options -->
+    <div class="options-grid" id="options-container">
+        <!-- Buttons injected by JS -->
+    </div>
+
+    <!-- Start Overlay -->
+    <div class="overlay" id="start-overlay">
+        <h1>OPERATION: VAULT BREAKER</h1>
+        <p>Crack the code before time runs out! Read the B1 vocabulary clue on the tablet and select the matching treasure chest. Every opened vault earns you 10 points.</p>
+        <button class="action-btn" onclick="startGame()">MISSION START</button>
+    </div>
+
+    <!-- Complete Overlay -->
+    <div class="overlay" id="end-overlay" style="display: none;">
+        <h1>MISSION COMPLETE</h1>
+        <p id="final-stats">Your final score: 0</p>
+        <button class="action-btn" onclick="startGame()">TRY AGAIN</button>
+    </div>
+</div>
+
+<script>
+    const wordPool = [
+        { word: "Coincidence", def: "An occasion when two or more things happen at the same time by chance, without being planned." },
+        { word: "Invade", def: "To enter a country or region with an army in order to take control of it by force." },
+        { word: "Overthrow", def: "To remove a leader or government from power, often using force or a revolution." },
+        { word: "Rigid", def: "Stiff and difficult to bend, change, or move; strict and unbending." },
+        { word: "Labor", def: "Hard physical work, especially manual work done by workers." },
+        { word: "Peasant", def: "A poor farm worker or small landholder of low social rank in historic times." },
+        { word: "Noble", def: "Belonging to a high social class with special titles, wealth, or power." },
+        { word: "Rebel", def: "Someone who fights against or refuses to obey the ruler or government." },
+        { word: "Treasure", def: "A collection of valuable items such as gold, silver, or jewels." },
+        { word: "Surrender", def: "To stop fighting and admit that you have lost to an enemy." }
+    ];
+
+    let score = 0;
+    let timeLeft = 60;
+    let timerInterval = null;
+    let currentQuestion = null;
+    let wheelRotation = 0;
+
+    function startGame() {
+        score = 0;
+        timeLeft = 60;
+        document.getElementById('score').textContent = score;
+        document.getElementById('timer').textContent = "01:00";
+        document.getElementById('start-overlay').style.display = 'none';
+        document.getElementById('end-overlay').style.display = 'none';
+        
+        clearInterval(timerInterval);
+        timerInterval = setInterval(updateTimer, 1000);
+        nextQuestion();
+    }
+
+    function updateTimer() {
+        timeLeft--;
+        let mins = String(Math.floor(timeLeft / 60)).padStart(2, '0');
+        let secs = String(timeLeft % 60).padStart(2, '0');
+        document.getElementById('timer').textContent = `${mins}:${secs}`;
+
+        if (timeLeft <= 0) {
+            endGame();
+        }
+    }
+
+    function nextQuestion() {
+        // Pick random target word
+        currentQuestion = wordPool[Math.floor(Math.random() * wordPool.length)];
+        document.getElementById('clue-display').textContent = currentQuestion.def;
+
+        // Generate 3 distractors
+        let options = [currentQuestion.word];
+        while (options.length < 4) {
+            let randomWord = wordPool[Math.floor(Math.random() * wordPool.length)].word;
+            if (!options.includes(randomWord)) {
+                options.push(randomWord);
+            }
+        }
+
+        // Shuffle options
+        options.sort(() => Math.random() - 0.5);
+
+        // Render buttons
+        const container = document.getElementById('options-container');
+        container.innerHTML = '';
+        const labels = ['A', 'B', 'C', 'D'];
+        options.forEach((opt, index) => {
+            const btn = document.createElement('button');
+            btn.className = 'chest-btn';
+            btn.textContent = `${labels[index]}. ${opt}`;
+            btn.onclick = () => checkAnswer(opt);
+            container.appendChild(btn);
+        });
+    }
+
+    function checkAnswer(selectedWord) {
+        const vault = document.getElementById('vault');
+        const wheel = document.getElementById('wheel');
+
+        if (selectedWord === currentQuestion.word) {
+            // Correct logic
+            score += 10;
+            document.getElementById('score').textContent = score;
+            wheelRotation += 180;
+            wheel.style.transform = `rotate(${wheelRotation}deg)`;
+            triggerCoinRain();
+            nextQuestion();
+        } else {
+            // Incorrect logic
+            vault.classList.add('shake-red');
+            setTimeout(() => vault.classList.remove('shake-red'), 400);
+        }
+    }
+
+    function triggerCoinRain() {
+        const vault = document.getElementById('vault');
+        for (let i = 0; i < 12; i++) {
+            const coin = document.createElement('div');
+            coin.className = 'coin';
+            coin.style.left = `${Math.random() * 80 + 10}%`;
+            vault.appendChild(coin);
+            setTimeout(() => coin.remove(), 800);
+        }
+    }
+
+    function endGame() {
+        clearInterval(timerInterval);
+        let rank = "Novice Explorer";
+        if (score >= 80) rank = "Master Codebreaker";
+        else if (score >= 40) rank = "Vault Hunter";
+
+        document.getElementById('final-stats').innerHTML = `Final Score: <strong>${score}</strong><br>Rank: <strong>${rank}</strong>`;
+        document.getElementById('end-overlay').style.display = 'flex';
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Split-Screen Vocabulary Battle</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+  body { background: #111; color: #fff; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* Top Bar */
+  #top-bar {
+    height: 60px; background: #222; display: flex; justify-content: space-between;
+    align-items: center; padding: 0 20px; border-bottom: 2px solid #444; z-index: 10;
+  }
+  #timer { font-size: 28px; font-weight: bold; color: #ffcc00; }
+  .score { font-size: 22px; font-weight: bold; }
+  #p1-score-display { color: #ff4d4d; }
+  #p2-score-display { color: #2ecc71; }
+
+  /* Split Screen Layout */
+  #game-container { flex: 1; display: flex; width: 100vw; height: calc(100vh - 60px); position: relative; }
+  
+  .player-side {
+    flex: 1; display: flex; flex-direction: column; padding: 20px;
+    position: relative; transition: background 0.2s;
+  }
+  
+  #p1-side { background: #1a0808; border-right: 3px solid #ff4d4d; }
+  #p2-side { background: #081a0e; border-left: 3px solid #2ecc71; }
+
+  .player-title { text-align: center; font-size: 20px; font-weight: bold; margin-bottom: 10px; }
+  #p1-side .player-title { color: #ff4d4d; }
+  #p2-side .player-title { color: #2ecc71; }
+
+  /* Card & Answers */
+  .card {
+    background: #2a2a2a; border-radius: 12px; padding: 20px;
+    min-height: 120px; display: flex; justify-content: center; align-items: center;
+    text-align: center; font-size: 20px; font-weight: 600; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    margin-bottom: 20px; border: 1px solid #444;
+  }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; flex: 1; }
+
+  .btn {
+    background: #333; border: 2px solid #555; border-radius: 10px; color: white;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    font-size: 18px; font-weight: bold; position: relative; transition: transform 0.1s;
+  }
+
+  .btn .key-hint {
+    position: absolute; top: 8px; left: 12px; font-size: 14px;
+    background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 4px;
+  }
+
+  /* Lockout & Penalty Visuals */
+  .locked { opacity: 0.3; pointer-events: none; }
+  .flash-penalty { background: #ff0000 !important; animation: flash 0.3s ease-in-out; }
+  
+  @keyframes flash {
+    0% { background: #ff0000; }
+    50% { background: #880000; }
+    100% { background: #1a0808; }
+  }
+
+  /* Victory Overlay */
+  #victory-screen {
+    position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(0, 0, 0, 0.95); display: none; flex-direction: column;
+    justify-content: center; align-items: center; z-index: 100;
+  }
+
+  #victory-screen h1 { font-size: 64px; color: #ffcc00; margin-bottom: 10px; text-shadow: 0 0 20px #ffcc00; }
+  #victory-screen h2 { font-size: 32px; color: #fff; margin-bottom: 30px; }
+  
+  .rematch-btn {
+    padding: 15px 40px; font-size: 24px; font-weight: bold; background: #2ecc71;
+    color: white; border: none; border-radius: 8px; cursor: pointer; transition: 0.2s;
+  }
+  .rematch-btn:hover { background: #27ae60; transform: scale(1.05); }
+</style>
+</head>
+<body>
+
+<div id="top-bar">
+  <div class="score" id="p1-score-display">P1 Score: <span id="p1-score">0</span></div>
+  <div id="timer">60</div>
+  <div class="score" id="p2-score-display">P2 Score: <span id="p2-score">0</span></div>
+</div>
+
+<div id="game-container">
+  <!-- Player 1 Side (Left) -->
+  <div class="player-side" id="p1-side">
+    <div class="player-title">PLAYER 1 (Left)</div>
+    <div class="card" id="p1-card">Definition Loading...</div>
+    <div class="grid">
+      <div class="btn" id="p1-opt-0"><span class="key-hint">Q</span><span class="val"></span></div>
+      <div class="btn" id="p1-opt-1"><span class="key-hint">W</span><span class="val"></span></div>
+      <div class="btn" id="p1-opt-2"><span class="key-hint">A</span><span class="val"></span></div>
+      <div class="btn" id="p1-opt-3"><span class="key-hint">S</span><span class="val"></span></div>
+    </div>
+  </div>
+
+  <!-- Player 2 Side (Right) -->
+  <div class="player-side" id="p2-side">
+    <div class="player-title">PLAYER 2 (Right)</div>
+    <div class="card" id="p2-card">Definition Loading...</div>
+    <div class="grid">
+      <div class="btn" id="p2-opt-0"><span class="key-hint">I</span><span class="val"></span></div>
+      <div class="btn" id="p2-opt-1"><span class="key-hint">O</span><span class="val"></span></div>
+      <div class="btn" id="p2-opt-2"><span class="key-hint">K</span><span class="val"></span></div>
+      <div class="btn" id="p2-opt-3"><span class="key-hint">L</span><span class="val"></span></div>
+    </div>
+  </div>
+</div>
+
+<!-- Victory Screen -->
+<div id="victory-screen">
+  <h1>MISSION COMPLETE</h1>
+  <h2 id="winner-text">Player 1 Wins!</h2>
+  <p id="final-scores" style="font-size: 20px; margin-bottom: 20px; color: #ccc;"></p>
+  <button class="rematch-btn" onclick="restartGame()">REMATCH</button>
+</div>
+
+<script>
+const vocabulary = [
+  { word: "presentation", def: "A speech or talk in which a new product, idea, or piece of work is shown and explained to an audience." },
+  { word: "boost", def: "To help or encourage something to increase, improve, or become more successful." },
+  { word: "accomplish", def: "To succeed in doing or completing something successfully." },
+  { word: "purchase", def: "To buy something or get something by paying money for it." },
+  { word: "trigger", def: "To cause an event or situation to happen or exist." },
+  { word: "psychology", def: "The scientific study of the human mind and its functions, especially those affecting behavior." },
+  { word: "stability", def: "The state of being steady, firmly fixed, or not likely to change or fail." },
+  { word: "accurate", def: "Correct, exact, and without any mistakes." },
+  { word: "efficient", def: "Working or operating quickly and effectively in an organized way." },
+  { word: "generate", def: "To produce or create something, such as energy, ideas, or results." }
+];
+
+let questions = [];
+let currentQIndex = 0;
+let p1Score = 0;
+let p2Score = 0;
+let p1Locked = false;
+let p2Locked = false;
+let timeLeft = 60;
+let timerInterval = null;
+let currentOptions = [];
+
+// Key Mappings
+const p1Keys = { 'q': 0, 'w': 1, 'a': 2, 's': 3 };
+const p2Keys = { 'i': 0, 'o': 1, 'k': 2, 'l': 3 };
+
+function shuffle(array) {
+  return array.sort(() => Math.random() - 0.5);
+}
+
+function initGame() {
+  questions = shuffle([...vocabulary]);
+  currentQIndex = 0;
+  p1Score = 0;
+  p2Score = 0;
+  timeLeft = 60;
+  p1Locked = false;
+  p2Locked = false;
+
+  document.getElementById('p1-score').innerText = p1Score;
+  document.getElementById('p2-score').innerText = p2Score;
+  document.getElementById('timer').innerText = timeLeft;
+  document.getElementById('victory-screen').style.display = 'none';
+
+  loadQuestion();
+  
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    document.getElementById('timer').innerText = timeLeft;
+    if (timeLeft <= 0) endGame();
+  }, 1000);
+}
+
+function loadQuestion() {
+  if (currentQIndex >= 10 || currentQIndex >= questions.length) {
+    endGame();
+    return;
+  }
+
+  p1Locked = false;
+  p2Locked = false;
+  document.getElementById('p1-side').classList.remove('locked', 'flash-penalty');
+  document.getElementById('p2-side').classList.remove('locked', 'flash-penalty');
+
+  const currentItem = questions[currentQIndex];
+  
+  // Set Definition Cards
+  document.getElementById('p1-card').innerText = currentItem.def;
+  document.getElementById('p2-card').innerText = currentItem.def;
+
+  // Generate 4 options (1 correct + 3 wrong)
+  const wrongOptions = vocabulary.filter(v => v.word !== currentItem.word);
+  const shuffledWrong = shuffle(wrongOptions).slice(0, 3);
+  currentOptions = shuffle([currentItem, ...shuffledWrong]);
+
+  // Update Buttons for both players
+  for (let i = 0; i < 4; i++) {
+    document.querySelector(`#p1-opt-${i} .val`).innerText = currentOptions[i].word;
+    document.querySelector(`#p2-opt-${i} .val`).innerText = currentOptions[i].word;
+  }
+}
+
+function handleGuess(player, optionIndex) {
+  const currentItem = questions[currentQIndex];
+  const selectedWord = currentOptions[optionIndex].word;
+
+  if (selectedWord === currentItem.word) {
+    // Correct Answer
+    if (player === 1) p1Score++;
+    else p2Score++;
+
+    document.getElementById('p1-score').innerText = p1Score;
+    document.getElementById('p2-score').innerText = p2Score;
+
+    currentQIndex++;
+    loadQuestion();
+  } else {
+    // Incorrect Answer -> Lockout & Flash Visual Penalty
+    if (player === 1 && !p1Locked) {
+      p1Locked = true;
+      const side = document.getElementById('p1-side');
+      side.classList.add('locked', 'flash-penalty');
+    } else if (player === 2 && !p2Locked) {
+      p2Locked = true;
+      const side = document.getElementById('p2-side');
+      side.classList.add('locked', 'flash-penalty');
+    }
+
+    // If both players lock out, automatically advance to next question
+    if (p1Locked && p2Locked) {
+      setTimeout(() => {
+        currentQIndex++;
+        loadQuestion();
+      }, 800);
+    }
+  }
+}
+
+window.addEventListener('keydown', (e) => {
+  const key = e.key.toLowerCase();
+  
+  if (currentQIndex >= 10 || timeLeft <= 0) return;
+
+  if (!p1Locked && key in p1Keys) {
+    handleGuess(1, p1Keys[key]);
+  } else if (!p2Locked && key in p2Keys) {
+    handleGuess(2, p2Keys[key]);
+  }
+});
+
+function endGame() {
+  clearInterval(timerInterval);
+  const victoryScreen = document.getElementById('victory-screen');
+  const winnerText = document.getElementById('winner-text');
+  const finalScores = document.getElementById('final-scores');
+
+  if (p1Score > p2Score) {
+    winnerText.innerText = "PLAYER 1 VICTORY!";
+    winnerText.style.color = "#ff4d4d";
+  } else if (p2Score > p1Score) {
+    winnerText.innerText = "PLAYER 2 VICTORY!";
+    winnerText.style.color = "#2ecc71";
+  } else {
+    winnerText.innerText = "IT'S A TIE!";
+    winnerText.style.color = "#ffcc00";
+  }
+
+  finalScores.innerText = `Final Score: P1 (${p1Score}) - P2 (${p2Score})`;
+  victoryScreen.style.display = 'flex';
+}
+
+function restartGame() {
+  initGame();
+}
+
+window.onload = initGame;
+</script>
+</body>
+</html>

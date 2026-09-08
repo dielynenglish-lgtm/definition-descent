@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Vocab Galaga: Intercept Shield</title>
+    <style>
+        body {
+            background-color: #050510;
+            color: #fff;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+        #gameContainer {
+            text-align: center;
+        }
+        canvas {
+            border: 2px solid #4e4eff;
+            box-shadow: 0 0 20px rgba(78, 78, 255, 0.5);
+            background-color: #00000a;
+        }
+    </style>
+</head>
+<body>
+
+<div id="gameContainer">
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// --- Vocabulary List (10 Words matched to user keywords) ---
+const vocabList = [
+    { word: "LAVISH", def: "Extremely luxurious, rich, or elegant" },
+    { word: "NOVELTY", def: "The quality of being new, original, or an innovation" },
+    { word: "RESECTION", def: "Surgical removal of all or part of an organ or tissue" },
+    { word: "PETRIFYING", def: "Causing someone to become frightened; terrifying" },
+    { word: "CORPOREAL", def: "Relating to a person's body; physically tangible" },
+    { word: "OPERATION", def: "An act of surgery performed on a patient" },
+    { word: "TORMENT", def: "Severe physical or mental suffering; agony" },
+    { word: "OPULENT", def: "Ostentatiously costly and luxurious" },
+    { word: "BREAKTHROUGH", def: "A dramatic and important discovery or innovation" },
+    { word: "ANGUISH", def: "Severe mental or physical pain or agony" }
+];
+
+// --- Game State ---
+let score = 0;
+let lives = 3;
+let gameState = 'PLAYING'; // 'PLAYING', 'GAME_OVER'
+
+// --- Input Controls ---
+const keys = { Left: false, Right: false, Space: false, spacePressed: false };
+
+window.addEventListener('keydown', (e) => {
+    if (e.code === 'ArrowLeft') keys.Left = true;
+    if (e.code === 'ArrowRight') keys.Right = true;
+    if (e.code === 'Space') {
+        if (!keys.spacePressed) keys.Space = true;
+        keys.spacePressed = true;
+    }
+});
+
+window.addEventListener('keyup', (e) => {
+    if (e.code === 'ArrowLeft') keys.Left = false;
+    if (e.code === 'ArrowRight') keys.Right = false;
+    if (e.code === 'Space') {
+        keys.Space = false;
+        keys.spacePressed = false;
+    }
+});
+
+// --- Player Object ---
+const player = {
+    x: canvas.width / 2 - 20,
+    y: canvas.height - 50,
+    width: 40,
+    height: 30,
+    speed: 6,
+    dx: 0
+};
+
+// --- Projectiles & Enemies ---
+let bullets = [];
+let aliens = [];
+let currentTarget = null;
+
+class Bullet {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.radius = 4;
+        this.speed = 8;
+        this.markedForDeletion = false;
+    }
+    update() {
+        this.y -= this.speed;
+        if (this.y < 0) this.markedForDeletion = true;
+    }
+    draw() {
+        ctx.fillStyle = '#00ffff';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+class Alien {
+    constructor(x, y, word, isCorrect) {
+        this.startX = x;
+        this.startY = y;
+        this.x = x;
+        this.y = y;
+        this.width = 140;
+        this.height = 45;
+        this.word = word;
+        this.isCorrect = isCorrect;
+        
+        // Dive-bomb physics
+        this.isDiving = false;
+        this.vx = 0;
+        this.vy = 0;
+        this.speed = 5;
+    }
+
+    startDive(targetPlayer) {
+        if (this.isDiving) return;
+        this.isDiving = true;
+        const angle = Math.atan2(targetPlayer.y - this.y, (targetPlayer.x + targetPlayer.width/2) - this.x);
+        this.vx = Math.cos(angle) * this.speed;
+        this.vy = Math.sin(angle) * this.speed;
+    }
+
+    update() {
+        if (this.isDiving) {
+            this.x += this.vx;
+            this.y += this.vy;
+
+            // Reset if off-screen during dive
+            if (this.y > canvas.height || this.x < -100 || this.x > canvas.width + 100) {
+                this.resetPosition();
+            }
+        }
+    }
+
+    resetPosition() {
+        this.isDiving = false;
+        this.x = this.startX;
+        this.y = this.startY;
+        this.vx = 0;
+        this.vy = 0;
+    }
+
+    draw() {
+        // Hull
+        ctx.fillStyle = this.isDiving ? '#ff3333' : '#33cc66';
+        ctx.beginPath();
+        ctx.moveTo(this.x, this.y);
+        ctx.lineTo(this.x + this.width / 2, this.y + this.height);
+        ctx.lineTo(this.x - this.width / 2, this.y + this.height);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.stroke();
+
+        // Label
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 12px Courier New';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.word, this.x, this.y + 25);
+    }
+}
+
+// --- Spawning Logic ---
+function spawnWave() {
+    aliens = [];
+    bullets = [];
+    
+    // Pick random target word
+    const targetIdx = Math.floor(Math.random() * vocabList.length);
+    currentTarget = vocabList[targetIdx];
+
+    // Select 3 unique wrong choices
+    let wrongPool = vocabList.filter((_, idx) => idx !== targetIdx);
+    wrongPool.sort(() => 0.5 - Math.random());
+    const choices = wrongPool.slice(0, 3);
+    
+    // Insert correct word and shuffle choices
+    choices.push(currentTarget);
+    choices.sort(() => 0.5 - Math.random());
+
+    // Position 4 alien ships
+    const spacing = canvas.width / 4;
+    for (let i = 0; i < 4; i++) {
+        const posX = spacing * i + spacing / 2;
+        const isCorrect = (choices[i].word === currentTarget.word);
+        aliens.push(new Alien(posX, 100, choices[i].word, isCorrect));
+    }
+}
+
+// --- Main Game Loop ---
+function update() {
+    if (gameState === 'GAME_OVER') return;
+
+    // Movement
+    if (keys.Left && player.x > 0) player.x -= player.speed;
+    if (keys.Right && player.x < canvas.width - player.width) player.x += player.speed;
+
+    // Shooting
+    if (keys.Space) {
+        bullets.push(new Bullet(player.x + player.width / 2, player.y));
+        keys.Space = false;
+    }
+
+    // Update bullets
+    bullets.forEach(b => b.update());
+    bullets = bullets.filter(b => !b.markedForDeletion);
+
+    // Update aliens
+    aliens.forEach(a => a.update());
+
+    // Collision Detection: Bullets vs Aliens
+    bullets.forEach(bullet => {
+        aliens.forEach(alien => {
+            if (
+                bullet.x > alien.x - alien.width / 2 &&
+                bullet.x < alien.x + alien.width / 2 &&
+                bullet.y > alien.y &&
+                bullet.y < alien.y + alien.height
+            ) {
+                bullet.markedForDeletion = true;
+
+                if (alien.isCorrect) {
+                    score += 100;
+                    spawnWave();
+                } else {
+                    alien.startDive(player);
+                }
+            }
+        });
+    });
+
+    // Collision Detection: Diving Alien vs Player
+    aliens.forEach(alien => {
+        if (
+            alien.isDiving &&
+            alien.x + alien.width / 2 > player.x &&
+            alien.x - alien.width / 2 < player.x + player.width &&
+            alien.y + alien.height > player.y &&
+            alien.y < player.y + player.height
+        ) {
+            lives--;
+            alien.resetPosition();
+
+            if (lives <= 0) {
+                gameState = 'GAME_OVER';
+            }
+        }
+    });
+}
+
+function drawHUD() {
+    // Top Definition Header
+    ctx.fillStyle = '#ff00ff';
+    ctx.fillRect(0, 0, canvas.width, 60);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 16px Courier New';
+    ctx.textAlign = 'center';
+    ctx.fillText(`TARGET DEF: "${currentTarget.def}"`, canvas.width / 2, 35);
+
+    // Score Counter
+    ctx.textAlign = 'left';
+    ctx.font = 'bold 16px Courier New';
+    ctx.fillText(`SCORE: ${score}`, 20, 85);
+
+    // 3-Life Indicator
+    ctx.textAlign = 'right';
+    ctx.fillText('LIVES: ', canvas.width - 80, 85);
+    for (let i = 0; i < 3; i++) {
+        ctx.fillStyle = i < lives ? '#00ff00' : '#444444';
+        ctx.beginPath();
+        ctx.arc(canvas.width - 60 + (i * 20), 80, 6, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+function render() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (gameState === 'PLAYING') {
+        // Draw Player
+        ctx.fillStyle = '#00aaff';
+        ctx.beginPath();
+        ctx.moveTo(player.x + player.width / 2, player.y);
+        ctx.lineTo(player.x + player.width, player.y + player.height);
+        ctx.lineTo(player.x, player.y + player.height);
+        ctx.closePath();
+        ctx.fill();
+
+        // Draw Game Elements
+        bullets.forEach(b => b.draw());
+        aliens.forEach(a => a.draw());
+        drawHUD();
+    } else if (gameState === 'GAME_OVER') {
+        ctx.fillStyle = '#ff0000';
+        ctx.font = 'bold 40px Courier New';
+        ctx.textAlign = 'center';
+        ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '20px Courier New';
+        ctx.fillText(`Final Score: ${score}`, canvas.width / 2, canvas.height / 2 + 50);
+        ctx.fillText('Refresh to play again', canvas.width / 2, canvas.height / 2 + 90);
+    }
+}
+
+function gameLoop() {
+    update();
+    render();
+    requestAnimationFrame(gameLoop);
+}
+
+// Start Game
+spawnWave();
+gameLoop();
+</script>
+</body>
+</html>

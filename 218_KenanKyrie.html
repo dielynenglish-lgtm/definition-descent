@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Invaders: Vocab Edition</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #050510;
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            background: radial-gradient(circle at center, #101030 0%, #020208 100%);
+            border: 2px solid #00f0ff;
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        #ui-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 60px;
+            background: rgba(10, 10, 25, 0.8);
+            border-bottom: 1px solid #00f0ff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            box-sizing: border-box;
+            z-index: 10;
+        }
+
+        .ui-element {
+            font-size: 18px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        #score-display { color: #00ff66; }
+        #timer-display { color: #ff3366; }
+
+        #briefing-box {
+            position: absolute;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            background: rgba(0, 240, 255, 0.1);
+            border: 1px solid #00f0ff;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            z-index: 10;
+        }
+
+        #briefing-title {
+            font-size: 12px;
+            color: #00f0ff;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 4px;
+        }
+
+        #definition-display {
+            font-size: 16px;
+            color: #ffffff;
+            font-weight: 500;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 5, 16, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+        }
+
+        h1 {
+            font-size: 36px;
+            color: #00f0ff;
+            text-shadow: 0 0 10px #00f0ff;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        p {
+            color: #aaa;
+            max-width: 600px;
+            text-align: center;
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+
+        button {
+            background: transparent;
+            color: #00f0ff;
+            border: 2px solid #00f0ff;
+            padding: 12px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s;
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+        }
+
+        button:hover {
+            background: #00f0ff;
+            color: #000;
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.8);
+        }
+
+        #controls-hint {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 12px;
+            color: #666;
+            z-index: 10;
+        }
+
+        .shake {
+            animation: shake 0.2s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-4px, 0, 0); }
+            20%, 80% { transform: translate3d(4px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-8px, 0, 0); }
+            40%, 60% { transform: translate3d(8px, 0, 0); }
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="ui-bar">
+        <div class="ui-element" id="score-display">Score: 0</div>
+        <div class="ui-element" id="timer-display">Warp Drive: 60s</div>
+    </div>
+
+    <div id="briefing-box">
+        <div id="briefing-title">Mission Briefing — Target Definition</div>
+        <div id="definition-display">Loading target parameters...</div>
+    </div>
+
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    
+    <div id="controls-hint">Controls: LEFT / RIGHT Arrows to Move | SPACEBAR to Fire</div>
+
+    <!-- Start Screen -->
+    <div id="start-screen" class="screen">
+        <h1>INTERGALACTIC VOCAB-DEFENDER</h1>
+        <p>Defend Earth from alien word-ships! Match the target definition given in the Mission Briefing by blasting the ship carrying the correct vocabulary word.</p>
+        <p><strong>+100 pts</strong> for correct hits.<br><strong>-50 pts</strong> and 2s laser stall for wrong hits!</p>
+        <button id="start-btn">ENGAGE WARP DRIVE</button>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="game-over-screen" class="screen" style="display: none;">
+        <h1 id="game-over-title">MISSION COMPLETE</h1>
+        <p id="final-score">Your Score: 0</p>
+        <p id="badge-display">Rank: Galactic Cadet</p>
+        <button id="restart-btn">REDEPLOY PILOT</button>
+    </div>
+</div>
+
+<script>
+    const vocabData = [
+        { word: "PARTICIPANT", def: "A person who takes part in an activity or event." },
+        { word: "IMPLICATION", def: "A likely consequence or possible effect of an action." },
+        { word: "MOTIVATION", def: "The desire or reason that drives someone to achieve a goal." },
+        { word: "POLISHED", def: "Refined, highly skilled, and showing high quality." },
+        { word: "OUTFIT", def: "A set of clothes worn together for a specific purpose." },
+        { word: "REINFORCE", def: "To strengthen or support an idea, structure, or habit." },
+        { word: "ACCESSIBLE", def: "Easy to reach, enter, use, or understand." }
+    ];
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const gameContainer = document.getElementById('game-container');
+
+    // UI Elements
+    const scoreEl = document.getElementById('score-display');
+    const timerEl = document.getElementById('timer-display');
+    const defEl = document.getElementById('definition-display');
+    const startScreen = document.getElementById('start-screen');
+    const gameOverScreen = document.getElementById('game-over-screen');
+    const startBtn = document.getElementById('start-btn');
+    const restartBtn = document.getElementById('restart-btn');
+    const finalScoreEl = document.getElementById('final-score');
+    const badgeDisplayEl = document.getElementById('badge-display');
+
+    // Game Variables
+    let gameLoopId;
+    let score = 0;
+    let timeRemaining = 60;
+    let timerInterval;
+    let isGameOver = true;
+    let currentTarget = null;
+    let laserStalledUntil = 0;
+
+    // Entities
+    const player = {
+        x: canvas.width / 2 - 25,
+        y: canvas.height - 50,
+        width: 50,
+        height: 30,
+        speed: 7,
+        dx: 0
+    };
+
+    let bullets = [];
+    let aliens = [];
+    let particles = [];
+
+    // Key handlers
+    const keys = { right: false, left: false, space: false };
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight' || e.key === 'Right') keys.right = true;
+        if (e.key === 'ArrowLeft' || e.key === 'Left') keys.left = true;
+        if (e.key === ' ' || e.key === 'Spacebar') {
+            if (!keys.space && !isGameOver) fireBullet();
+            keys.space = true;
+        }
+    });
+
+    document.addEventListener('keyup', (e) => {
+        if (e.key === 'ArrowRight' || e.key === 'Right') keys.right = false;
+        if (e.key === 'ArrowLeft' || e.key === 'Left') keys.left = false;
+        if (e.key === ' ' || e.key === 'Spacebar') keys.space = false;
+    });
+
+    startBtn.addEventListener('click', startGame);
+    restartBtn.addEventListener('click', startGame);
+
+    function startGame() {
+        score = 0;
+        timeRemaining = 60;
+        isGameOver = false;
+        bullets = [];
+        particles = [];
+        laserStalledUntil = 0;
+        
+        scoreEl.textContent = `Score: ${score}`;
+        timerEl.textContent = `Warp Drive: ${timeRemaining}s`;
+
+        startScreen.style.display = 'none';
+        gameOverScreen.style.display = 'none';
+
+        selectNewTarget();
+        spawnAlienFleet();
+
+        clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            timeRemaining--;
+            timerEl.textContent = `Warp Drive: ${timeRemaining}s`;
+            if (timeRemaining <= 0) endGame();
+        }, 1000);
+
+        if (gameLoopId) cancelAnimationFrame(gameLoopId);
+        gameLoop();
+    }
+
+    function selectNewTarget() {
+        currentTarget = vocabData[Math.floor(Math.random() * vocabData.length)];
+        defEl.textContent = `"${currentTarget.def}"`;
+    }
+
+    function spawnAlienFleet() {
+        aliens = [];
+        const activeWords = [currentTarget.word];
+        
+        // Pick 3 random distractor words
+        while (activeWords.length < 4) {
+            const randWord = vocabData[Math.floor(Math.random() * vocabData.length)].word;
+            if (!activeWords.includes(randWord)) activeWords.push(randWord);
+        }
+
+        // Shuffle words
+        activeWords.sort(() => Math.random() - 0.5);
+
+        const startY = 140;
+        const spacingX = canvas.width / 4;
+
+        for (let i = 0; i < 4; i++) {
+            aliens.push({
+                x: i * spacingX + 20,
+                y: startY,
+                width: 140,
+                height: 40,
+                word: activeWords[i],
+                vx: 1.5,
+                vy: 0.05
+            });
+        }
+    }
+
+    function fireBullet() {
+        if (Date.now() < laserStalledUntil) return; // Laser stalled penalty
+
+        bullets.push({
+            x: player.x + player.width / 2 - 3,
+            y: player.y,
+            width: 6,
+            height: 15,
+            speed: 9
+        });
+    }
+
+    function createExplosion(x, y, color) {
+        for (let i = 0; i < 20; i++) {
+            particles.push({
+                x: x,
+                y: y,
+                vx: (Math.random() - 0.5) * 8,
+                vy: (Math.random() - 0.5) * 8,
+                radius: Math.random() * 3 + 1,
+                color: color,
+                alpha: 1
+            });
+        }
+    }
+
+    function triggerScreenShake() {
+        gameContainer.classList.add('shake');
+        setTimeout(() => gameContainer.classList.remove('shake'), 200);
+    }
+
+    function update() {
+        if (isGameOver) return;
+
+        // Player movement
+        if (keys.right && player.x + player.width < canvas.width) player.x += player.speed;
+        if (keys.left && player.x > 0) player.x -= player.speed;
+
+        // Bullets movement
+        bullets.forEach((b, index) => {
+            b.y -= b.speed;
+            if (b.y < 0) bullets.splice(index, 1);
+        });
+
+        // Alien movement
+        let reverseDirection = false;
+        aliens.forEach(a => {
+            a.x += a.vx;
+            a.y += a.vy;
+            if (a.x + a.width > canvas.width || a.x < 0) reverseDirection = true;
+            if (a.y + a.height >= player.y) endGame(); // Aliens reached base
+        });
+
+        if (reverseDirection) {
+            aliens.forEach(a => {
+                a.vx *= -1;
+            });
+        }
+
+        // Bullet-Alien Collision
+        bullets.forEach((b, bIdx) => {
+            aliens.forEach((a, aIdx) => {
+                if (b.x < a.x + a.width && b.x + b.width > a.x &&
+                    b.y < a.y + a.height && b.y + b.height > a.y) {
+                    
+                    bullets.splice(bIdx, 1);
+                    
+                    if (a.word === currentTarget.word) {
+                        // Correct Hit
+                        score += 100;
+                        createExplosion(a.x + a.width / 2, a.y + a.height / 2, '#00ff66');
+                        scoreEl.textContent = `Score: ${score}`;
+                        selectNewTarget();
+                        spawnAlienFleet();
+                    } else {
+                        // Incorrect Hit
+                        score = Math.max(0, score - 50);
+                        laserStalledUntil = Date.now() + 2000; // 2 sec stall
+                        createExplosion(a.x + a.width / 2, a.y + a.height / 2, '#ff3366');
+                        triggerScreenShake();
+                        scoreEl.textContent = `Score: ${score}`;
+                    }
+                }
+            });
+        });
+
+        // Particles update
+        particles.forEach((p, idx) => {
+            p.x += p.vx;
+            p.y += p.vy;
+            p.alpha -= 0.03;
+            if (p.alpha <= 0) particles.splice(idx, 1);
+        });
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Draw Player Ship
+        ctx.fillStyle = Date.now() < laserStalledUntil ? '#555555' : '#00f0ff';
+        ctx.beginPath();
+        ctx.moveTo(player.x + player.width / 2, player.y);
+        ctx.lineTo(player.x + player.width, player.y + player.height);
+        ctx.lineTo(player.x, player.y + player.height);
+        ctx.closePath();
+        ctx.fill();
+
+        // Stalled Laser Indicator
+        if (Date.now() < laserStalledUntil) {
+            ctx.fillStyle = '#ff3366';
+            ctx.font = '12px Segoe UI';
+            ctx.fillText('SYSTEM STALLED!', player.x - 15, player.y + player.height + 15);
+        }
+
+        // Draw Bullets
+        ctx.fillStyle = '#00ff66';
+        bullets.forEach(b => ctx.fillRect(b.x, b.y, b.width, b.height));
+
+        // Draw Aliens
+        aliens.forEach(a => {
+            ctx.fillStyle = 'rgba(20, 30, 60, 0.8)';
+            ctx.strokeStyle = '#ff00ff';
+            ctx.lineWidth = 2;
+            ctx.fillRect(a.x, a.y, a.width, a.height);
+            ctx.strokeRect(a.x, a.y, a.width, a.height);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 13px Segoe UI';
+            ctx.textAlign = 'center';
+            ctx.fillText(a.word, a.x + a.width / 2, a.y + 25);
+        });
+
+        // Draw Particles
+        particles.forEach(p => {
+            ctx.save();
+            ctx.globalAlpha = p.alpha;
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        });
+    }
+
+    function gameLoop() {
+        if (!isGameOver) {
+            update();
+            draw();
+            gameLoopId = requestAnimationFrame(gameLoop);
+        }
+    }
+
+    function endGame() {
+        isGameOver = true;
+        clearInterval(timerInterval);
+        
+        let rank = "Galactic Cadet";
+        if (score >= 500) rank = "Ultimate Defender 🏆";
+        else if (score >= 300) rank = "Fleet Captain";
+        else if (score >= 100) rank = "Space Pilot";
+
+        finalScoreEl.textContent = `Your Total Score: ${score}`;
+        badgeDisplayEl.textContent = `Rank Achieved: ${rank}`;
+        gameOverScreen.style.display = 'flex';
+    }
+</script>
+
+</body>
+</html>
