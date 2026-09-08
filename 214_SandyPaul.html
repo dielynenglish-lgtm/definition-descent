@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Gravity (Falling Blocks)</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+        }
+
+        body {
+            background-color: #1a1a1a;
+            color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        #game-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            background-color: #2a2a2a;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            border: 2px solid #444;
+        }
+
+        /* Header UI */
+        #header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 25px;
+            background-color: #333;
+            border-bottom: 2px solid #444;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .header-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .heart {
+            color: #ff4757;
+            font-size: 28px;
+        }
+
+        /* Main Game Canvas/Area */
+        #game-area {
+            position: relative;
+            height: 480px;
+            width: 100%;
+            background: linear-gradient(to bottom, #111827, #1f2937);
+            overflow: hidden;
+        }
+
+        /* Falling Definition Block */
+        .falling-block {
+            position: absolute;
+            background-color: #3b82f6;
+            color: white;
+            padding: 12px 18px;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: bold;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            border: 2px solid #60a5fa;
+            text-align: center;
+            max-width: 280px;
+            top: -100px;
+            transition: background-color 0.2s;
+        }
+
+        /* Word Buttons Grid */
+        #grid-container {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+            padding: 20px;
+            background-color: #222;
+            border-top: 2px solid #444;
+        }
+
+        .word-btn {
+            background-color: #374151;
+            color: #f3f4f6;
+            border: 2px solid #4b5563;
+            padding: 14px 8px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            text-transform: capitalize;
+        }
+
+        .word-btn:hover {
+            background-color: #4b5563;
+            border-color: #9ca3af;
+        }
+
+        .word-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Overlay Screens */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            gap: 20px;
+        }
+
+        .overlay h1 {
+            font-size: 42px;
+            color: #60a5fa;
+        }
+
+        .overlay p {
+            font-size: 24px;
+            color: #d1d5db;
+        }
+
+        .btn-action {
+            background-color: #10b981;
+            color: white;
+            border: none;
+            padding: 16px 36px;
+            font-size: 22px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        .btn-action:hover {
+            background-color: #059669;
+            transform: scale(1.05);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-wrapper">
+        <!-- Top Info Bar -->
+        <div id="header">
+            <div class="header-item">
+                <span>Score:</span>
+                <span id="score-display">0</span>
+            </div>
+            <div class="header-item">
+                <span>Time:</span>
+                <span id="timer-display">60s</span>
+            </div>
+            <div class="header-item">
+                <span>Lives:</span>
+                <span id="lives-display"></span>
+            </div>
+        </div>
+
+        <!-- Falling Blocks Area -->
+        <div id="game-area"></div>
+
+        <!-- Bottom Vocabulary Grid -->
+        <div id="grid-container"></div>
+
+        <!-- Start Overlay -->
+        <div id="start-overlay" class="overlay">
+            <h1>Word Gravity</h1>
+            <p>Match falling definitions with correct words below!</p>
+            <button class="btn-action" onclick="startGame()">Start Game</button>
+        </div>
+
+        <!-- Game Over Overlay -->
+        <div id="game-over-overlay" class="overlay hidden">
+            <h1 id="game-over-title">Game Over</h1>
+            <p>Final Score: <span id="final-score">0</span></p>
+            <button class="btn-action" onclick="startGame()">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        // Vocabulary dataset using the 7 image words + 3 complementary words
+        const vocabList = [
+            { word: "grip", def: "To hold tightly with your hand" },
+            { word: "adjustment", def: "A small change made to improve something" },
+            { word: "strain", def: "Severe pressure or force put on something" },
+            { word: "flexible", def: "Able to bend easily without breaking" },
+            { word: "loosen", def: "To make something less tight" },
+            { word: "slightly", def: "To a small degree or extent" },
+            { word: "demonstrate", def: "To show clearly by giving proof or evidence" },
+            { word: "attach", def: "To join or fasten one thing to another" },
+            { word: "device", def: "A piece of equipment designed for a task" },
+            { word: "secure", def: "Fixed or fastened firmly in place" }
+        ];
+
+        // Game Configuration
+        const FALL_DURATION = 15000; // 15 seconds to reach bottom
+        const SPAWN_INTERVAL = 6000;  // Spawn a block every 6 seconds
+        const GAME_TIME = 60;        // 60-second timer
+
+        // State variables
+        let score = 0;
+        let lives = 3;
+        let timeRemaining = GAME_TIME;
+        let activeBlocks = []; // Active falling DOM elements & metadata
+        let gameInterval = null;
+        let spawnInterval = null;
+        let animationFrame = null;
+        let isPlaying = false;
+
+        // Initialize Vocabulary Grid Buttons
+        function setupGrid() {
+            const container = document.getElementById("grid-container");
+            container.innerHTML = "";
+            vocabList.forEach(item => {
+                const button = document.createElement("button");
+                button.className = "word-btn";
+                button.textContent = item.word;
+                button.onclick = () => handleWordClick(item.word);
+                container.appendChild(button);
+            });
+        }
+
+        // Display Heart Icons for Lives
+        function updateLivesDisplay() {
+            const container = document.getElementById("lives-display");
+            container.innerHTML = "";
+            for (let i = 0; i < 3; i++) {
+                const heart = document.createElement("span");
+                heart.className = "heart";
+                heart.innerHTML = i < lives ? "♥" : "♡";
+                container.appendChild(heart);
+            }
+        }
+
+        function startGame() {
+            // Reset State
+            score = 0;
+            lives = 3;
+            timeRemaining = GAME_TIME;
+            isPlaying = true;
+
+            // Clear old elements
+            const gameArea = document.getElementById("game-area");
+            gameArea.innerHTML = "";
+            activeBlocks = [];
+
+            // UI Updates
+            document.getElementById("score-display").textContent = score;
+            document.getElementById("timer-display").textContent = timeRemaining + "s";
+            updateLivesDisplay();
+
+            document.getElementById("start-overlay").classList.add("hidden");
+            document.getElementById("game-over-overlay").classList.add("hidden");
+
+            // Timers & Loops
+            clearInterval(gameInterval);
+            clearInterval(spawnInterval);
+            cancelAnimationFrame(animationFrame);
+
+            // Main 1-second countdown loop
+            gameInterval = setInterval(() => {
+                timeRemaining--;
+                document.getElementById("timer-display").textContent = timeRemaining + "s";
+                if (timeRemaining <= 0) {
+                    endGame("Time's Up!");
+                }
+            }, 1000);
+
+            // Spawn loop every 5-7 seconds
+            spawnBlock();
+            spawnInterval = setInterval(spawnBlock, SPAWN_INTERVAL);
+
+            // Start animation frame loop for movement
+            let lastTime = performance.now();
+            function animate(currentTime) {
+                if (!isPlaying) return;
+                const deltaTime = currentTime - lastTime;
+                lastTime = currentTime;
+
+                updateBlocks(deltaTime);
+                animationFrame = requestAnimationFrame(animate);
+            }
+            animationFrame = requestAnimationFrame(animate);
+        }
+
+        function spawnBlock() {
+            if (!isPlaying) return;
+
+            // Select a random word definition
+            const randomIndex = Math.floor(Math.random() * vocabList.length);
+            const vocab = vocabList[randomIndex];
+
+            const gameArea = document.getElementById("game-area");
+            const element = document.createElement("div");
+            element.className = "falling-block";
+            element.textContent = vocab.def;
+
+            gameArea.appendChild(element);
+
+            // Calculate x positions to keep blocks inside container boundaries
+            const areaWidth = gameArea.clientWidth;
+            const blockWidth = element.offsetWidth || 220; 
+            const maxX = areaWidth - blockWidth - 20;
+            const randomX = Math.max(10, Math.floor(Math.random() * maxX));
+
+            element.style.left = randomX + "px";
+
+            // Add block to tracking list
+            const blockData = {
+                element: element,
+                word: vocab.word,
+                y: -element.offsetHeight,
+                speed: (gameArea.clientHeight + element.offsetHeight) / FALL_DURATION
+            };
+
+            activeBlocks.push(blockData);
+        }
+
+        function updateBlocks(deltaTime) {
+            const gameAreaHeight = document.getElementById("game-area").clientHeight;
+
+            for (let i = activeBlocks.length - 1; i >= 0; i--) {
+                const block = activeBlocks[i];
+                block.y += block.speed * deltaTime;
+                block.element.style.top = block.y + "px";
+
+                // Check if block hit bottom edge
+                if (block.y >= gameAreaHeight) {
+                    // Remove element
+                    block.element.remove();
+                    activeBlocks.splice(i, 1);
+
+                    // Penalize player
+                    lives--;
+                    updateLivesDisplay();
+
+                    if (lives <= 0) {
+                        endGame("Game Over");
+                    }
+                }
+            }
+        }
+
+        function handleWordClick(clickedWord) {
+            if (!isPlaying || activeBlocks.length === 0) return;
+
+            // Find lowest falling block matching clicked word
+            let targetIndex = -1;
+            let maxY = -Infinity;
+
+            for (let i = 0; i < activeBlocks.length; i++) {
+                if (activeBlocks[i].word === clickedWord && activeBlocks[i].y > maxY) {
+                    maxY = activeBlocks[i].y;
+                    targetIndex = i;
+                }
+            }
+
+            if (targetIndex !== -1) {
+                // Correct Match
+                activeBlocks[targetIndex].element.remove();
+                activeBlocks.splice(targetIndex, 1);
+                score += 10;
+                document.getElementById("score-display").textContent = score;
+            }
+        }
+
+        function endGame(titleText) {
+            isPlaying = false;
+            clearInterval(gameInterval);
+            clearInterval(spawnInterval);
+            cancelAnimationFrame(animationFrame);
+
+            document.getElementById("game-over-title").textContent = titleText;
+            document.getElementById("final-score").textContent = score;
+            document.getElementById("game-over-overlay").classList.remove("hidden");
+        }
+
+        // Initialize UI Grid on page load
+        setupGrid();
+        updateLivesDisplay();
+    </script>
+</body>
+</html>
