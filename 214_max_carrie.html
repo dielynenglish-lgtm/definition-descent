@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Hidden Vault (Mystery Style)</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      background: #111420;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      color: #fff;
+    }
+    #game-container {
+      position: relative;
+      width: 800px;
+      height: 600px;
+      background: radial-gradient(circle at center, #2a2d3d 0%, #0d0f17 100%);
+      border: 4px solid #3a3d52;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+      overflow: hidden;
+    }
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    /* Overlay Screen */
+    .overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(13, 15, 23, 0.92);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+      text-align: center;
+      padding: 20px;
+    }
+    .overlay h1 {
+      font-size: 38px;
+      color: #ffd700;
+      margin-bottom: 10px;
+      text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+    }
+    .overlay p {
+      font-size: 18px;
+      color: #cccccc;
+      max-width: 550px;
+      line-height: 1.5;
+      margin-bottom: 25px;
+    }
+    .btn {
+      padding: 14px 36px;
+      font-size: 20px;
+      font-weight: bold;
+      color: #111;
+      background: linear-gradient(135deg, #ffd700, #ff9900);
+      border: none;
+      border-radius: 30px;
+      cursor: pointer;
+      box-shadow: 0 5px 15px rgba(255, 215, 0, 0.4);
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+    .btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 7px 20px rgba(255, 215, 0, 0.6);
+    }
+    .btn:active {
+      transform: scale(0.98);
+    }
+    /* UI Bar */
+    #ui-bar {
+      position: absolute;
+      top: 15px;
+      left: 20px;
+      right: 20px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 22px;
+      font-weight: bold;
+      z-index: 2;
+    }
+    .ui-box {
+      background: rgba(0, 0, 0, 0.6);
+      padding: 8px 18px;
+      border-radius: 8px;
+      border: 1px solid #444;
+    }
+    #timer-box { color: #ff5555; }
+    #score-box { color: #55ff55; }
+    
+    /* Clue Tablet */
+    #clue-tablet {
+      position: absolute;
+      top: 70px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 600px;
+      background: linear-gradient(180deg, #1f2430 0%, #141824 100%);
+      border: 3px solid #00d2ff;
+      border-radius: 10px;
+      padding: 15px;
+      text-align: center;
+      box-shadow: 0 0 15px rgba(0, 210, 255, 0.3);
+      z-index: 2;
+    }
+    #clue-title {
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #00d2ff;
+      margin-bottom: 5px;
+    }
+    #clue-text {
+      font-size: 19px;
+      color: #ffffff;
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Chests Container */
+    #chests-container {
+      position: absolute;
+      bottom: 25px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 720px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      z-index: 2;
+    }
+    .chest-btn {
+      background: linear-gradient(180deg, #4a3525 0%, #2a1a0e 100%);
+      border: 2px solid #b8860b;
+      border-radius: 8px;
+      padding: 12px;
+      color: #fff;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+      transition: transform 0.1s, border-color 0.2s;
+    }
+    .chest-btn:hover {
+      transform: translateY(-2px);
+      border-color: #ffd700;
+      background: linear-gradient(180deg, #5c422f 0%, #362213 100%);
+    }
+    .chest-icon {
+      font-size: 24px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="game-container">
+  <!-- Visual FX Canvas -->
+  <canvas id="canvas" width="800" height="600"></canvas>
+
+  <!-- Game HUD -->
+  <div id="ui-bar">
+    <div class="ui-box" id="timer-box">⏳ Time: <span id="timer">60</span>s</div>
+    <div class="ui-box" id="score-box">🏆 Score: <span id="score">0</span></div>
+  </div>
+
+  <!-- Clue Tablet -->
+  <div id="clue-tablet">
+    <div id="clue-title">📜 Clue Tablet</div>
+    <div id="clue-text">Loading definition...</div>
+  </div>
+
+  <!-- Answer Chests -->
+  <div id="chests-container">
+    <button class="chest-btn" onclick="makeGuess(0)"><span class="chest-icon">🧰</span> <span id="opt0">Option A</span></button>
+    <button class="chest-btn" onclick="makeGuess(1)"><span class="chest-icon">🧰</span> <span id="opt1">Option B</span></button>
+    <button class="chest-btn" onclick="makeGuess(2)"><span class="chest-icon">🧰</span> <span id="opt2">Option C</span></button>
+    <button class="chest-btn" onclick="makeGuess(3)"><span class="chest-icon">🧰</span> <span id="opt3">Option D</span></button>
+  </div>
+
+  <!-- Overlay: Mission Start -->
+  <div id="start-overlay" class="overlay">
+    <h1>THE HIDDEN VAULT</h1>
+    <p>Match the definition on the <b>Clue Tablet</b> to the correct treasure chest below to unlock the vault before time runs out!</p>
+    <button class="btn" onclick="startGame()">MISSION START</button>
+  </div>
+
+  <!-- Overlay: Mission Complete -->
+  <div id="end-overlay" class="overlay" style="display: none;">
+    <h1>MISSION COMPLETE</h1>
+    <p>Final Score: <strong id="final-score" style="color: #ffd700; font-size: 28px;">0</strong> points</p>
+    <button class="btn" onclick="startGame()">TRY AGAIN</button>
+  </div>
+</div>
+
+<script>
+  // Game Questions Dataset
+  const questionsData = [
+    { word: "beloved", clue: "Very much loved, valued, and cared about by someone.", choices: ["beloved", "distant", "forgotten", "harsh"], answer: 0 },
+    { word: "highlight", clue: "The most exciting, interesting, or memorable part of an event.", choices: ["mistake", "highlight", "background", "detail"], answer: 1 },
+    { word: "performer", clue: "A person who entertains an audience by acting, singing, dancing, or playing music.", choices: ["audience", "director", "performer", "customer"], answer: 2 },
+    { word: "compelling", clue: "So interesting or exciting that it holds your full attention.", choices: ["boring", "simple", "silent", "compelling"], answer: 3 },
+    { word: "luxury", clue: "Great comfort, elegance, or expensive living conditions.", choices: ["poverty", "luxury", "danger", "routine"], answer: 1 },
+    { word: "elaborately", clue: "Done in a very detailed, complicated, or carefully decorated way.", choices: ["elaborately", "simply", "quickly", "plainly"], answer: 0 },
+    { word: "surroundings", clue: "The objects, conditions, or places that exist around a person or thing.", choices: ["surroundings", "decisions", "feelings", "goals"], answer: 0 },
+    { word: "astonishing", clue: "Extremely surprising or amazing.", choices: ["common", "normal", "astonishing", "predictable"], answer: 2 },
+    { word: "masterpiece", clue: "A work of art, music, or literature that is made with extraordinary skill.", choices: ["draft", "masterpiece", "copy", "accident"], answer: 1 },
+    { word: "captivate", clue: "To attract and hold the interest and attention of someone completely.", choices: ["ignore", "confuse", "scare", "captivate"], answer: 3 }
+  ];
+
+  // Canvas Setup
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+
+  // Game State Variables
+  let score = 0;
+  let timeLeft = 60;
+  let timerInterval = null;
+  let questions = [];
+  let currentQIndex = 0;
+  let isAnsweringBlocked = false;
+
+  // Vault Animation States
+  let vaultOpenAngle = 0; // 0 to Math.PI / 2
+  let vaultShake = 0;
+  let vaultGlowRed = 0;
+  let coins = [];
+
+  // Canvas Drawing - Vault & Coins
+  function drawVault() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const cx = canvas.width / 2;
+    const cy = 250;
+    const radius = 70;
+
+    // Apply Shake Effect on Wrong Answer
+    ctx.save();
+    if (vaultShake > 0) {
+      const offsetX = (Math.random() - 0.5) * 14;
+      const offsetY = (Math.random() - 0.5) * 14;
+      ctx.translate(offsetX, offsetY);
+      vaultShake--;
+    }
+
+    // Draw Red Shake Glow
+    if (vaultGlowRed > 0) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius + 15, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255, 0, 0, ${vaultGlowRed / 20})`;
+      ctx.fill();
+      vaultGlowRed--;
+    }
+
+    // Vault Outer Frame
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius + 8, 0, Math.PI * 2);
+    ctx.fillStyle = "#222";
+    ctx.fill();
+    ctx.strokeStyle = "#888";
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
+    // Vault Interior Light/Gold Background
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.fillStyle = "#ffd700";
+    ctx.fill();
+
+    // Inside Vault Treasure Graphic
+    ctx.fillStyle = "#b8860b";
+    ctx.font = "40px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("💎", cx, cy);
+
+    // Vault Door
+    ctx.save();
+    ctx.translate(cx - radius, cy); // Door Hinge on left
+    ctx.scale(Math.cos(vaultOpenAngle), 1); // Scale horizontally to simulate swinging open
+
+    ctx.beginPath();
+    ctx.arc(radius, 0, radius, 0, Math.PI * 2);
+    ctx.fillStyle = "#8a8d93";
+    ctx.fill();
+    ctx.strokeStyle = "#4a4d53";
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
+    // Vault Handle/Wheel
+    ctx.beginPath();
+    ctx.arc(radius, 0, radius / 2.5, 0, Math.PI * 2);
+    ctx.strokeStyle = "#2c2d30";
+    ctx.lineWidth = 6;
+    ctx.stroke();
+
+    ctx.restore();
+    ctx.restore();
+
+    // Update & Draw Gold Coins Particles
+    for (let i = coins.length - 1; i >= 0; i--) {
+      let p = coins[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.25; // Gravity
+      p.alpha -= 0.015;
+
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, p.alpha);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fillStyle = "#ffd700";
+      ctx.fill();
+      ctx.strokeStyle = "#b8860b";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.restore();
+
+      if (p.alpha <= 0) coins.splice(i, 1);
+    }
+
+    // Vault door animation logic
+    if (vaultOpenAngle > 0 && vaultOpenAngle < Math.PI / 2) {
+      vaultOpenAngle += 0.08;
+    }
+
+    requestAnimationFrame(drawVault);
+  }
+
+  // Coin Explosion Trigger
+  function spawnCoins() {
+    for (let i = 0; i < 40; i++) {
+      coins.push({
+        x: canvas.width / 2,
+        y: 250,
+        vx: (Math.random() - 0.5) * 12,
+        vy: (Math.random() - 0.7) * 10,
+        size: Math.random() * 5 + 4,
+        alpha: 1
+      });
+    }
+  }
+
+  // Game Logic
+  function startGame() {
+    score = 0;
+    timeLeft = 60;
+    isAnsweringBlocked = false;
+    vaultOpenAngle = 0;
+
+    // Shuffle questions array
+    questions = [...questionsData].sort(() => Math.random() - 0.5);
+    currentQIndex = 0;
+
+    document.getElementById('score').innerText = score;
+    document.getElementById('timer').innerText = timeLeft;
+    document.getElementById('start-overlay').style.display = 'none';
+    document.getElementById('end-overlay').style.display = 'none';
+
+    loadQuestion();
+
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      timeLeft--;
+      document.getElementById('timer').innerText = timeLeft;
+      if (timeLeft <= 0) {
+        endGame();
+      }
+    }, 1000);
+  }
+
+  function loadQuestion() {
+    if (currentQIndex >= questions.length) {
+      // Loop questions if time remains
+      questions.sort(() => Math.random() - 0.5);
+      currentQIndex = 0;
+    }
+
+    const q = questions[currentQIndex];
+    document.getElementById('clue-text').innerText = `"${q.clue}"`;
+
+    const labels = ["A) ", "B) ", "C) ", "D) "];
+    for (let i = 0; i < 4; i++) {
+      document.getElementById(`opt${i}`).innerText = labels[i] + q.choices[i];
+    }
+
+    vaultOpenAngle = 0; // Close vault door
+    isAnsweringBlocked = false;
+  }
+
+  function makeGuess(choiceIndex) {
+    if (isAnsweringBlocked) return;
+
+    const q = questions[currentQIndex];
+    if (choiceIndex === q.answer) {
+      // Correct Answer
+      isAnsweringBlocked = true;
+      score += 10;
+      document.getElementById('score').innerText = score;
+      
+      vaultOpenAngle = 0.01; // Start opening animation
+      spawnCoins();
+
+      setTimeout(() => {
+        currentQIndex++;
+        loadQuestion();
+      }, 1200);
+    } else {
+      // Incorrect Answer
+      vaultShake = 15;
+      vaultGlowRed = 15;
+    }
+  }
+
+  function endGame() {
+    clearInterval(timerInterval);
+    document.getElementById('final-score').innerText = score;
+    document.getElementById('end-overlay').style.display = 'flex';
+  }
+
+  // Initialize Canvas Animation Loop
+  drawVault();
+</script>
+</body>
+</html>
