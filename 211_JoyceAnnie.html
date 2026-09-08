@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>單字彈珠台 Vocabulary Pinball</title>
+    <style>
+        body {
+            background-color: #121216;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        #game-container {
+            position: relative;
+            box-shadow: 0 0 25px rgba(0, 240, 255, 0.25);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 4px solid #2a2e45;
+        }
+        canvas {
+            background: #0d0e15;
+            display: block;
+        }
+        #controls {
+            margin-top: 12px;
+            color: #8a8fbd;
+            font-size: 14px;
+            text-align: center;
+        }
+        kbd {
+            background: #25283d;
+            color: #00f0ff;
+            padding: 3px 7px;
+            border-radius: 4px;
+            border: 1px solid #3d426b;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="canvas" width="500" height="700"></canvas>
+</div>
+<div id="controls">
+    操作說明：<kbd>Left Shift</kbd> 左擋板 | <kbd>Right Shift</kbd> 右擋板 | <kbd>Space</kbd> 發射球 | <kbd>R</kbd> 重新開始
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+// --- 題目說明的 10 個核心單字庫 ---
+const VOCABULARY = [
+    { word: "solo", def: "Done by one person alone; unaccompanied." },
+    { word: "flexibility", def: "The quality of bending easily or adapting to new situations." },
+    { word: "compromise", def: "An agreement reached by each side making concessions." },
+    { word: "destination", def: "The place to which someone or something is going." },
+    { word: "split", def: "To divide or cause to divide into parts or groups." },
+    { word: "arise", def: "To emerge, become apparent, or come into notice." },
+    { word: "occasionally", def: "At irregular intervals; now and then." },
+    { word: "obstacle", def: "A thing that blocks one's way or prevents progress." },
+    { word: "itinerary", def: "A planned route or journey details." },
+    { word: "navigate", def: "To plan and direct the route or course of a vehicle." }
+];
+
+// 遊戲全域狀態
+let score = 0;
+let lives = 3;
+let currentTarget = null;
+let ballSaverActive = false;
+let ballSaverTimer = 0;
+let flipperShrinkTimer = 0;
+let gameOver = false;
+
+// 按鍵狀態記錄
+const keys = { LeftShift: false, RightShift: false, Space: false };
+
+// 彈珠 (Ball) 物件與擬真向量物理參數
+const ball = {
+    x: 470,
+    y: 580,
+    vx: 0,
+    vy: 0,
+    radius: 9,
+    gravity: 0.18,
+    bounce: 0.72,
+    inPlunger: true
+};
+
+// 擋板 (Flippers)
+const flippers = {
+    length: 72,
+    baseLength: 72,
+    shrunkLength: 42,
+    height: 12,
+    leftAngle: 0.35,
+    rightAngle: -0.35,
+    restAngle: 0.35,
+    upAngle: -0.45,
+    leftX: 140,
+    leftY: 615,
+    rightX: 320,
+    rightY: 615
+};
+
+// 上方 3 個單字 Target Bumpers
+const bumpers = [
+    { x: 130, y: 230, radius: 40, word: "", flash: 0 },
+    { x: 230, y: 160, radius: 40, word: "", flash: 0 },
+    { x: 330, y: 230, radius: 40, word: "", flash: 0 }
+];
+
+// 監聽鍵盤
+window.addEventListener('keydown', (e) => {
+    if (e.code === 'ShiftLeft') keys.LeftShift = true;
+    if (e.code === 'ShiftRight') keys.RightShift = true;
+    if (e.code === 'Space') keys.Space = true;
+    if (e.code === 'KeyR' && gameOver) resetGame();
+});
+
+window.addEventListener('keyup', (e) => {
+    if (e.code === 'ShiftLeft') keys.LeftShift = false;
+    if (e.code === 'ShiftRight') keys.RightShift = false;
+    if (e.code === 'Space') keys.Space = false;
+});
+
+// 換下一道題目與更新 Bumper 上的單字
+function pickNewQuestion() {
+    currentTarget = VOCABULARY[Math.floor(Math.random() * VOCABULARY.length)];
+    let options = [currentTarget.word];
+    
+    while (options.length < 3) {
+        let randWord = VOCABULARY[Math.floor(Math.random() * VOCABULARY.length)].word;
+        if (!options.includes(randWord)) options.push(randWord);
+    }
+    // 隨機打亂三個單字的順序
+    options.sort(() => Math.random() - 0.5);
+    bumpers.forEach((b, i) => b.word = options[i]);
+}
+
+function resetBall() {
+    ball.x = 470;
+    ball.y = 580;
+    ball.vx = 0;
+    ball.vy = 0;
+    ball.inPlunger = true;
+}
+
+function resetGame() {
+    score = 0;
+    lives = 3;
+    gameOver = false;
+    flipperShrinkTimer = 0;
+    ballSaverActive = false;
+    flippers.length = flippers.baseLength;
+    resetBall();
+    pickNewQuestion();
+}
+
+// --- 物理計算與邏輯更新 ---
+function update() {
+    if (gameOver) return;
+
+    // 處理倒數計時（Ball Saver / 擋板縮小）
+    if (ballSaverTimer > 0) {
+        ballSaverTimer--;
+        if (ballSaverTimer <= 0) ballSaverActive = false;
+    }
+    if (flipperShrinkTimer > 0) {
+        flipperShrinkTimer--;
+        if (flipperShrinkTimer <= 0) flippers.length = flippers.baseLength;
+    }
+
+    // 發射彈簧 (Plunger) 邏輯
+    if (ball.inPlunger) {
+        ball.vx = 0;
+        ball.vy = 0;
+        if (keys.Space) {
+            ball.vy = -16.5 - Math.random() * 2;
+            ball.vx = -1.2;
+            ball.inPlunger = false;
+        }
+        return;
+    }
+
+    // 向量物理：加速度與空氣阻力
+    ball.vy += ball.gravity;
+    ball.x += ball.vx;
+    ball.y += ball.vy;
+    ball.vx *= 0.995;
+    ball.vy *= 0.995;
+
+    // 外牆碰撞邊界
+    if (ball.x - ball.radius < 20) {
+        ball.x = 20 + ball.radius;
+        ball.vx *= -ball.bounce;
+    }
+    if (ball.x + ball.radius > 450 && ball.y < 500) {
+        ball.x = 450 - ball.radius;
+        ball.vx *= -ball.bounce;
+    }
+    if (ball.y - ball.radius < 90) {
+        ball.y = 90 + ball.radius;
+        ball.vy *= -ball.bounce;
+    }
+
+    // 頂部圓弧牆面物理
+    if (ball.y < 190 && ball.x > 290) {
+        let dx = ball.x - 290;
+        let dy = ball.y - 190;
+        let dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > 160) {
+            let angle = Math.atan2(dy, dx);
+            ball.x = 290 + Math.cos(angle) * 160;
+            ball.y = 190 + Math.sin(angle) * 160;
+            ball.vx *= -0.8;
+            ball.vy *= -0.8;
+        }
+    }
+
+    // 斜向擋板引導牆
+    checkLineCollision(20, 480, 140, 575);
+    checkLineCollision(440, 480, 320, 575);
+
+    // 碰撞 Bumpers
+    bumpers.forEach(b => {
+        let dx = ball.x - b.x;
+        let dy = ball.y - b.y;
+        let dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < ball.radius + b.radius) {
+            let angle = Math.atan2(dy, dx);
+            let speed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+            let force = Math.max(speed * 1.3, 10); // 反彈力矩
+
+            ball.vx = Math.cos(angle) * force;
+            ball.vy = Math.sin(angle) * force;
+            ball.x = b.x + Math.cos(angle) * (b.radius + ball.radius + 1);
+            b.flash = 12; // 啟動動態閃爍動畫
+
+            // 判斷撞對或撞錯單字
+            if (b.word === currentTarget.word) {
+                score += 500;
+                ballSaverActive = true;
+                ballSaverTimer = 360; // 啟動保護門約 6 秒
+                pickNewQuestion();
+            } else {
+                score = Math.max(0, score - 100);
+                flipperShrinkTimer = 300; // 擋板縮小懲罰 5 秒
+                flippers.length = flippers.shrunkLength;
+            }
+        }
+        if (b.flash > 0) b.flash--;
+    });
+
+    // 擋板角度物理
+    let targetLeftAngle = keys.LeftShift ? flippers.upAngle : flippers.restAngle;
+    let targetRightAngle = keys.RightShift ? -flippers.upAngle : -flippers.restAngle;
+    flippers.leftAngle += (targetLeftAngle - flippers.leftAngle) * 0.35;
+    flippers.rightAngle += (targetRightAngle - flippers.rightAngle) * 0.35;
+
+    // 擋板動態擊球碰撞
+    checkFlipperCollision(flippers.leftX, flippers.leftY, flippers.length, flippers.leftAngle, true);
+    checkFlipperCollision(flippers.rightX, flippers.rightY, flippers.length, Math.PI - flippers.rightAngle, false);
+
+    // 底部落球與 Ball-Saver 保護機制
+    if (ball.y > 680) {
+        if (ballSaverActive) {
+            ball.y = 480;
+            ball.vy = -11;
+            ball.vx = (Math.random() - 0.5) * 4;
+        } else {
+            lives--;
+            if (lives <= 0) {
+                gameOver = true;
+            } else {
+                resetBall();
+            }
+        }
+    }
+}
+
+// 直線物理碰撞計算
+function checkLineCollision(x1, y1, x2, y2) {
+    let l2 = (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1);
+    let t = Math.max(0, Math.min(1, ((ball.x - x1) * (x2 - x1) + (ball.y - y1) * (y2 - y1)) / l2));
+    let nearestX = x1 + t * (x2 - x1);
+    let nearestY = y1 + t * (y2 - y1);
+    let dx = ball.x - nearestX;
+    let dy = ball.y - nearestY;
+    let dist = Math.sqrt(dx * dx + dy * dy);
+
+    if (dist < ball.radius) {
+        let angle = Math.atan2(dy, dx);
+        ball.x = nearestX + Math.cos(angle) * ball.radius;
+        ball.y = nearestY + Math.sin(angle) * ball.radius;
+        let normalX = Math.cos(angle);
+        let normalY = Math.sin(angle);
+        let dot = ball.vx * normalX + ball.vy * normalY;
+        ball.vx = (ball.vx - 2 * dot * normalX) * ball.bounce;
+        ball.vy = (ball.vy - 2 * dot * normalY) * ball.bounce;
+    }
+}
+
+// 擋板動態揮擊物理計算
+function checkFlipperCollision(x, y, length, angle, isLeft) {
+    let x2 = x + Math.cos(angle) * length;
+    let y2 = y + Math.sin(angle) * length;
+    let l2 = (x2 - x) * (x2 - x) + (y2 - y) * (y2 - y);
+    let t = Math.max(0, Math.min(1, ((ball.x - x) * (x2 - x) + (ball.y - y) * (y2 - y)) / l2));
+    let nearestX = x + t * (x2 - x);
+    let nearestY = y + t * (y2 - y);
+    let dx = ball.x - nearestX;
+    let dy = ball.y - nearestY;
+    let dist = Math.sqrt(dx * dx + dy * dy);
+
+    if (dist < ball.radius + flippers.height / 2) {
+        let hitAngle = Math.atan2(dy, dx);
+        ball.x = nearestX + Math.cos(hitAngle) * (ball.radius + flippers.height / 2);
+        ball.y = nearestY + Math.sin(hitAngle) * (ball.radius + flippers.height / 2);
+        
+        let isMoving = isLeft ? keys.LeftShift : keys.RightShift;
+        let impulse = isMoving ? 15 : 3.5;
+        ball.vx = Math.cos(hitAngle) * impulse;
+        ball.vy = Math.sin(hitAngle) * impulse;
+    }
+}
+
+// --- 畫面繪製 ---
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 1. 頂部主顯示看板 (Display Board)
+    ctx.fillStyle = '#181b2b';
+    ctx.fillRect(10, 10, 480, 70);
+    ctx.strokeStyle = '#00f0ff';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(10, 10, 480, 70);
+
+    // 得分與剩餘球數
+    ctx.fillStyle = '#ff0055';
+    ctx.font = 'bold 13px Arial';
+    ctx.fillText(`SCORE: ${score}`, 20, 30);
+    ctx.fillText(`BALLS: ${lives}`, 410, 30);
+
+    // 顯示題目定義 (Definition)
+    ctx.fillStyle = '#00f0ff';
+    ctx.font = '13px Arial';
+    ctx.textAlign = 'center';
+    let defText = currentTarget ? `"${currentTarget.def}"` : "";
+    ctx.fillText(defText, 250, 54, 460);
+    ctx.textAlign = 'left';
+
+    // 2. 彈珠台邊框與軌道
+    ctx.strokeStyle = '#323759';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(450, 700);
+    ctx.lineTo(450, 200);
+    ctx.arc(290, 190, 160, 0, Math.PI, true);
+    ctx.lineTo(20, 680);
+    ctx.stroke();
+
+    // 發射通道牆
+    ctx.beginPath();
+    ctx.moveTo(440, 700);
+    ctx.lineTo(440, 230);
+    ctx.stroke();
+
+    // 下方導流斜線
+    ctx.beginPath();
+    ctx.moveTo(20, 480);
+    ctx.lineTo(140, 575);
+    ctx.moveTo(440, 480);
+    ctx.lineTo(320, 575);
+    ctx.stroke();
+
+    // 3. 防落保護門 (Ball-Saver Gate)
+    if (ballSaverActive) {
+        ctx.strokeStyle = '#00ff88';
+        ctx.lineWidth = 6;
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = '#00ff88';
+        ctx.beginPath();
+        ctx.moveTo(180, 640);
+        ctx.lineTo(280, 640);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+    }
+
+    // 4. 單字 Bumpers 動態繪製 (含閃爍效果)
+    bumpers.forEach(b => {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+        ctx.fillStyle = b.flash > 0 ? '#ffffff' : '#21253b';
+        ctx.fill();
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = '#ff0077';
+        ctx.shadowBlur = b.flash > 0 ? 25 : 8;
+        ctx.shadowColor = '#ff0077';
+        ctx.stroke();
+
+        ctx.fillStyle = b.flash > 0 ? '#000000' : '#ffffff';
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(b.word, b.x, b.y);
+        ctx.restore();
+    });
+
+    // 5. 繪製左右擋板
+    drawFlipper(flippers.leftX, flippers.leftY, flippers.length, flippers.leftAngle);
+    drawFlipper(flippers.rightX, flippers.rightY, flippers.length, Math.PI - flippers.rightAngle);
+
+    // 6. 繪製鋼球 (Ball)
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+    ctx.fillStyle = '#e6e6e6';
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = '#ffffff';
+    ctx.fill();
+    ctx.restore();
+
+    // 發射通道文字指示
+    if (ball.inPlunger) {
+        ctx.fillStyle = '#ffaa00';
+        ctx.font = '11px Arial';
+        ctx.fillText('按住 SPACE 發射', 400, 630);
+    }
+
+    // 7. 遊戲結束畫面
+    if (gameOver) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#ff0055';
+        ctx.font = 'bold 32px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('GAME OVER', 250, 320);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '16px Arial';
+        ctx.fillText(`最終得分: ${score}`, 250, 365);
+        ctx.fillText('按 R 鍵重新開始遊戲', 250, 410);
+    }
+}
+
+function drawFlipper(x, y, length, angle) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    ctx.fillStyle = flipperShrinkTimer > 0 ? '#ff3300' : '#00f0ff';
+    ctx.beginPath();
+    ctx.roundRect(0, -flippers.height / 2, length, flippers.height, 6);
+    ctx.fill();
+    ctx.restore();
+}
+
+// 主遊戲迴圈
+function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+}
+
+// 啟動遊戲
+pickNewQuestion();
+loop();
+</script>
+</body>
+</html>
