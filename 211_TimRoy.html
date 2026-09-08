@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Defend the Castle - Typing Ramp</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a1a1a;
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        #game-container {
+            width: 800px;
+            height: 500px;
+            background: linear-gradient(to bottom, #2b3a42, #4f5d65 70%, #3e2723 70%);
+            position: relative;
+            overflow: hidden;
+            border: 4px solid #444;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        }
+        /* UI Elements */
+        #top-ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            display: flex;
+            gap: 20px;
+            font-weight: bold;
+            z-index: 10;
+        }
+        #health-container {
+            width: 200px;
+            height: 20px;
+            background-color: #555;
+            border: 2px solid #fff;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        #health-bar {
+            width: 100%;
+            height: 100%;
+            background-color: #4CAF50;
+            transition: width 0.3s;
+        }
+        #definition-box {
+            position: absolute;
+            top: 10px;
+            right: 170px;
+            width: 300px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #ffd700;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 14px;
+            z-index: 10;
+        }
+        #castle {
+            position: absolute;
+            right: 0;
+            top: 150px;
+            width: 150px;
+            height: 200px;
+            background-color: #7f8c8d;
+            border-left: 8px solid #34495e;
+            box-shadow: -5px 0 15px rgba(0,0,0,0.5);
+        }
+        .battlements {
+            position: absolute;
+            top: -20px;
+            width: 100%;
+            height: 20px;
+            background: repeating-linear-gradient(90deg, #7f8c8d, #7f8c8d 30px, transparent 30px, transparent 50px);
+        }
+        /* Enemy & Input Box */
+        .enemy {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            background-color: #e74c3c;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            transition: transform 0.1s;
+        }
+        .enemy:hover {
+            transform: scale(1.1);
+        }
+        .enemy-input-container {
+            position: absolute;
+            top: -35px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            z-index: 20;
+        }
+        .enemy-input {
+            width: 110px;
+            padding: 4px;
+            font-size: 12px;
+            text-align: center;
+            border: 2px solid #3498db;
+            border-radius: 4px;
+            outline: none;
+        }
+        /* Visual Floating Combat Text */
+        .floating-text {
+            position: absolute;
+            font-weight: bold;
+            font-size: 18px;
+            animation: floatUp 1s forwards;
+            pointer-events: none;
+            z-index: 30;
+        }
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-40px); }
+        }
+        /* AoE Explosion Effect */
+        .explosion {
+            position: absolute;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,215,0,0.8) 0%, rgba(255,69,0,0) 70%);
+            animation: explode 0.5s forwards;
+            pointer-events: none;
+            z-index: 15;
+        }
+        @keyframes explode {
+            0% { width: 0px; height: 0px; opacity: 1; }
+            100% { width: 200px; height: 200px; opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="top-ui">
+        <div>
+            Health:
+            <div id="health-container">
+                <div id="health-bar"></div>
+            </div>
+        </div>
+        <div>Wave: <span id="wave-num">1</span></div>
+    </div>
+
+    <div id="definition-box">
+        <strong>Target Definition:</strong><br>
+        <span id="def-text">Click an enemy to target it!</span>
+    </div>
+
+    <div id="castle">
+        <div class="battlements"></div>
+    </div>
+</div>
+
+<script>
+    // 10 Vocabulary Words and Definitions (Including your 6 provided words)
+    const vocabulary = [
+        { word: "participant", def: "A person who takes part in something." },
+        { word: "implication", def: "A likely consequence or result of an action." },
+        { word: "motivation", def: "The reason or desire to act in a certain way." },
+        { word: "polished", def: "Refined, sophisticated, or shiny." },
+        { word: "outfit", def: "A set of clothes worn together." },
+        { word: "reinforce", def: "To strengthen or support." },
+        { word: "accessible", def: "Easy to approach, reach, enter, or use." },
+        { word: "strategy", def: "A plan of action designed to achieve a goal." },
+        { word: "fortress", def: "A heavily defended stronghold or castle." },
+        { word: "victory", def: "Success in a struggle, war, or game." }
+    ];
+
+    let castleHealth = 100;
+    let currentWave = 1;
+    let activeEnemies = [];
+    let currentTarget = null;
+    let spawnInterval;
+
+    const gameContainer = document.getElementById('game-container');
+    const healthBar = document.getElementById('health-bar');
+    const waveDisplay = document.getElementById('wave-num');
+    const defText = document.getElementById('def-text');
+
+    function createEnemy() {
+        const item = vocabulary[Math.floor(Math.random() * vocabulary.length)];
+        const enemyElem = document.createElement('div');
+        enemyElem.className = 'enemy';
+        
+        // Random Y position within vertical limits
+        const topPos = Math.floor(Math.random() * 200) + 150;
+        enemyElem.style.top = topPos + 'px';
+        enemyElem.style.left = '0px';
+
+        const inputContainer = document.createElement('div');
+        inputContainer.className = 'enemy-input-container';
+
+        const inputField = document.createElement('input');
+        inputField.className = 'enemy-input';
+        inputField.type = 'text';
+        inputField.placeholder = 'Type word...';
+
+        inputContainer.appendChild(inputField);
+        enemyElem.appendChild(inputContainer);
+        gameContainer.appendChild(enemyElem);
+
+        const enemyObj = {
+            element: enemyElem,
+            inputField: inputField,
+            inputContainer: inputContainer,
+            word: item.word,
+            def: item.def,
+            x: 0,
+            y: topPos,
+            speed: 0.5 + (currentWave * 0.1)
+        };
+
+        // Select target on enemy click
+        enemyElem.addEventListener('click', (e) => {
+            e.stopPropagation();
+            selectTarget(enemyObj);
+        });
+
+        // Typing verification
+        inputField.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                checkWord(enemyObj);
+            }
+        });
+
+        activeEnemies.push(enemyObj);
+    }
+
+    function selectTarget(enemyObj) {
+        activeEnemies.forEach(e => e.inputContainer.style.display = 'none');
+        currentTarget = enemyObj;
+        enemyObj.inputContainer.style.display = 'flex';
+        enemyObj.inputField.focus();
+        defText.textContent = enemyObj.def;
+    }
+
+    function checkWord(enemyObj) {
+        const typedVal = enemyObj.inputField.value.trim().toLowerCase();
+        
+        if (typedVal === enemyObj.word) {
+            // Correct typing triggers AoE spell damage
+            showFloatingText("Correct!", enemyObj.x, enemyObj.y, "#2ecc71");
+            createAoE(enemyObj.x, enemyObj.y);
+            destroyEnemy(enemyObj);
+            defText.textContent = "Click an enemy to target it!";
+        } else {
+            showFloatingText("Miss!", enemyObj.x, enemyObj.y, "#e74c3c");
+            enemyObj.inputField.value = '';
+        }
+    }
+
+    function createAoE(x, y) {
+        const explosion = document.createElement('div');
+        explosion.className = 'explosion';
+        explosion.style.left = (x - 70) + 'px';
+        explosion.style.top = (y - 70) + 'px';
+        gameContainer.appendChild(explosion);
+
+        setTimeout(() => explosion.remove(), 500);
+
+        // Check AoE damage radius (150px)
+        activeEnemies.slice().forEach(enemy => {
+            const dx = enemy.x - x;
+            const dy = enemy.y - y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist <= 150 && enemy !== currentTarget) {
+                showFloatingText("Defended!", enemy.x, enemy.y, "#f1c40f");
+                destroyEnemy(enemy);
+            }
+        });
+    }
+
+    function destroyEnemy(enemyObj) {
+        enemyObj.element.remove();
+        activeEnemies = activeEnemies.filter(e => e !== enemyObj);
+        if (currentTarget === enemyObj) currentTarget = null;
+    }
+
+    function showFloatingText(text, x, y, color) {
+        const floatElem = document.createElement('div');
+        floatElem.className = 'floating-text';
+        floatElem.innerText = text;
+        floatElem.style.left = x + 'px';
+        floatElem.style.top = y + 'px';
+        floatElem.style.color = color;
+        gameContainer.appendChild(floatElem);
+
+        setTimeout(() => floatElem.remove(), 1000);
+    }
+
+    function updateGame() {
+        // Move enemies toward the castle
+        activeEnemies.forEach(enemy => {
+            enemy.x += enemy.speed;
+            enemy.element.style.left = enemy.x + 'px';
+
+            // Damage castle if enemy reaches wall
+            if (enemy.x >= 650) {
+                castleHealth -= 10;
+                healthBar.style.width = Math.max(0, castleHealth) + '%';
+                showFloatingText("-10 HP", 650, enemy.y, "#e74c3c");
+                destroyEnemy(enemy);
+
+                if (castleHealth <= 0) {
+                    alert("Game Over! The castle has fallen.");
+                    location.reload();
+                }
+            }
+        });
+    }
+
+    // Spawn loop & game loop
+    setInterval(updateGame, 1000 / 60);
+    setInterval(() => {
+        if (activeEnemies.length < 5) createEnemy();
+    }, 3000);
+
+    // Wave progression counter
+    setInterval(() => {
+        currentWave++;
+        waveDisplay.textContent = currentWave;
+    }, 15000);
+</script>
+
+</body>
+</html>
