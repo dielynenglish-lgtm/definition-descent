@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Money Ladder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Libre+Franklin:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy-deep:#050d24;
+    --navy:#0b1c42;
+    --navy-panel:#102657;
+    --navy-light:#1c3a7a;
+    --gold:#d9b24c;
+    --gold-bright:#f2cf6b;
+    --gold-dim:#9c7f34;
+    --white:#f4f1e6;
+    --red:#b1372f;
+    --green:#3f7a4e;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(ellipse at 50% -10%, rgba(217,178,76,0.10), transparent 55%),
+      radial-gradient(ellipse at 50% 110%, rgba(28,58,122,0.35), transparent 60%),
+      var(--navy-deep);
+    font-family:'Libre Franklin', sans-serif;
+    color:var(--white);
+    display:flex;
+    justify-content:center;
+    padding:28px 16px 60px;
+  }
+  .stage{
+    width:100%;
+    max-width:1080px;
+  }
+
+  /* ---- Header / marquee ---- */
+  .marquee{
+    text-align:center;
+    margin-bottom:22px;
+    position:relative;
+  }
+  .marquee .title{
+    font-family:'Bebas Neue', sans-serif;
+    font-size:clamp(40px,7vw,68px);
+    letter-spacing:4px;
+    color:var(--gold-bright);
+    text-shadow:0 0 18px rgba(242,207,107,0.35), 0 2px 0 rgba(0,0,0,0.4);
+    line-height:1;
+    margin:0;
+  }
+  .marquee .subtitle{
+    font-size:13px;
+    letter-spacing:3px;
+    color:var(--gold-dim);
+    margin-top:6px;
+  }
+  .marquee::before, .marquee::after{
+    content:"";
+    position:absolute;
+    top:50%;
+    width:22%;
+    height:2px;
+    background:linear-gradient(90deg, transparent, var(--gold-dim));
+  }
+  .marquee::before{left:0;}
+  .marquee::after{right:0; background:linear-gradient(270deg, transparent, var(--gold-dim));}
+
+  /* ---- Layout ---- */
+  .board{
+    display:grid;
+    grid-template-columns: 220px 1fr;
+    gap:20px;
+  }
+  @media (max-width:760px){
+    .board{grid-template-columns:1fr; }
+    .ladder{order:2;}
+    .panel{order:1;}
+  }
+
+  /* ---- Ladder ---- */
+  .ladder{
+    background:linear-gradient(180deg, var(--navy-panel), var(--navy));
+    border:1px solid rgba(217,178,76,0.35);
+    border-radius:10px;
+    padding:14px 10px;
+    box-shadow: inset 0 0 30px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.5);
+  }
+  .rung{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:9px 12px;
+    margin-bottom:4px;
+    border-radius:5px;
+    font-family:'Bebas Neue', sans-serif;
+    font-size:18px;
+    letter-spacing:1px;
+    color:#8fa0c9;
+    border:1px solid transparent;
+  }
+  .rung .num{font-size:12px; opacity:0.6; font-family:'Libre Franklin',sans-serif;}
+  .rung.current{
+    background:linear-gradient(90deg, rgba(217,178,76,0.25), rgba(217,178,76,0.08));
+    border-color:var(--gold);
+    color:var(--gold-bright);
+    transform:scale(1.04);
+    box-shadow:0 0 14px rgba(217,178,76,0.25);
+  }
+  .rung.won{
+    color:var(--white);
+    opacity:0.55;
+  }
+  .rung.won .num{opacity:0.4;}
+
+  /* ---- Panel ---- */
+  .panel{
+    background:linear-gradient(180deg, var(--navy-panel), var(--navy));
+    border:1px solid rgba(217,178,76,0.35);
+    border-radius:10px;
+    padding:26px 26px 22px;
+    box-shadow: inset 0 0 40px rgba(0,0,0,0.35), 0 8px 24px rgba(0,0,0,0.5);
+    display:flex;
+    flex-direction:column;
+    min-height:420px;
+    position:relative;
+    overflow:hidden;
+  }
+
+  /* ---- Answer feedback animations ---- */
+  .flash-overlay{
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+    border-radius:10px;
+    z-index:5;
+  }
+  .flash-overlay.correct{animation:flashGold 0.8s ease;}
+  .flash-overlay.wrong{animation:flashRed 0.8s ease;}
+  @keyframes flashGold{
+    0%{background:rgba(217,178,76,0);}
+    30%{background:rgba(217,178,76,0.38);}
+    100%{background:rgba(217,178,76,0);}
+  }
+  @keyframes flashRed{
+    0%{background:rgba(177,55,47,0);}
+    30%{background:rgba(177,55,47,0.48);}
+    100%{background:rgba(177,55,47,0);}
+  }
+
+  @keyframes shake{
+    10%,90%{transform:translateX(-1px);}
+    20%,80%{transform:translateX(3px);}
+    30%,50%,70%{transform:translateX(-6px);}
+    40%,60%{transform:translateX(6px);}
+  }
+  .panel.shake{animation:shake 0.5s ease;}
+
+  .sparkle{
+    position:absolute;
+    top:-10px;
+    color:var(--gold-bright);
+    pointer-events:none;
+    z-index:6;
+    animation:sparkleFall 1.15s ease-in forwards;
+  }
+  @keyframes sparkleFall{
+    0%{transform:translateY(0) scale(0.5) rotate(0deg); opacity:0;}
+    15%{opacity:1;}
+    100%{transform:translateY(260px) scale(1) rotate(220deg); opacity:0;}
+  }
+
+  @keyframes rungGlow{
+    0%{box-shadow:0 0 0 rgba(217,178,76,0); transform:scale(1);}
+    45%{box-shadow:0 0 28px rgba(217,178,76,0.85); transform:scale(1.09);}
+    100%{box-shadow:0 0 14px rgba(217,178,76,0.25); transform:scale(1.04);}
+  }
+  .rung.current.level-up{animation:rungGlow 0.9s ease;}
+
+  @keyframes popScale{
+    0%{transform:scale(1);}
+    40%{transform:scale(1.22);}
+    100%{transform:scale(1);}
+  }
+  .hud .prize.pop{animation:popScale 0.5s ease;}
+
+  .hud{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:18px;
+    flex-wrap:wrap;
+    gap:10px;
+  }
+  .hud .prize{
+    font-family:'Bebas Neue', sans-serif;
+    font-size:28px;
+    color:var(--gold-bright);
+    letter-spacing:1px;
+  }
+  .hud .prize span{font-size:12px; display:block; color:#8fa0c9; letter-spacing:2px; font-family:'Libre Franklin', sans-serif;}
+  .timer{
+    font-family:'Bebas Neue', sans-serif;
+    font-size:28px;
+    color:var(--white);
+    background:var(--navy-deep);
+    border:2px solid var(--gold-dim);
+    border-radius:8px;
+    padding:6px 16px;
+    min-width:78px;
+    text-align:center;
+  }
+  .timer.warn{color:var(--red); border-color:var(--red); animation:pulse 0.9s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.45;}}
+
+  .question-box{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+  }
+  .q-eyebrow{
+    color:var(--gold-dim);
+    font-size:12px;
+    letter-spacing:3px;
+    margin-bottom:8px;
+  }
+  .q-text{
+    font-size:clamp(20px,3vw,26px);
+    font-weight:700;
+    line-height:1.4;
+    margin-bottom:22px;
+    color:var(--white);
+  }
+  .q-text b{color:var(--gold-bright);}
+
+  .options{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+  }
+  @media (max-width:520px){.options{grid-template-columns:1fr;}}
+
+  .opt{
+    background:var(--navy-light);
+    border:1px solid rgba(217,178,76,0.3);
+    color:var(--white);
+    border-radius:7px;
+    padding:14px 16px;
+    font-size:16px;
+    font-weight:600;
+    text-align:left;
+    cursor:pointer;
+    transition:transform 0.12s ease, background 0.15s ease, border-color 0.15s ease;
+    display:flex;
+    gap:10px;
+  }
+  .opt .letter{color:var(--gold-bright); font-family:'Bebas Neue',sans-serif; font-size:18px;}
+  .opt:hover:not(:disabled){
+    background:#274a94;
+    border-color:var(--gold);
+    transform:translateY(-2px);
+  }
+  .opt:disabled{cursor:default;}
+  .opt.correct{background:var(--green); border-color:#8fd6a3; color:#fff;}
+  .opt.wrong{background:var(--red); border-color:#e79a94; color:#fff;}
+  .opt.dim{opacity:0.45;}
+
+  .footer-note{
+    margin-top:18px;
+    font-size:12px;
+    color:#7186b3;
+    letter-spacing:1px;
+    text-align:center;
+  }
+
+  /* ---- End screens ---- */
+  .end-screen{
+    text-align:center;
+    padding:30px 10px;
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+  }
+  .end-screen h2{
+    font-family:'Bebas Neue', sans-serif;
+    font-size:clamp(32px,5vw,48px);
+    letter-spacing:2px;
+    margin:0 0 10px;
+  }
+  .end-screen.win h2{
+    color:var(--gold-bright);
+    text-shadow:0 0 18px rgba(242,207,107,0.4);
+    animation:winPulse 1.6s ease-in-out infinite;
+  }
+  @keyframes winPulse{
+    0%,100%{text-shadow:0 0 18px rgba(242,207,107,0.4);}
+    50%{text-shadow:0 0 34px rgba(242,207,107,0.95);}
+  }
+  .end-screen.lose h2{color:#e28b83;}
+  .end-screen.lose{animation:loseShake 0.5s ease;}
+  @keyframes loseShake{
+    0%,100%{transform:translateX(0);}
+    20%{transform:translateX(-7px);}
+    40%{transform:translateX(7px);}
+    60%{transform:translateX(-4px);}
+    80%{transform:translateX(4px);}
+  }
+  .end-screen p{color:#c3cbe0; font-size:15px; margin:4px 0 20px; max-width:420px;}
+  .end-screen .final-amount{
+    font-family:'Bebas Neue', sans-serif;
+    font-size:44px;
+    color:var(--white);
+    margin-bottom:22px;
+  }
+  .btn-primary{
+    background:linear-gradient(180deg, var(--gold-bright), var(--gold-dim));
+    color:var(--navy-deep);
+    border:none;
+    font-family:'Bebas Neue', sans-serif;
+    font-size:20px;
+    letter-spacing:2px;
+    padding:12px 34px;
+    border-radius:6px;
+    cursor:pointer;
+    box-shadow:0 4px 14px rgba(217,178,76,0.35);
+    transition:transform 0.12s ease;
+  }
+  .btn-primary:hover{transform:translateY(-2px);}
+
+  .start-screen{
+    text-align:center;
+    padding:30px 10px;
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+  }
+  .start-screen p{color:#c3cbe0; max-width:440px; line-height:1.6; margin-bottom:22px;}
+  .start-screen .rules{
+    text-align:left;
+    background:var(--navy-deep);
+    border:1px solid rgba(217,178,76,0.25);
+    border-radius:8px;
+    padding:16px 20px;
+    margin-bottom:24px;
+    font-size:14px;
+    color:#b9c4e0;
+    max-width:440px;
+  }
+  .start-screen .rules li{margin-bottom:6px;}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="marquee">
+    <p class="title">MONEY LADDER</p>
+    <p class="subtitle">VOCABULARY CHALLENGE</p>
+  </div>
+
+  <div class="board">
+    <div class="ladder" id="ladder"></div>
+
+    <div class="panel" id="panel">
+      <!-- content injected by JS -->
+    </div>
+  </div>
+
+  <p class="footer-note">ONE WRONG ANSWER ENDS THE GAME &nbsp;·&nbsp; 60 SECOND CLOCK &nbsp;·&nbsp; CLIMB TO THE TOP</p>
+</div>
+
+<script>
+const WORD_BANK = [
+  {
+    word: "disqualify",
+    prompt: "\"The judges had to <b>disqualify</b> the runner after the false start.\" What does <b>disqualify</b> mean?",
+    options: [
+      "To officially remove someone from a competition for breaking a rule",
+      "To award someone extra points",
+      "To train someone for an event",
+      "To announce the winner of a contest"
+    ],
+    correct: 0
+  },
+  {
+    word: "revise",
+    prompt: "\"Please <b>revise</b> your essay before submitting it.\" What does <b>revise</b> mean?",
+    options: [
+      "To delete a document completely",
+      "To change and improve something you have written",
+      "To print multiple copies",
+      "To translate into another language"
+    ],
+    correct: 1
+  },
+  {
+    word: "aerospace",
+    prompt: "\"She works in the <b>aerospace</b> industry, designing satellites.\" What does <b>aerospace</b> refer to?",
+    options: [
+      "The study of ocean ecosystems",
+      "The industry of banking and finance",
+      "The science and technology of flight and space travel",
+      "The construction of city buildings"
+    ],
+    correct: 2
+  },
+  {
+    word: "surgeon",
+    prompt: "\"The <b>surgeon</b> performed a three-hour operation.\" What is a <b>surgeon</b>?",
+    options: [
+      "A doctor who specializes in operating on patients",
+      "A lawyer who argues in court",
+      "A pilot who flies commercial planes",
+      "A teacher of medical students"
+    ],
+    correct: 0
+  },
+  {
+    word: "candidate",
+    prompt: "\"There are five <b>candidates</b> running for mayor this year.\" What is a <b>candidate</b>?",
+    options: [
+      "A person who has already won an election",
+      "A voter who supports a political party",
+      "A person seeking or nominated for a position or office",
+      "A government official who counts votes"
+    ],
+    correct: 2
+  },
+  {
+    word: "applicant",
+    prompt: "\"The company received two hundred <b>applicants</b> for the job.\" What is an <b>applicant</b>?",
+    options: [
+      "Someone who formally applies for a job, place, or position",
+      "Someone who owns a company",
+      "Someone who interviews job seekers",
+      "Someone who was just hired"
+    ],
+    correct: 0
+  },
+  {
+    word: "launch",
+    prompt: "\"NASA will <b>launch</b> the rocket at dawn.\" What does <b>launch</b> mean here?",
+    options: [
+      "To repair a spacecraft",
+      "To send something forcefully into the sky or space",
+      "To cancel a mission",
+      "To land a vehicle safely"
+    ],
+    correct: 1
+  }
+];
+
+const PRIZES = ["$100", "$250", "$500", "$1,000", "$2,500", "$5,000", "$10,000"];
+const TIME_LIMIT = 60;
+
+let order = [...Array(WORD_BANK.length).keys()];
+let currentIndex = 0;
+let timerId = null;
+let timeLeft = TIME_LIMIT;
+let locked = false;
+
+const ladderEl = document.getElementById('ladder');
+const panelEl = document.getElementById('panel');
+
+function shuffle(arr){
+  const a = [...arr];
+  for(let i = a.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function shuffleOptions(q){
+  const idxs = shuffle([0,1,2,3]);
+  const newOptions = idxs.map(i => q.options[i]);
+  const newCorrect = idxs.indexOf(q.correct);
+  return { ...q, options: newOptions, correct: newCorrect };
+}
+
+function renderLadder(animateCurrent){
+  ladderEl.innerHTML = '';
+  for(let i = PRIZES.length - 1; i >= 0; i--){
+    const div = document.createElement('div');
+    div.className = 'rung';
+    if(i === currentIndex){
+      div.classList.add('current');
+      if(animateCurrent){
+        div.classList.add('level-up');
+        div.addEventListener('animationend', function handler(){
+          div.classList.remove('level-up');
+          div.removeEventListener('animationend', handler);
+        });
+      }
+    }
+    if(i < currentIndex) div.classList.add('won');
+    div.innerHTML = `<span class="num">${i+1}</span><span>${PRIZES[i]}</span>`;
+    ladderEl.appendChild(div);
+  }
+}
+
+function flashPanel(type){
+  const overlay = document.createElement('div');
+  overlay.className = 'flash-overlay ' + type;
+  panelEl.appendChild(overlay);
+  overlay.addEventListener('animationend', () => overlay.remove());
+}
+
+function shakePanel(){
+  panelEl.classList.remove('shake');
+  void panelEl.offsetWidth;
+  panelEl.classList.add('shake');
+  panelEl.addEventListener('animationend', function handler(e){
+    if(e.animationName === 'shake'){
+      panelEl.classList.remove('shake');
+      panelEl.removeEventListener('animationend', handler);
+    }
+  });
+}
+
+function spawnSparkles(){
+  const symbols = ['✦','✧','★','●','◆'];
+  const count = 14;
+  for(let i = 0; i < count; i++){
+    const s = document.createElement('span');
+    s.className = 'sparkle';
+    s.textContent = symbols[Math.floor(Math.random() * symbols.length)];
+    s.style.left = (Math.random() * 92) + '%';
+    s.style.fontSize = (12 + Math.random() * 16) + 'px';
+    s.style.animationDelay = (Math.random() * 0.25) + 's';
+    panelEl.appendChild(s);
+    s.addEventListener('animationend', () => s.remove());
+  }
+}
+
+function startTimer(){
+  clearInterval(timerId);
+  timeLeft = TIME_LIMIT;
+  updateTimerDisplay();
+  timerId = setInterval(() => {
+    timeLeft--;
+    updateTimerDisplay();
+    if(timeLeft <= 0){
+      clearInterval(timerId);
+      if(!locked) endGame(false, "TIME'S UP");
+    }
+  }, 1000);
+}
+
+function updateTimerDisplay(){
+  const el = document.getElementById('timerDisplay');
+  if(!el) return;
+  el.textContent = timeLeft + 's';
+  el.classList.toggle('warn', timeLeft <= 10);
+}
+
+function renderQuestion(){
+  locked = false;
+  const q = shuffleOptions(WORD_BANK[order[currentIndex]]);
+  panelEl.innerHTML = `
+    <div class="hud">
+      <div class="prize"><span>CURRENT LEVEL</span>${PRIZES[currentIndex]}</div>
+      <div class="timer" id="timerDisplay">${timeLeft}s</div>
+    </div>
+    <div class="question-box">
+      <div class="q-eyebrow">QUESTION ${currentIndex + 1} OF ${WORD_BANK.length}</div>
+      <div class="q-text">${q.prompt}</div>
+      <div class="options" id="optionsWrap">
+        ${q.options.map((opt, i) => `
+          <button class="opt" data-idx="${i}">
+            <span class="letter">${String.fromCharCode(65+i)}</span><span>${opt}</span>
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  `;
+  updateTimerDisplay();
+
+  document.querySelectorAll('.opt').forEach(btn => {
+    btn.addEventListener('click', () => handleAnswer(parseInt(btn.dataset.idx), q.correct));
+  });
+}
+
+function handleAnswer(chosenIdx, correctIdx){
+  if(locked) return;
+  locked = true;
+  clearInterval(timerId);
+
+  const btns = document.querySelectorAll('.opt');
+  btns.forEach((btn, i) => {
+    btn.disabled = true;
+    if(i === correctIdx) btn.classList.add('correct');
+    if(i === chosenIdx && chosenIdx !== correctIdx) btn.classList.add('wrong');
+    if(i !== correctIdx && i !== chosenIdx) btn.classList.add('dim');
+  });
+
+  const isCorrect = chosenIdx === correctIdx;
+
+  if(isCorrect){
+    flashPanel('correct');
+    spawnSparkles();
+  } else {
+    flashPanel('wrong');
+    shakePanel();
+  }
+
+  setTimeout(() => {
+    if(isCorrect){
+      if(currentIndex === WORD_BANK.length - 1){
+        endGame(true, "TOP OF THE LADDER");
+      } else {
+        currentIndex++;
+        renderLadder(true);
+        startTimer();
+        renderQuestion();
+      }
+    } else {
+      endGame(false, "WRONG ANSWER");
+    }
+  }, 1100);
+}
+
+function endGame(won, reason){
+  clearInterval(timerId);
+  renderLadder(false);
+  const amount = won ? PRIZES[PRIZES.length - 1] : (currentIndex > 0 ? PRIZES[currentIndex - 1] : "$0");
+  panelEl.innerHTML = `
+    <div class="end-screen ${won ? 'win' : 'lose'}">
+      <h2>${won ? "YOU CLIMBED THE LADDER!" : reason}</h2>
+      <p>${won
+        ? "Congratulations — you answered every vocabulary question correctly and reached the top."
+        : "The ladder resets. Every level below your last correct answer is banked."}</p>
+      <div class="final-amount">${amount}</div>
+      <button class="btn-primary" id="retryBtn">PLAY AGAIN</button>
+    </div>
+  `;
+  document.getElementById('retryBtn').addEventListener('click', startGame);
+  if(won){
+    spawnSparkles();
+    setTimeout(spawnSparkles, 400);
+  }
+}
+
+function startGame(){
+  order = shuffle([...Array(WORD_BANK.length).keys()]);
+  currentIndex = 0;
+  timeLeft = TIME_LIMIT;
+  renderLadder(false);
+  startTimer();
+  renderQuestion();
+}
+
+function renderStartScreen(){
+  currentIndex = 0;
+  renderLadder(false);
+  panelEl.innerHTML = `
+    <div class="start-screen">
+      <div class="q-eyebrow">WELCOME, CONTESTANT</div>
+      <p>Answer seven vocabulary questions correctly, one after another, to climb the Money Ladder from $100 to $10,000.</p>
+      <ul class="rules">
+        <li>Each correct answer moves you up one rung.</li>
+        <li>One wrong answer ends the game — you keep your last banked level.</li>
+        <li>You have 60 seconds total to reach the top.</li>
+        <li>Words used: disqualify, revise, aerospace, surgeon, candidate, applicant, launch.</li>
+      </ul>
+      <button class="btn-primary" id="startBtn">START GAME</button>
+    </div>
+  `;
+  document.getElementById('startBtn').addEventListener('click', startGame);
+}
+
+renderStartScreen();
+</script>
+</body>
+</html>
