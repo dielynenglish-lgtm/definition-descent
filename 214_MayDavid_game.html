@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocab Tetris</title>
+    <style>
+        :root {
+            --bg-color: #08090d;
+            --panel-bg: #121824;
+            --neon-blue: #00f3ff;
+            --neon-pink: #ff0055;
+            --neon-green: #00ff66;
+            --neon-yellow: #ffe600;
+            --text-color: #d1d5db;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        h1 {
+            margin: 5px 0 10px;
+            color: var(--neon-blue);
+            text-shadow: 0 0 12px var(--neon-blue);
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            font-size: 1.8rem;
+        }
+
+        /* Top Definition Banner */
+        #def-container {
+            width: 480px;
+            background: var(--panel-bg);
+            border: 2px solid var(--neon-blue);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.25);
+            border-radius: 8px;
+            padding: 12px 16px;
+            text-align: center;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+            transition: all 0.2s ease;
+        }
+
+        #def-title {
+            font-size: 0.75rem;
+            color: #64dfdf;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 6px;
+        }
+
+        #def-text {
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: #fff;
+            min-height: 2.6em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1.3;
+        }
+
+        /* Layout */
+        #game-container {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+
+        canvas {
+            background-color: #030406;
+            border: 3px solid var(--neon-blue);
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.2);
+            border-radius: 6px;
+        }
+
+        /* Side Panel */
+        #side-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 160px;
+        }
+
+        .stat-box {
+            background: var(--panel-bg);
+            border: 1px solid var(--neon-blue);
+            border-radius: 6px;
+            padding: 10px;
+            text-align: center;
+            box-shadow: 0 0 8px rgba(0, 243, 255, 0.15);
+        }
+
+        .stat-box h3 {
+            margin: 0 0 4px 0;
+            font-size: 0.75rem;
+            color: #64dfdf;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stat-box p {
+            margin: 0;
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        #controls-hint {
+            font-size: 0.75rem;
+            line-height: 1.45;
+            color: #9ca3af;
+            text-align: left;
+        }
+
+        #controls-hint span {
+            color: var(--neon-yellow);
+            font-weight: bold;
+        }
+
+        /* Overlay Screens */
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(8, 9, 13, 0.88);
+            backdrop-filter: blur(6px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+
+        #overlay h2 {
+            font-size: 2.4rem;
+            color: var(--neon-pink);
+            text-shadow: 0 0 15px var(--neon-pink);
+            margin-bottom: 10px;
+        }
+
+        #start-btn {
+            background: transparent;
+            color: var(--neon-blue);
+            border: 2px solid var(--neon-blue);
+            padding: 12px 28px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: 4px;
+            cursor: pointer;
+            box-shadow: 0 0 12px var(--neon-blue);
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        #start-btn:hover {
+            background: var(--neon-blue);
+            color: #000;
+            box-shadow: 0 0 25px var(--neon-blue);
+        }
+
+        /* Feedback Flashes */
+        .flash-correct {
+            border-color: var(--neon-green) !important;
+            box-shadow: 0 0 30px var(--neon-green) !important;
+        }
+
+        .flash-wrong {
+            border-color: var(--neon-pink) !important;
+            box-shadow: 0 0 30px var(--neon-pink) !important;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Vocab Tetris</h1>
+
+    <!-- Definition Display Banner -->
+    <div id="def-container">
+        <div id="def-title">Target Definition</div>
+        <div id="def-text">Press START to begin</div>
+    </div>
+
+    <!-- Main Game Area -->
+    <div id="game-container">
+        <canvas id="tetris" width="300" height="600"></canvas>
+
+        <div id="side-panel">
+            <div class="stat-box">
+                <h3>Time Left</h3>
+                <p id="timer">60s</p>
+            </div>
+            <div class="stat-box">
+                <h3>Score</h3>
+                <p id="score">0</p>
+            </div>
+            <div class="stat-box">
+                <h3>Lines</h3>
+                <p id="lines">0</p>
+            </div>
+            <div class="stat-box" id="controls-hint">
+                <h3>Controls</h3>
+                <span>Y</span> : Matches Definition<br>
+                <span>N</span> : Doesn't Match<br><br>
+                <em>When Unlocked:</em><br>
+                <span>← / →</span> : Move<br>
+                <span>↑</span> : Rotate Block<br>
+                <span>↓</span> : Soft Drop<br>
+                <span>Space</span> : Hard Drop
+            </div>
+        </div>
+    </div>
+
+    <!-- Overlay Screen -->
+    <div id="overlay">
+        <h2 id="overlay-title">VOCAB TETRIS</h2>
+        <p style="margin-bottom: 20px; color: #fff; text-align: center; max-width: 400px; line-height: 1.5;">
+            Match vocabulary definitions with falling blocks to unlock movement and rotations!
+        </p>
+        <button id="start-btn" onclick="startGame()">Start Game</button>
+    </div>
+
+<script>
+    // --- VOCABULARY DATASET (Your 10 Words) ---
+    const VOCAB_DATA = [
+        { word: "ban", def: "To officially or legally prohibit something." },
+        { word: "welfare", def: "Health, happiness, and good fortune of a person or group." },
+        { word: "controversy", def: "Disagreement, typically when prolonged, public, and heated." },
+        { word: "prey", def: "An animal that is hunted and killed by another for food." },
+        { word: "rear", def: "The back part of something, or to raise and bring up children/animals." },
+        { word: "sniff", def: "To draw air audibly up the nose to detect a smell." },
+        { word: "dignity", def: "The state or quality of being worthy of honor or respect." },
+        { word: "intact", def: "Not damaged or impaired; whole and complete." },
+        { word: "assemble", def: "To gather together in one place for a common purpose." },
+        { word: "mount", def: "To climb up or increase in amount, degree, or intensity." }
+    ];
+
+    // --- GAME CONSTANTS & TETROMINOS ---
+    const COLS = 10;
+    const ROWS = 20;
+    const BLOCK_SIZE = 30; // 30px cell size -> 300x600 canvas
+
+    const SHAPES = {
+        'I': { matrix: [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]], color: '#00f3ff' },
+        'J': { matrix: [[1,0,0],[1,1,1],[0,0,0]], color: '#0044ff' },
+        'L': { matrix: [[0,0,1],[1,1,1],[0,0,0]], color: '#ff9900' },
+        'O': { matrix: [[1,1],[1,1]], color: '#ffe600' },
+        'S': { matrix: [[0,1,1],[1,1,0],[0,0,0]], color: '#00ff66' },
+        'T': { matrix: [[0,1,0],[1,1,1],[0,0,0]], color: '#cc00ff' },
+        'Z': { matrix: [[1,1,0],[0,1,1],[0,0,0]], color: '#ff0055' }
+    };
+
+    // --- GAME VARIABLES ---
+    const canvas = document.getElementById('tetris');
+    const ctx = canvas.getContext('2d');
+    
+    let grid = [];
+    let score = 0;
+    let linesCleared = 0;
+    let timeRemaining = 60;
+    let timerInterval = null;
+    let gameLoopId = null;
+    let lastTime = 0;
+    let dropCounter = 0;
+    let dropInterval = 1000; // Standard fall speed (1s)
+
+    let currentDef = null;
+    let activePiece = null;
+    let isGameOver = false;
+
+    // --- GAME INITIALIZATION ---
+    function initGrid() {
+        grid = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+    }
+
+    function startGame() {
+        document.getElementById('overlay').style.display = 'none';
+        initGrid();
+        score = 0;
+        linesCleared = 0;
+        timeRemaining = 60;
+        isGameOver = false;
+        
+        updateStats();
+        spawnPiece();
+
+        if (timerInterval) clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            timeRemaining--;
+            document.getElementById('timer').innerText = `${timeRemaining}s`;
+            if (timeRemaining <= 0) {
+                endGame("TIME'S UP!");
+            }
+        }, 1000);
+
+        lastTime = performance.now();
+        dropCounter = 0;
+        if (gameLoopId) cancelAnimationFrame(gameLoopId);
+        gameLoopId = requestAnimationFrame(update);
+    }
+
+    function endGame(reason) {
+        isGameOver = true;
+        clearInterval(timerInterval);
+        cancelAnimationFrame(gameLoopId);
+        
+        document.getElementById('overlay-title').innerText = reason;
+        document.getElementById('start-btn').innerText = "PLAY AGAIN";
+        document.getElementById('overlay').style.display = 'flex';
+    }
+
+    // --- PIECE SPAWNING & VOCAB MECHANIC ---
+    function spawnPiece() {
+        const keys = Object.keys(SHAPES);
+        const type = keys[Math.floor(Math.random() * keys.length)];
+        const shapeObj = SHAPES[type];
+
+        // Pick definition and word with a 50% match chance
+        const targetVocab = VOCAB_DATA[Math.floor(Math.random() * VOCAB_DATA.length)];
+        currentDef = targetVocab;
+        
+        const isMatch = Math.random() < 0.5;
+        let pieceWord = targetVocab.word;
+
+        if (!isMatch) {
+            const wrongOptions = VOCAB_DATA.filter(v => v.word !== targetVocab.word);
+            pieceWord = wrongOptions[Math.floor(Math.random() * wrongOptions.length)].word;
+        }
+
+        // Display current target definition
+        document.getElementById('def-text').innerText = `"${currentDef.def}"`;
+
+        activePiece = {
+            matrix: shapeObj.matrix.map(row => [...row]),
+            color: shapeObj.color,
+            x: Math.floor((COLS - shapeObj.matrix[0].length) / 2),
+            y: 0,
+            word: pieceWord,
+            isMatch: isMatch,
+            locked: true,          // Spawns translucent & un-rotatable
+            penaltySpeed: false    // Triggers double speed on incorrect answer
+        };
+
+        if (collide(grid, activePiece)) {
+            endGame("GAME OVER");
+        }
+    }
+
+    // --- INPUT HANDLING ---
+    window.addEventListener('keydown', e => {
+        if (isGameOver || !activePiece) return;
+
+        const key = e.key.toUpperCase();
+
+        // Unlock Mechanics: Press 'Y' or 'N' while block is locked
+        if (activePiece.locked) {
+            if (key === 'Y' || key === 'N') {
+                const guessedMatch = (key === 'Y');
+                if (guessedMatch === activePiece.isMatch) {
+                    // Correct Guess -> Instantly Unlock
+                    activePiece.locked = false;
+                    flashBanner(true);
+                } else {
+                    // Incorrect Guess -> Double-speed drop without rotation
+                    activePiece.penaltySpeed = true;
+                    flashBanner(false);
+                }
+            }
+            return; // Ignore regular movement keys while locked
+        }
+
+        // Full Controls (Unlocked state)
+        if (!activePiece.locked) {
+            if (e.key === 'ArrowLeft') {
+                movePiece(-1);
+            } else if (e.key === 'ArrowRight') {
+                movePiece(1);
+            } else if (e.key === 'ArrowDown') {
+                dropPiece();
+            } else if (e.key === 'ArrowUp') {
+                rotatePiece();
+            } else if (e.code === 'Space') {
+                e.preventDefault();
+                hardDrop();
+            }
+        }
+    });
+
+    function flashBanner(correct) {
+        const banner = document.getElementById('def-container');
+        const className = correct ? 'flash-correct' : 'flash-wrong';
+        banner.classList.add(className);
+        setTimeout(() => banner.classList.remove(className), 400);
+    }
+
+    // --- MOVEMENT & COLLISION ---
+    function collide(grid, piece) {
+        const m = piece.matrix;
+        for (let r = 0; r < m.length; r++) {
+            for (let c = 0; c < m[r].length; c++) {
+                if (m[r][c] !== 0) {
+                    let newX = piece.x + c;
+                    let newY = piece.y + r;
+                    if (newX < 0 || newX >= COLS || newY >= ROWS) return true;
+                    if (newY >= 0 && grid[newY][newX] !== 0) return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    function movePiece(dir) {
+        activePiece.x += dir;
+        if (collide(grid, activePiece)) {
+            activePiece.x -= dir;
+        }
+    }
+
+    function rotatePiece() {
+        const m = activePiece.matrix;
+        const rotated = m[0].map((_, i) => m.map(row => row[i]).reverse());
+        const prevMatrix = activePiece.matrix;
+        activePiece.matrix = rotated;
+        if (collide(grid, activePiece)) {
+            activePiece.matrix = prevMatrix;
+        }
+    }
+
+    function dropPiece() {
+        activePiece.y++;
+        if (collide(grid, activePiece)) {
+            activePiece.y--;
+            lockPieceIntoGrid();
+            clearLines();
+            spawnPiece();
+        }
+        dropCounter = 0;
+    }
+
+    function hardDrop() {
+        while (!collide(grid, activePiece)) {
+            activePiece.y++;
+        }
+        activePiece.y--;
+        lockPieceIntoGrid();
+        clearLines();
+        spawnPiece();
+    }
+
+    function lockPieceIntoGrid() {
+        const m = activePiece.matrix;
+        for (let r = 0; r < m.length; r++) {
+            for (let c = 0; c < m[r].length; c++) {
+                if (m[r][c] !== 0) {
+                    if (activePiece.y + r < 0) {
+                        endGame("GAME OVER");
+                        return;
+                    }
+                    grid[activePiece.y + r][activePiece.x + c] = activePiece.color;
+                }
+            }
+        }
+    }
+
+    function clearLines() {
+        let lines = 0;
+        outer: for (let r = ROWS - 1; r >= 0; r--) {
+            for (let c = 0; c < COLS; c++) {
+                if (grid[r][c] === 0) continue outer;
+            }
+            const row = grid.splice(r, 1)[0].fill(0);
+            grid.unshift(row);
+            lines++;
+            r++;
+        }
+
+        if (lines > 0) {
+            linesCleared += lines;
+            // Standard Tetris Scoring System
+            const linePoints = [0, 100, 300, 500, 800];
+            score += linePoints[lines];
+            updateStats();
+        }
+    }
+
+    function updateStats() {
+        document.getElementById('score').innerText = score;
+        document.getElementById('lines').innerText = linesCleared;
+    }
+
+    // --- GAME LOOP & RENDER ---
+    function update(time = 0) {
+        const deltaTime = time - lastTime;
+        lastTime = time;
+        dropCounter += deltaTime;
+
+        // Double speed (500ms) on incorrect guess penalty, otherwise 1000ms
+        let currentInterval = activePiece && activePiece.penaltySpeed ? dropInterval / 2 : dropInterval;
+
+        if (dropCounter > currentInterval) {
+            dropPiece();
+        }
+
+        render();
+        if (!isGameOver) gameLoopId = requestAnimationFrame(update);
+    }
+
+    function render() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        drawGrid();
+
+        if (activePiece) {
+            drawPiece(activePiece);
+        }
+    }
+
+    function drawGrid() {
+        ctx.strokeStyle = '#111927';
+        ctx.lineWidth = 1;
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                ctx.strokeRect(c * BLOCK_SIZE, r * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+                if (grid[r][c] !== 0) {
+                    drawBlock(c, r, grid[r][c], false);
+                }
+            }
+        }
+    }
+
+    function drawBlock(x, y, color, isLocked) {
+        ctx.save();
+        ctx.fillStyle = color;
+        ctx.globalAlpha = isLocked ? 0.35 : 1.0; // Translucent when locked
+        ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+
+        ctx.strokeStyle = isLocked ? 'rgba(255, 255, 255, 0.4)' : '#000000';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+        ctx.restore();
+    }
+
+    function drawPiece(piece) {
+        const m = piece.matrix;
+        
+        // 1. Draw individual shape cells
+        for (let r = 0; r < m.length; r++) {
+            for (let c = 0; c < m[r].length; c++) {
+                if (m[r][c] !== 0) {
+                    drawBlock(piece.x + c, piece.y + r, piece.color, piece.locked);
+                }
+            }
+        }
+
+        // 2. Draw Vocabulary word overlay centered over block
+        ctx.save();
+        ctx.font = 'bold 12px "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        let minX = 4, maxX = -1, minY = 4, maxY = -1;
+        for (let r = 0; r < m.length; r++) {
+            for (let c = 0; c < m[r].length; c++) {
+                if (m[r][c] !== 0) {
+                    if (c < minX) minX = c;
+                    if (c > maxX) maxX = c;
+                    if (r < minY) minY = r;
+                    if (r > maxY) maxY = r;
+                }
+            }
+        }
+
+        const centerX = (piece.x + (minX + maxX + 1) / 2) * BLOCK_SIZE;
+        const centerY = (piece.y + (minY + maxY + 1) / 2) * BLOCK_SIZE;
+
+        const textWidth = ctx.measureText(piece.word).width;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.fillRect(centerX - textWidth / 2 - 4, centerY - 8, textWidth + 8, 16);
+
+        ctx.fillStyle = piece.locked ? '#ffe600' : '#00ff66';
+        ctx.fillText(piece.word, centerX, centerY);
+        ctx.restore();
+    }
+</script>
+</body>
+</html>
