@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pinball Vocabulary Game</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: #0f111a;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .game-container {
+            position: relative;
+            box-shadow: 0 0 30px rgba(0, 229, 255, 0.2);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 3px solid #2a2e45;
+        }
+
+        canvas {
+            display: block;
+            background: radial-gradient(circle at center, #181b2e 0%, #0d0e17 100%);
+        }
+
+        .controls-hint {
+            margin-top: 12px;
+            color: #8a8d9b;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .key {
+            background: #2a2e45;
+            color: #00e5ff;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            border: 1px solid #3d4263;
+        }
+    </style>
+</head>
+<body>
+
+<div class="game-container">
+    <canvas id="pinball" width="550" height="750"></canvas>
+</div>
+<div class="controls-hint">
+    <span class="key">Space</span> Launch Ball | 
+    <span class="key">Left Shift</span> Left Flipper | 
+    <span class="key">Right Shift</span> Right Flipper | 
+    <span class="key">R</span> Restart
+</div>
+
+<script>
+const canvas = document.getElementById('pinball');
+const ctx = canvas.getContext('2d');
+
+// --- Vocabulary List (7 from image + 3 required) ---
+const VOCABULARY = [
+    { word: "Presentation", def: "A speech or talk where a product, idea, or work is shown." },
+    { word: "Boost", def: "To help or encourage something to increase or improve." },
+    { word: "Accomplish", def: "To achieve or complete something successfully." },
+    { word: "Purchase", def: "To buy something with money." },
+    { word: "Trigger", def: "To cause an event or situation to happen." },
+    { word: "Psychology", def: "The scientific study of the human mind and behavior." },
+    { word: "Stability", def: "The state of being stable, firm, or unlikely to change." },
+    { word: "Gravity", def: "The natural force that pulls objects toward Earth." },
+    { word: "Bumper", def: "A pinball obstacle that bounces the ball on contact." },
+    { word: "Flipper", def: "A controllable lever used to strike the ball." }
+];
+
+// --- Game State ---
+let score = 0;
+let ballsLeft = 3;
+let gameOver = false;
+
+let ballSaverActive = false;
+let ballSaverTimer = 0;
+let penaltyActive = false;
+let penaltyTimer = 0;
+
+// --- Physical Objects ---
+const ball = {
+    x: 520,
+    y: 650,
+    vx: 0,
+    vy: 0,
+    radius: 10,
+    inPlunger: true
+};
+
+const gravity = 0.22;
+const friction = 0.995;
+
+const bumpers = [
+    { x: 150, y: 250, radius: 42, word: "" },
+    { x: 275, y: 180, radius: 42, word: "" },
+    { x: 400, y: 250, radius: 42, word: "" }
+];
+
+let currentTarget = {};
+let activeWords = [];
+
+// --- Key Listeners ---
+const keys = {};
+window.addEventListener('keydown', e => {
+    keys[e.code] = true;
+    if (e.code === 'Space' && ball.inPlunger && !gameOver) {
+        ball.vy = -17;
+        ball.vx = -1.5;
+        ball.inPlunger = false;
+    }
+    if (e.code === 'KeyR' && gameOver) {
+        resetGame();
+    }
+});
+window.addEventListener('keyup', e => keys[e.code] = false);
+
+// --- Game Initialization ---
+function resetRound() {
+    currentTarget = VOCABULARY[Math.floor(Math.random() * VOCABULARY.length)];
+    const wrongs = VOCABULARY.filter(v => v.word !== currentTarget.word);
+    const shuffledWrongs = wrongs.sort(() => 0.5 - Math.random()).slice(0, 2);
+    
+    activeWords = [currentTarget.word, shuffledWrongs[0].word, shuffledWrongs[1].word];
+    activeWords.sort(() => 0.5 - Math.random());
+
+    bumpers.forEach((b, i) => {
+        b.word = activeWords[i];
+    });
+}
+
+function resetBall() {
+    ball.x = 520;
+    ball.y = 650;
+    ball.vx = 0;
+    ball.vy = 0;
+    ball.inPlunger = true;
+}
+
+function resetGame() {
+    score = 0;
+    ballsLeft = 3;
+    gameOver = false;
+    ballSaverActive = false;
+    penaltyActive = false;
+    resetBall();
+    resetRound();
+}
+
+resetRound();
+
+// --- Main Engine Loop ---
+function update(now) {
+    if (gameOver) return;
+
+    // Check Active Timers
+    ballSaverActive = now < ballSaverTimer;
+    penaltyActive = now < penaltyTimer;
+
+    // Flippers Parameters
+    const flipperLength = penaltyActive ? 50 : 75; // Penalty shrinks flippers
+    const leftPivot = { x: 180, y: 670 };
+    const rightPivot = { x: 330, y: 670 };
+
+    const leftAngle = keys['ShiftLeft'] ? -30 : 20;
+    const rightAngle = keys['ShiftRight'] ? 30 : -20;
+
+    const leftTip = {
+        x: leftPivot.x + flipperLength * Math.cos(leftAngle * Math.PI / 180),
+        y: leftPivot.y + flipperLength * Math.sin(leftAngle * Math.PI / 180)
+    };
+
+    const rightTip = {
+        x: rightPivot.x - flipperLength * Math.cos(-rightAngle * Math.PI / 180),
+        y: rightPivot.y + flipperLength * Math.sin(-rightAngle * Math.PI / 180)
+    };
+
+    // Physics Engine
+    if (!ball.inPlunger) {
+        ball.vy += gravity;
+        ball.vx *= friction;
+        ball.vy *= friction;
+
+        ball.x += ball.vx;
+        ball.y += ball.vy;
+
+        // Wall Physics (Boundaries)
+        if (ball.x - ball.radius <= 15) {
+            ball.x = 15 + ball.radius;
+            ball.vx *= -0.75;
+        }
+        if (ball.x + ball.radius >= 490 && ball.y > 120) {
+            ball.x = 490 - ball.radius;
+            ball.vx *= -0.75;
+        }
+        if (ball.x + ball.radius >= 535) {
+            ball.x = 535 - ball.radius;
+            ball.vx *= -0.75;
+        }
+        if (ball.y - ball.radius <= 110) {
+            ball.y = 110 + ball.radius;
+            ball.vy *= -0.75;
+        }
+
+        // Bumper Collision Logic
+        bumpers.forEach(b => {
+            const dx = ball.x - b.x;
+            const dy = ball.y - b.y;
+            const dist = Math.hypot(dx, dy);
+
+            if (dist < b.radius + ball.radius) {
+                // Vector Normalization & Elastic Bounce
+                const overlap = (b.radius + ball.radius) - dist;
+                const nx = dx / dist;
+                const ny = dy / dist;
+
+                ball.x += nx * overlap;
+                ball.y += ny * overlap;
+
+                const bounceForce = 11;
+                ball.vx = nx * bounceForce;
+                ball.vy = ny * bounceForce;
+
+                // Answer Evaluation
+                if (b.word === currentTarget.word) {
+                    score += 500; // 500-point multiplier
+                    ballSaverTimer = now + 5000; // 5-second ball-saver gate
+                    resetRound();
+                } else {
+                    score = Math.max(0, score - 100);
+                    penaltyTimer = now + 5000; // Shrink flippers for 5s
+                }
+            }
+        });
+
+        // Flipper Collision Calculation
+        function collideWithFlipper(p1, p2, isMovingUp) {
+            const fx = p2.x - p1.x;
+            const fy = p2.y - p1.y;
+            const len = Math.hypot(fx, fy);
+            let u = ((ball.x - p1.x) * fx + (ball.y - p1.y) * fy) / (len * len);
+            u = Math.max(0, Math.min(1, u));
+
+            const closest = { x: p1.x + u * fx, y: p1.y + u * fy };
+            const dist = Math.hypot(ball.x - closest.x, ball.y - closest.y);
+
+            if (dist < ball.radius + 6) {
+                const impulse = isMovingUp ? -14 : -7;
+                ball.vy = impulse;
+                ball.vx += (ball.x - p1.x) * 0.05;
+            }
+        }
+
+        collideWithFlipper(leftPivot, leftTip, keys['ShiftLeft']);
+        collideWithFlipper(rightPivot, rightTip, keys['ShiftRight']);
+
+        // Drain / Ball Loss / Ball Saver Logic
+        if (ball.y > canvas.height) {
+            if (ballSaverActive) {
+                ball.x = 250;
+                ball.y = 400;
+                ball.vy = -6;
+            } else {
+                ballsLeft--;
+                if (ballsLeft > 0) {
+                    resetBall();
+                } else {
+                    gameOver = true;
+                }
+            }
+        }
+    }
+
+    window.flipperRenderData = { leftPivot, leftTip, rightPivot, rightTip };
+}
+
+// --- Render Loop ---
+function draw(now) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 1. Top Arcade Display Board (Flashes definition)
+    ctx.fillStyle = '#1e2238';
+    ctx.beginPath();
+    ctx.roundRect(15, 15, 520, 85, 10);
+    ctx.fill();
+    ctx.strokeStyle = '#3d446b';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    const flash = Math.floor(now / 350) % 2 === 0;
+    ctx.fillStyle = flash ? '#00e5ff' : '#00a3b8';
+    ctx.font = 'bold 12px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('• DEFINITION FLASH BOARD •', 275, 35);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '14px Arial';
+    ctx.fillText(`"${currentTarget.def}"`, 275, 65);
+
+    // 2. Target Bumpers
+    bumpers.forEach(b => {
+        const isTarget = b.word === currentTarget.word;
+        const glow = (Math.floor(now / 200) % 2 === 0) ? 4 : 0;
+
+        ctx.fillStyle = isTarget ? '#ff4081' : '#ff5252';
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.radius + glow, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#26294a';
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.radius - 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(b.word, b.x, b.y + 4);
+    });
+
+    // 3. Ball-Saver Gate
+    if (ballSaverActive) {
+        ctx.strokeStyle = '#00e676';
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.moveTo(180, 715);
+        ctx.lineTo(330, 715);
+        ctx.stroke();
+
+        ctx.fillStyle = '#00e676';
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('SAFE GATE ACTIVE', 255, 735);
+    }
+
+    // 4. Flippers
+    if (window.flipperRenderData) {
+        const fd = window.flipperRenderData;
+        ctx.strokeStyle = '#00e5ff';
+        ctx.lineWidth = 10;
+        ctx.lineCap = 'round';
+
+        ctx.beginPath();
+        ctx.moveTo(fd.leftPivot.x, fd.leftPivot.y);
+        ctx.lineTo(fd.leftTip.x, fd.leftTip.y);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(fd.rightPivot.x, fd.rightPivot.y);
+        ctx.lineTo(fd.rightTip.x, fd.rightTip.y);
+        ctx.stroke();
+    }
+
+    // 5. Plunger Lane & Ball
+    ctx.strokeStyle = '#2a2e45';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(490, 110);
+    ctx.lineTo(490, 750);
+    ctx.stroke();
+
+    if (ball.inPlunger) {
+        ctx.fillStyle = '#ffab00';
+        ctx.fillRect(505, 670, 30, 40);
+        ctx.fillStyle = '#8a8d9b';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('READY', 520, 650);
+    }
+
+    // Draw Ball
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowColor = '#00e5ff';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0; // Reset Shadow
+
+    // 6. HUD Controls & Warnings
+    ctx.fillStyle = '#ffd700';
+    ctx.font = 'bold 14px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText(`SCORE: ${score}`, 20, 730);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'right';
+    ctx.fillText(`BALLS: ${ballsLeft}`, 470, 730);
+
+    if (penaltyActive) {
+        ctx.fillStyle = '#ff1744';
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText('WARNING: FLIPPERS SHRUNK!', 20, 705);
+    }
+
+    // 7. Game Over Screen
+    if (gameOver) {
+        ctx.fillStyle = 'rgba(13, 14, 23, 0.9)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = '#ff1744';
+        ctx.font = 'bold 28px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('GAME OVER', 275, 330);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '16px Arial';
+        ctx.fillText(`Final Score: ${score}`, 275, 370);
+
+        ctx.fillStyle = '#8a8d9b';
+        ctx.font = '14px Arial';
+        ctx.fillText('Press "R" to Play Again', 275, 410);
+    }
+}
+
+function loop(timestamp) {
+    update(timestamp);
+    draw(timestamp);
+    requestAnimationFrame(loop);
+}
+
+requestAnimationFrame(loop);
+</script>
+
+</body>
+</html>
