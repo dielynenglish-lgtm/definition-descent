@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocabulary Whack-A-Mole</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        h1 {
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+
+        .header-panel {
+            background-color: #34495e;
+            border-radius: 10px;
+            padding: 15px 25px;
+            text-align: center;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            margin-bottom: 20px;
+        }
+
+        .stats-container {
+            display: flex;
+            justify-content: space-around;
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .stat-box {
+            background: #16a085;
+            padding: 8px 15px;
+            border-radius: 5px;
+        }
+
+        .definition-box {
+            font-size: 1.2rem;
+            color: #f1c40f;
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px dashed #f1c40f;
+            padding: 10px;
+            border-radius: 5px;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            max-width: 650px;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        .hole {
+            position: relative;
+            width: 100%;
+            padding-top: 80%; /* Aspect ratio */
+            background-color: #8e44ad;
+            border-radius: 50%;
+            border: 8px solid #6c3483;
+            overflow: hidden;
+            box-shadow: inset 0 10px 0 rgba(0,0,0,0.4);
+        }
+
+        .mole {
+            position: absolute;
+            bottom: -100%;
+            left: 10%;
+            width: 80%;
+            height: 85%;
+            background-color: #d35400;
+            border-radius: 40% 40% 0 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 5px;
+            font-weight: bold;
+            font-size: 1rem;
+            color: #ffffff;
+            cursor: pointer;
+            transition: bottom 0.3s ease-out;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            user-select: none;
+            border: 2px solid #e67e22;
+        }
+
+        .mole.up {
+            bottom: 0;
+        }
+
+        .mole.hit {
+            background-color: #27ae60;
+        }
+
+        .mole.wrong {
+            background-color: #c0392b;
+        }
+
+        .btn {
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #1e8449;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .btn:hover {
+            background-color: #2ecc71;
+        }
+
+        .btn:active {
+            transform: translateY(4px);
+            box-shadow: none;
+        }
+
+        .btn:disabled {
+            background-color: #7f8c8d;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Vocabulary Whack-A-Mole</h1>
+
+    <div class="header-panel">
+        <div class="stats-container">
+            <div class="stat-box">Score: <span id="score">0</span></div>
+            <div class="stat-box">Time: <span id="time">60</span>s</div>
+        </div>
+        <div><strong>Find the matching word:</strong></div>
+        <div class="definition-box" id="definition">Click "Start Game" to begin!</div>
+    </div>
+
+    <div class="game-board">
+        <div class="hole"><div class="mole"></div></div>
+        <div class="hole"><div class="mole"></div></div>
+        <div class="hole"><div class="mole"></div></div>
+        <div class="hole"><div class="mole"></div></div>
+        <div class="hole"><div class="mole"></div></div>
+        <div class="hole"><div class="mole"></div></div>
+    </div>
+
+    <button id="start-btn" class="btn">Start Game</button>
+
+    <script>
+        const vocabList = [
+            { word: "unidentified", definition: "Not recognized or known." },
+            { word: "phenomenon", definition: "A remarkable development, fact, or event that can be observed." },
+            { word: "radar", definition: "A system for detecting the presence, direction, or speed of objects using radio waves." },
+            { word: "sensor", definition: "A device that detects or measures a physical property and records or responds to it." },
+            { word: "personnel", definition: "People employed in an organization, undertaking, or military service." },
+            { word: "strengthen", definition: "To make or become stronger." },
+            { word: "mysterious", definition: "Difficult or impossible to understand, explain, or identify." }
+        ];
+
+        const scoreDisplay = document.getElementById('score');
+        const timeDisplay = document.getElementById('time');
+        const definitionDisplay = document.getElementById('definition');
+        const startBtn = document.getElementById('start-btn');
+        const moles = document.querySelectorAll('.mole');
+        const holes = document.querySelectorAll('.hole');
+
+        let score = 0;
+        let timeRemaining = 60;
+        let gameInterval = null;
+        let timerInterval = null;
+        let currentTarget = null;
+        let lastHole = null;
+        let isPlaying = false;
+
+        function getRandomHole() {
+            const idx = Math.floor(Math.random() * holes.length);
+            const hole = holes[idx];
+            if (hole === lastHole) {
+                return getRandomHole();
+            }
+            lastHole = hole;
+            return hole;
+        }
+
+        // Weighted random word selection to guarantee the target word spawns 
+        // significantly more often than non-target words.
+        function getRandomWord() {
+            // Give target word a weight of 5, and all other words a weight of 1
+            const weightedPool = [];
+            
+            vocabList.forEach(item => {
+                const weight = (item.word === currentTarget.word) ? 5 : 1;
+                for (let i = 0; i < weight; i++) {
+                    weightedPool.push(item.word);
+                }
+            });
+
+            const randomIndex = Math.floor(Math.random() * weightedPool.length);
+            return weightedPool[randomIndex];
+        }
+
+        function setNextTarget() {
+            // Pick a new target definition from the vocabulary list
+            const nextIndex = Math.floor(Math.random() * vocabList.length);
+            currentTarget = vocabList[nextIndex];
+            definitionDisplay.textContent = `"${currentTarget.definition}"`;
+        }
+
+        function popUpMole() {
+            if (!isPlaying) return;
+
+            const hole = getRandomHole();
+            const mole = hole.querySelector('.mole');
+            const word = getRandomWord();
+
+            mole.textContent = word;
+            mole.dataset.word = word;
+            mole.classList.remove('hit', 'wrong');
+            mole.classList.add('up');
+
+            // Moles stay up for 1.2 to 1.8 seconds
+            const displayTime = Math.floor(Math.random() * 600) + 1200;
+
+            setTimeout(() => {
+                mole.classList.remove('up');
+            }, displayTime);
+        }
+
+        function whack(e) {
+            if (!e.isTrusted || !isPlaying) return; // Prevent fake clicks
+            
+            const clickedMole = e.target;
+            if (!clickedMole.classList.contains('up') || clickedMole.classList.contains('hit')) return;
+
+            const selectedWord = clickedMole.dataset.word;
+
+            if (selectedWord === currentTarget.word) {
+                score += 10;
+                scoreDisplay.textContent = score;
+                clickedMole.classList.add('hit');
+                clickedMole.classList.remove('up');
+                
+                // Set a new word definition target after hitting the correct one
+                setNextTarget();
+            } else {
+                score = Math.max(0, score - 5); // Subtract 5 for mistakes
+                scoreDisplay.textContent = score;
+                clickedMole.classList.add('wrong');
+                setTimeout(() => clickedMole.classList.remove('up'), 300);
+            }
+        }
+
+        function startGame() {
+            score = 0;
+            timeRemaining = 60;
+            isPlaying = true;
+            scoreDisplay.textContent = score;
+            timeDisplay.textContent = timeRemaining;
+            startBtn.disabled = true;
+
+            setNextTarget();
+
+            // Spawn moles every 800ms
+            gameInterval = setInterval(popUpMole, 800);
+
+            // Timer loop
+            timerInterval = setInterval(() => {
+                timeRemaining--;
+                timeDisplay.textContent = timeRemaining;
+
+                if (timeRemaining <= 0) {
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        function endGame() {
+            isPlaying = false;
+            clearInterval(gameInterval);
+            clearInterval(timerInterval);
+
+            moles.forEach(mole => mole.classList.remove('up'));
+            definitionDisplay.textContent = `Game Over! Final Score: ${score}`;
+            startBtn.disabled = false;
+        }
+
+        // Event Listeners
+        moles.forEach(mole => mole.addEventListener('click', whack));
+        startBtn.addEventListener('click', startGame);
+    </script>
+</body>
+</html>
