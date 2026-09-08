@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Vocab Air Hockey (VS AI)</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+        body {
+            background-color: #05050d;
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        #game-container {
+            position: relative;
+            box-shadow: 0 0 30px rgba(0, 243, 255, 0.2);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+            background: #080814;
+            cursor: none;
+        }
+        #ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .score-board {
+            display: flex;
+            justify-content: space-between;
+            padding: 15px 25px;
+            font-size: 24px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px currentColor;
+        }
+        .ai-score { color: #ff0055; }
+        .player-score { color: #00f3ff; }
+        
+        #game-over-modal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 5, 13, 0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        #game-over-modal.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .winner-title {
+            font-size: 36px;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            text-shadow: 0 0 20px currentColor;
+        }
+        .restart-btn {
+            padding: 12px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #05050d;
+            background: #00f3ff;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 0 15px #00f3ff;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .restart-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 25px #00f3ff;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="hockeyCanvas" width="450" height="700"></canvas>
+    
+    <div id="ui-overlay">
+        <div class="score-board">
+            <div class="ai-score">AI: <span id="aiScoreText">0</span></div>
+            <div class="player-score">PLAYER: <span id="playerScoreText">0</span></div>
+        </div>
+    </div>
+
+    <div id="game-over-modal">
+        <div id="winnerTitle" class="winner-title">PLAYER WINS!</div>
+        <button class="restart-btn" onclick="resetGame()">PLAY AGAIN</button>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById('hockeyCanvas');
+const ctx = canvas.getContext('2d');
+
+const aiScoreText = document.getElementById('aiScoreText');
+const playerScoreText = document.getElementById('playerScoreText');
+const gameOverModal = document.getElementById('game-over-modal');
+const winnerTitle = document.getElementById('winnerTitle');
+
+// --- VOCABULARY DATA ---
+const vocabList = [
+    { word: "participant", def: "A person who takes part in something" },
+    { word: "implication", def: "A possible future effect or result" },
+    { word: "motivation", def: "Reason or desire to act or do something" },
+    { word: "polished", def: "Refined, accomplished, or made smooth/shiny" },
+    { word: "outfit", def: "A set of clothes worn together for an occasion" },
+    { word: "reinforce", def: "To strengthen or support" },
+    { word: "accessible", def: "Easy to approach, reach, enter, or understand" }
+];
+
+// --- GAME STATE ---
+let playerScore = 0;
+let aiScore = 0;
+const WINNING_SCORE = 7;
+let gameOver = false;
+
+let currentVocabIndex = 0;
+let timerSeconds = 15;
+let lastTimerUpdate = Date.now();
+
+// --- GAME OBJECTS ---
+const Goal = {
+    width: 160,
+    height: 10,
+    get x() { return (canvas.width - this.width) / 2; }
+};
+
+class Mallet {
+    constructor(x, y, radius, color) {
+        this.x = x;
+        this.y = y;
+        this.vx = 0;
+        this.vy = 0;
+        this.prevX = x;
+        this.prevY = y;
+        this.radius = radius;
+        this.color = color;
+        this.mass = 5;
+    }
+
+    updateVelocities() {
+        this.vx = this.x - this.prevX;
+        this.vy = this.y - this.prevY;
+        this.prevX = this.x;
+        this.prevY = this.y;
+    }
+
+    draw() {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        ctx.shadowColor = this.color;
+        ctx.shadowBlur = 15;
+        ctx.fill();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#fff';
+        ctx.stroke();
+
+        // Inner circle pattern
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius * 0.5, 0, Math.PI * 2);
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+    }
+}
+
+class Puck {
+    constructor(x, y, radius) {
+        this.x = x;
+        this.y = y;
+        this.vx = 0;
+        this.vy = 0;
+        this.radius = radius;
+        this.mass = 1;
+        this.friction = 0.992;
+        this.word = "participant";
+        this.isCharged = false;
+        this.lastHitter = null; // 'player' or 'ai'
+    }
+
+    setRandomWord() {
+        const randObj = vocabList[Math.floor(Math.random() * vocabList.length)];
+        this.word = randObj.word;
+        this.checkCharged();
+    }
+
+    checkCharged() {
+        const targetWord = vocabList[currentVocabIndex].word;
+        this.isCharged = (this.word === targetWord);
+    }
+
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+
+        this.vx *= this.friction;
+        this.vy *= this.friction;
+
+        // Wall Collisions
+        if (this.x - this.radius < 0) {
+            this.x = this.radius;
+            this.vx *= -1;
+        } else if (this.x + this.radius > canvas.width) {
+            this.x = canvas.width - this.radius;
+            this.vx *= -1;
+        }
+
+        // Top/Bottom boundaries (excluding goal posts)
+        const inGoalX = this.x > Goal.x && this.x < Goal.x + Goal.width;
+
+        if (this.y - this.radius < 0) {
+            if (!inGoalX) {
+                this.y = this.radius;
+                this.vy *= -1;
+            }
+        } else if (this.y + this.radius > canvas.height) {
+            if (!inGoalX) {
+                this.y = canvas.height - this.radius;
+                this.vy *= -1;
+            }
+        }
+    }
+
+    draw() {
+        this.checkCharged();
+        const color = this.isCharged ? '#ffea00' : '#ffffff';
+        const glowColor = this.isCharged ? '#ffea00' : '#00f3ff';
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.shadowColor = glowColor;
+        ctx.shadowBlur = this.isCharged ? 25 : 10;
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = glowColor;
+        ctx.stroke();
+
+        // Display Word on Puck
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#000';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(this.word.toUpperCase(), this.x, this.y);
+        ctx.restore();
+    }
+}
+
+const player = new Mallet(canvas.width / 2, canvas.height - 80, 25, '#00f3ff');
+const ai = new Mallet(canvas.width / 2, 80, 25, '#ff0055');
+const puck = new Puck(canvas.width / 2, canvas.height / 2, 22);
+
+puck.setRandomWord();
+
+// --- CONTROLS ---
+canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    let mouseX = e.clientX - rect.left;
+    let mouseY = e.clientY - rect.top;
+
+    // Restrict player to bottom half
+    player.x = Math.max(player.radius, Math.min(canvas.width - player.radius, mouseX));
+    player.y = Math.max(canvas.height / 2 + player.radius, Math.min(canvas.height - player.radius, mouseY));
+});
+
+// --- PHYSICS COLLISION ---
+function handleCircleCollision(mallet, puckObj, hitterTag) {
+    let dx = puckObj.x - mallet.x;
+    let dy = puckObj.y - mallet.y;
+    let distance = Math.hypot(dx, dy);
+    let minDist = mallet.radius + puckObj.radius;
+
+    if (distance < minDist) {
+        // Normal vector
+        let nx = dx / distance;
+        let ny = dy / distance;
+
+        // Separate objects to prevent sticking
+        let overlap = minDist - distance;
+        puckObj.x += nx * overlap;
+        puckObj.y += ny * overlap;
+
+        // Relative velocity
+        let kx = mallet.vx - puckObj.vx;
+        let ky = mallet.vy - puckObj.vy;
+        let p = 2 * (nx * kx + ny * ky) / (mallet.mass + puckObj.mass);
+
+        // Apply impulse
+        puckObj.vx += p * mallet.mass * nx + mallet.vx * 0.5;
+        puckObj.vy += p * mallet.mass * ny + mallet.vy * 0.5;
+
+        // Limit Max Speed
+        let maxSpeed = 16;
+        let currentSpeed = Math.hypot(puckObj.vx, puckObj.vy);
+        if (currentSpeed > maxSpeed) {
+            puckObj.vx = (puckObj.vx / currentSpeed) * maxSpeed;
+            puckObj.vy = (puckObj.vy / currentSpeed) * maxSpeed;
+        }
+
+        // Action on hit: Change puck word
+        puckObj.setRandomWord();
+        puckObj.lastHitter = hitterTag;
+    }
+}
+
+// --- AI BEHAVIOR ---
+function updateAI() {
+    let targetX = puck.x;
+    let targetY = puck.y;
+
+    // Default defensive home position
+    let homeX = canvas.width / 2;
+    let homeY = 90;
+
+    // If puck is on AI's side, attack it
+    if (puck.y < canvas.height / 2) {
+        targetX = puck.x;
+        targetY = puck.y;
+    } else {
+        // Return to home
+        targetX = homeX;
+        targetY = homeY;
+    }
+
+    // AI movement logic (speed limit)
+    let dx = targetX - ai.x;
+    let dy = targetY - ai.y;
+    let speed = 4.5;
+
+    let dist = Math.hypot(dx, dy);
+    if (dist > 0) {
+        ai.x += (dx / dist) * Math.min(speed, dist);
+        ai.y += (dy / dist) * Math.min(speed, dist);
+    }
+
+    // Constrain AI to top half
+    ai.x = Math.max(ai.radius, Math.min(canvas.width - ai.radius, ai.x));
+    ai.y = Math.max(ai.radius, Math.min(canvas.height / 2 - ai.radius, ai.y));
+}
+
+// --- GOAL DETECT & SCORES ---
+function checkGoals() {
+    // Player Scores (Puck into AI Goal at Top)
+    if (puck.y - puck.radius <= 0 && puck.x > Goal.x && puck.x < Goal.x + Goal.width) {
+        let pts = puck.isCharged ? 3 : 1;
+        playerScore += pts;
+        playerScoreText.innerText = playerScore;
+        checkWinCondition();
+        resetPuck(canvas.height / 2 - 50);
+    }
+    
+    // AI Scores (Puck into Player Goal at Bottom)
+    if (puck.y + puck.radius >= canvas.height && puck.x > Goal.x && puck.x < Goal.x + Goal.width) {
+        let pts = puck.isCharged ? 3 : 1;
+        aiScore += pts;
+        aiScoreText.innerText = aiScore;
+        checkWinCondition();
+        resetPuck(canvas.height / 2 + 50);
+    }
+}
+
+function resetPuck(targetY) {
+    puck.x = canvas.width / 2;
+    puck.y = targetY;
+    puck.vx = 0;
+    puck.vy = 0;
+    puck.setRandomWord();
+}
+
+function checkWinCondition() {
+    if (playerScore >= WINNING_SCORE || aiScore >= WINNING_SCORE) {
+        gameOver = true;
+        if (playerScore >= WINNING_SCORE) {
+            winnerTitle.innerText = "PLAYER WINS!";
+            winnerTitle.style.color = "#00f3ff";
+        } else {
+            winnerTitle.innerText = "AI WINS!";
+            winnerTitle.style.color = "#ff0055";
+        }
+        gameOverModal.classList.add('active');
+    }
+}
+
+function resetGame() {
+    playerScore = 0;
+    aiScore = 0;
+    playerScoreText.innerText = "0";
+    aiScoreText.innerText = "0";
+    gameOver = false;
+    currentVocabIndex = 0;
+    timerSeconds = 15;
+    lastTimerUpdate = Date.now();
+    gameOverModal.classList.remove('active');
+    resetPuck(canvas.height / 2);
+}
+
+// --- DRAWING RINK & DYNAMIC CENTER LINE ---
+function drawRink() {
+    // Outer Border
+    ctx.strokeStyle = '#00f3ff';
+    ctx.lineWidth = 4;
+    ctx.shadowColor = '#00f3ff';
+    ctx.shadowBlur = 10;
+    ctx.strokeRect(0, 0, canvas.width, canvas.height);
+
+    // Goals
+    ctx.fillStyle = 'rgba(255, 0, 85, 0.3)';
+    ctx.fillRect(Goal.x, 0, Goal.width, Goal.height);
+    ctx.fillStyle = 'rgba(0, 243, 255, 0.3)';
+    ctx.fillRect(Goal.x, canvas.height - Goal.height, Goal.width, Goal.height);
+
+    // Dynamic Projection Projection Banner (Center)
+    ctx.save();
+    let now = Date.now();
+    if (now - lastTimerUpdate >= 1000 && !gameOver) {
+        timerSeconds--;
+        lastTimerUpdate = now;
+        if (timerSeconds <= 0) {
+            timerSeconds = 15;
+            currentVocabIndex = (currentVocabIndex + 1) % vocabList.length;
+        }
+    }
+
+    // Center Display Area
+    ctx.fillStyle = 'rgba(15, 20, 40, 0.85)';
+    ctx.fillRect(10, canvas.height / 2 - 35, canvas.width - 20, 70);
+    ctx.strokeStyle = '#ffea00';
+    ctx.lineWidth = 2;
+    ctx.shadowColor = '#ffea00';
+    ctx.shadowBlur = 8;
+    ctx.strokeRect(10, canvas.height / 2 - 35, canvas.width - 20, 70);
+
+    // Render Query Text
+    const currentVocab = vocabList[currentVocabIndex];
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#ffea00';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`TARGET DEFINITION (${timerSeconds}s):`, canvas.width / 2, canvas.height / 2 - 15);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'italic 13px sans-serif';
+    ctx.fillText(`"${currentVocab.def}"`, canvas.width / 2, canvas.height / 2 + 12);
+    ctx.restore();
+}
+
+// --- MAIN GAME LOOP ---
+function gameLoop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (!gameOver) {
+        // Updates
+        player.updateVelocities();
+        updateAI();
+        ai.updateVelocities();
+
+        puck.update();
+
+        handleCircleCollision(player, puck, 'player');
+        handleCircleCollision(ai, puck, 'ai');
+
+        checkGoals();
+    }
+
+    // Render
+    drawRink();
+    player.draw();
+    ai.draw();
+    puck.draw();
+
+    requestAnimationFrame(gameLoop);
+}
+
+// Start
+gameLoop();
+</script>
+</body>
+</html>
+
