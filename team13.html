@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Split-Screen Battle: Vocabulary Game</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+        }
+
+        body {
+            background-color: #1a1a1a;
+            color: #fff;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Top Bar / Timer Header */
+        #header {
+            height: 60px;
+            background-color: #111;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 30px;
+            border-bottom: 2px solid #333;
+            z-index: 10;
+        }
+
+        .header-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #aaa;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        #timer {
+            font-size: 2rem;
+            font-weight: 800;
+            color: #ffcc00;
+            background: #222;
+            padding: 2px 20px;
+            border-radius: 20px;
+            border: 2px solid #ffcc00;
+        }
+
+        .question-tracker {
+            font-size: 1.1rem;
+            color: #aaa;
+            font-weight: 600;
+        }
+
+        /* Game Arena */
+        #game-container {
+            display: flex;
+            flex: 1;
+            width: 100vw;
+            position: relative;
+        }
+
+        .player-side {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            position: relative;
+            transition: background-color 0.2s;
+        }
+
+        /* Divider line */
+        #p1-side {
+            background-color: #1e1012;
+            border-right: 3px solid #ff3344;
+        }
+
+        #p2-side {
+            background-color: #0f1e14;
+            border-left: 3px solid #00e676;
+        }
+
+        /* Score Display */
+        .player-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .player-name {
+            font-size: 1.5rem;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        #p1-side .player-name { color: #ff5252; }
+        #p2-side .player-name { color: #69f0ae; }
+
+        .score-board {
+            font-size: 1.8rem;
+            font-weight: bold;
+            background: rgba(0,0,0,0.4);
+            padding: 5px 15px;
+            border-radius: 8px;
+        }
+
+        /* Definition Card */
+        .card {
+            background: #2a2a2a;
+            border-radius: 12px;
+            padding: 20px;
+            min-height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-size: 1.25rem;
+            line-height: 1.4;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            border: 1px solid #444;
+        }
+
+        /* Quadrant Buttons Grid */
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 15px;
+            flex: 1;
+        }
+
+        .option-btn {
+            background: #333;
+            border: 2px solid #555;
+            border-radius: 10px;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            font-weight: bold;
+            position: relative;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            text-transform: capitalize;
+        }
+
+        .key-hint {
+            position: absolute;
+            top: 8px;
+            left: 10px;
+            font-size: 0.85rem;
+            padding: 2px 6px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 4px;
+            color: #ddd;
+            font-weight: normal;
+        }
+
+        #p1-side .option-btn { border-color: #77222a; }
+        #p2-side .option-btn { border-color: #1b5e3a; }
+
+        /* Lockout / Penalty Visuals */
+        .locked-out {
+            opacity: 0.25;
+            pointer-events: none;
+        }
+
+        .lockout-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255, 0, 0, 0.25);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 2rem;
+            font-weight: bold;
+            color: #ff3333;
+            z-index: 5;
+            border-radius: 10px;
+            backdrop-filter: blur(2px);
+        }
+
+        .flash-error {
+            animation: flashRed 0.4s ease;
+        }
+
+        @keyframes flashRed {
+            0% { background-color: rgba(255, 0, 0, 0.6); }
+            100% { background-color: transparent; }
+        }
+
+        /* Game Over Screen */
+        #game-over-modal {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 20;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        #game-over-modal h1 {
+            font-size: 4rem;
+            color: #ffcc00;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(255,204,0,0.5);
+        }
+
+        #winner-declaration {
+            font-size: 2rem;
+            margin-bottom: 30px;
+            font-weight: 600;
+        }
+
+        .final-scores {
+            display: flex;
+            gap: 50px;
+            margin-bottom: 40px;
+        }
+
+        .final-score-box {
+            padding: 20px 40px;
+            border-radius: 12px;
+            background: #222;
+            font-size: 1.5rem;
+        }
+
+        .final-score-box.p1 { border: 2px solid #ff3344; color: #ff5252; }
+        .final-score-box.p2 { border: 2px solid #00e676; color: #69f0ae; }
+
+        .final-score-box span {
+            display: block;
+            font-size: 3rem;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+
+        #rematch-btn {
+            background: #ffcc00;
+            color: #111;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: transform 0.1s, background 0.2s;
+            box-shadow: 0 0 15px rgba(255,204,0,0.4);
+        }
+
+        #rematch-btn:hover {
+            transform: scale(1.05);
+            background: #ffe066;
+        }
+
+        #rematch-btn:active {
+            transform: scale(0.98);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header Section -->
+    <div id="header">
+        <div class="header-title">Split-Screen Vocabulary Battle</div>
+        <div id="timer">60</div>
+        <div class="question-tracker">Question <span id="q-num">1</span>/10</div>
+    </div>
+
+    <!-- Game Arena -->
+    <div id="game-container">
+        
+        <!-- Player 1 Side (Left - Red) -->
+        <div class="player-side" id="p1-side">
+            <div class="player-header">
+                <div class="player-name">Player 1</div>
+                <div class="score-board" id="p1-score">0</div>
+            </div>
+            <div class="card" id="p1-card">Loading question...</div>
+            <div class="options-grid" id="p1-grid">
+                <div class="option-btn" id="p1-btn-0"><span class="key-hint">Q</span><span class="label"></span></div>
+                <div class="option-btn" id="p1-btn-1"><span class="key-hint">W</span><span class="label"></span></div>
+                <div class="option-btn" id="p1-btn-2"><span class="key-hint">A</span><span class="label"></span></div>
+                <div class="option-btn" id="p1-btn-3"><span class="key-hint">S</span><span class="label"></span></div>
+            </div>
+            <div id="p1-lockout" class="lockout-overlay" style="display: none;">
+                LOCKED OUT!
+            </div>
+        </div>
+
+        <!-- Player 2 Side (Right - Green) -->
+        <div class="player-side" id="p2-side">
+            <div class="player-header">
+                <div class="player-name">Player 2</div>
+                <div class="score-board" id="p2-score">0</div>
+            </div>
+            <div class="card" id="p2-card">Loading question...</div>
+            <div class="options-grid" id="p2-grid">
+                <div class="option-btn" id="p2-btn-0"><span class="key-hint">I</span><span class="label"></span></div>
+                <div class="option-btn" id="p2-btn-1"><span class="key-hint">O</span><span class="label"></span></div>
+                <div class="option-btn" id="p2-btn-2"><span class="key-hint">K</span><span class="label"></span></div>
+                <div class="option-btn" id="p2-btn-3"><span class="key-hint">L</span><span class="label"></span></div>
+            </div>
+            <div id="p2-lockout" class="lockout-overlay" style="display: none;">
+                LOCKED OUT!
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="game-over-modal">
+        <h1>MISSION COMPLETE</h1>
+        <div id="winner-declaration">Player 1 Wins!</div>
+        <div class="final-scores">
+            <div class="final-score-box p1">
+                Player 1
+                <span id="p1-final-score">0</span>
+            </div>
+            <div class="final-score-box p2">
+                Player 2
+                <span id="p2-final-score">0</span>
+            </div>
+        </div>
+        <button id="rematch-btn" onclick="resetGame()">Rematch</button>
+    </div>
+
+    <script>
+        // 10 B1 Vocabulary words extracted/aligned with provided text context
+        const vocabularyPool = [
+            { word: "luxurious", def: "Extremely comfortable, elegant, or enjoyable, especially in a way that involves great expense." },
+            { word: "innovation", def: "A new method, idea, product, or a new way of doing something." },
+            { word: "surgery", def: "Medical treatment in which a doctor cuts open a patient's body to repair or remove damaged parts." },
+            { word: "terrifying", def: "Extremely scary, frightening, or causing severe fear." },
+            { word: "physically", def: "In a manner relating to the body rather than the mind or spirit." },
+            { word: "procedure", def: "An established or official way of doing something, especially a series of actions in medical care." },
+            { word: "agony", def: "Extreme physical or mental suffering and pain." },
+            { word: "massive", def: "Exceptionally large, heavy, powerful, or severe." },
+            { word: "vomit", def: "To eject matter from the stomach through the mouth due to illness or bad smell." },
+            { word: "physician", def: "A medical doctor, especially one who specializes in non-surgical diagnosis and treatment." }
+        ];
+
+        // Controls / Key mappings
+        const p1Keys = { 'q': 0, 'w': 1, 'a': 2, 's': 3 };
+        const p2Keys = { 'i': 0, 'o': 1, 'k': 2, 'l': 3 };
+
+        // Game State Variables
+        let currentQuestionIndex = 0;
+        let questionsSequence = [];
+        let p1Score = 0;
+        let p2Score = 0;
+        let p1Locked = false;
+        let p2Locked = false;
+        let timeLeft = 60;
+        let timerInterval = null;
+        let gameActive = false;
+
+        // Current round setup
+        let currentCorrectIndex = -1;
+
+        function shuffleArray(array) {
+            let arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        function initGame() {
+            p1Score = 0;
+            p2Score = 0;
+            currentQuestionIndex = 0;
+            timeLeft = 60;
+            gameActive = true;
+
+            document.getElementById("p1-score").textContent = "0";
+            document.getElementById("p2-score").textContent = "0";
+            document.getElementById("timer").textContent = "60";
+            document.getElementById("game-over-modal").style.display = "none";
+
+            // Prepare 10 questions shuffled
+            questionsSequence = shuffleArray(vocabularyPool).slice(0, 10);
+
+            // Start countdown timer
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                if (!gameActive) return;
+                timeLeft--;
+                document.getElementById("timer").textContent = timeLeft;
+                if (timeLeft <= 0) {
+                    endGame();
+                }
+            }, 1000);
+
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            if (currentQuestionIndex >= 10) {
+                endGame();
+                return;
+            }
+
+            // Reset Round Lockouts
+            p1Locked = false;
+            p2Locked = false;
+            document.getElementById("p1-lockout").style.display = "none";
+            document.getElementById("p2-lockout").style.display = "none";
+            document.getElementById("p1-side").classList.remove("locked-out");
+            document.getElementById("p2-side").classList.remove("locked-out");
+
+            // Update Header Tracker
+            document.getElementById("q-num").textContent = currentQuestionIndex + 1;
+
+            const targetItem = questionsSequence[currentQuestionIndex];
+
+            // Select 3 incorrect options
+            let distractors = vocabularyPool
+                .filter(item => item.word !== targetItem.word)
+                .map(item => item.word);
+            distractors = shuffleArray(distractors).slice(0, 3);
+
+            // Randomize position of correct option (0 to 3)
+            currentCorrectIndex = Math.floor(Math.random() * 4);
+            let options = [];
+            let distractorIdx = 0;
+
+            for (let i = 0; i < 4; i++) {
+                if (i === currentCorrectIndex) {
+                    options.push(targetItem.word);
+                } else {
+                    options.push(distractors[distractorIdx++]);
+                }
+            }
+
+            // Display definition to both screens
+            document.getElementById("p1-card").textContent = targetItem.def;
+            document.getElementById("p2-card").textContent = targetItem.def;
+
+            // Render options to buttons
+            for (let i = 0; i < 4; i++) {
+                document.querySelector(`#p1-btn-${i} .label`).textContent = options[i];
+                document.querySelector(`#p2-btn-${i} .label`).textContent = options[i];
+            }
+        }
+
+        function handleInput(player, selectedIndex) {
+            if (!gameActive) return;
+
+            if (player === 1) {
+                if (p1Locked) return;
+                if (selectedIndex === currentCorrectIndex) {
+                    // P1 Correct
+                    p1Score++;
+                    document.getElementById("p1-score").textContent = p1Score;
+                    advanceNextRound();
+                } else {
+                    // P1 Incorrect -> Lockout
+                    p1Locked = true;
+                    flashPenalty(document.getElementById("p1-side"));
+                    document.getElementById("p1-lockout").style.display = "flex";
+                    document.getElementById("p1-side").classList.add("locked-out");
+                    checkBothLocked();
+                }
+            } else if (player === 2) {
+                if (p2Locked) return;
+                if (selectedIndex === currentCorrectIndex) {
+                    // P2 Correct
+                    p2Score++;
+                    document.getElementById("p2-score").textContent = p2Score;
+                    advanceNextRound();
+                } else {
+                    // P2 Incorrect -> Lockout
+                    p2Locked = true;
+                    flashPenalty(document.getElementById("p2-side"));
+                    document.getElementById("p2-lockout").style.display = "flex";
+                    document.getElementById("p2-side").classList.add("locked-out");
+                    checkBothLocked();
+                }
+            }
+        }
+
+        function flashPenalty(element) {
+            element.classList.add("flash-error");
+            setTimeout(() => {
+                element.classList.remove("flash-error");
+            }, 400);
+        }
+
+        function checkBothLocked() {
+            // If both players guessed wrong, move to next round without points
+            if (p1Locked && p2Locked) {
+                setTimeout(() => {
+                    advanceNextRound();
+                }, 800);
+            }
+        }
+
+        function advanceNextRound() {
+            currentQuestionIndex++;
+            loadQuestion();
+        }
+
+        function endGame() {
+            gameActive = false;
+            clearInterval(timerInterval);
+
+            const modal = document.getElementById("game-over-modal");
+            const winnerText = document.getElementById("winner-declaration");
+
+            document.getElementById("p1-final-score").textContent = p1Score;
+            document.getElementById("p2-final-score").textContent = p2Score;
+
+            if (p1Score > p2Score) {
+                winnerText.textContent = "Player 1 (Red) Wins!";
+                winnerText.style.color = "#ff5252";
+            } else if (p2Score > p1Score) {
+                winnerText.textContent = "Player 2 (Green) Wins!";
+                winnerText.style.color = "#69f0ae";
+            } else {
+                winnerText.textContent = "It's a Tie!";
+                winnerText.style.color = "#ffcc00";
+            }
+
+            modal.style.display = "flex";
+        }
+
+        function resetGame() {
+            initGame();
+        }
+
+        // Global Keyboard Event Listener
+        window.addEventListener("keydown", (e) => {
+            const key = e.key.toLowerCase();
+
+            if (key in p1Keys) {
+                handleInput(1, p1Keys[key]);
+            } else if (key in p2Keys) {
+                handleInput(2, p2Keys[key]);
+            }
+        });
+
+        // Initialize on load
+        window.onload = initGame;
+    </script>
+</body>
+</html>
