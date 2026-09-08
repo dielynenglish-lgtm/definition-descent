@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocab Galaga - The Intercept Shield</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            background-color: #0b0d19;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            box-shadow: 0 0 30px rgba(0, 234, 255, 0.3);
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid #1f2d4d;
+        }
+        canvas {
+            background: radial-gradient(circle at center, #11182d 0%, #05070e 100%);
+            display: block;
+        }
+        #ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .ui-box {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(0, 234, 255, 0.3);
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+        #prompt-container {
+            position: absolute;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 85%;
+            background: rgba(13, 25, 48, 0.9);
+            border: 2px solid #00eaff;
+            border-radius: 8px;
+            padding: 12px 20px;
+            text-align: center;
+            box-shadow: 0 0 15px rgba(0, 234, 255, 0.4);
+            z-index: 10;
+        }
+        #prompt-label {
+            font-size: 12px;
+            color: #00eaff;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 4px;
+        }
+        #definition-display {
+            font-size: 18px;
+            font-weight: 600;
+            color: #ffffff;
+            line-height: 1.3;
+        }
+        .screen-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 7, 14, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            backdrop-filter: blur(4px);
+        }
+        .screen-title {
+            font-size: 42px;
+            color: #00eaff;
+            text-shadow: 0 0 15px rgba(0, 234, 255, 0.6);
+            margin-bottom: 10px;
+            font-weight: 800;
+            letter-spacing: 2px;
+        }
+        .screen-subtitle {
+            font-size: 16px;
+            color: #94a3b8;
+            margin-bottom: 30px;
+            text-align: center;
+            max-width: 500px;
+            line-height: 1.5;
+        }
+        .btn {
+            background: linear-gradient(135deg, #00eaff 0%, #0077ff 100%);
+            color: #000;
+            font-weight: bold;
+            font-size: 18px;
+            padding: 12px 36px;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(0, 234, 255, 0.5);
+            transition: all 0.2s ease;
+        }
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(0, 234, 255, 0.8);
+        }
+        #controls-hint {
+            margin-top: 25px;
+            font-size: 13px;
+            color: #64748b;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="ui-overlay">
+        <div class="ui-box" id="score-display">SCORE: 0</div>
+        <div class="ui-box" id="lives-display">LIVES: ❤️ ❤️ ❤️</div>
+    </div>
+
+    <div id="prompt-container">
+        <div id="prompt-label">Target Definition</div>
+        <div id="definition-display">Loading definition...</div>
+    </div>
+
+    <!-- Start Screen -->
+    <div id="start-screen" class="screen-overlay">
+        <h1 class="screen-title">VOCAB GALAGA</h1>
+        <p class="screen-subtitle">Intercept the alien ship carrying the correct vocabulary word matching the target definition at the top of the screen!</p>
+        <button class="btn" id="start-btn">START GAME</button>
+        <div id="controls-hint">
+            <strong>Controls:</strong> Left / Right Arrow Keys to Move &bull; Spacebar to Shoot
+        </div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="game-over-screen" class="screen-overlay" style="display: none;">
+        <h1 class="screen-title" style="color: #ff4757; text-shadow: 0 0 15px rgba(255, 71, 87, 0.6);">GAME OVER</h1>
+        <p class="screen-subtitle" id="final-score-text">Your Final Score: 0</p>
+        <button class="btn" id="restart-btn">PLAY AGAIN</button>
+    </div>
+
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+</div>
+
+<script>
+const vocabData = [
+    { word: "imaginative", def: "Having or showing creativity or original thinking." },
+    { word: "artistic", def: "Having or showing natural creative skill or aesthetic sensitivity." },
+    { word: "atmosphere", def: "The pervading tone or mood of a place, situation, or work of art." },
+    { word: "gallery", def: "A room or building for the display or sale of works of art." },
+    { word: "architecture", def: "The art or practice of designing and constructing buildings." },
+    { word: "professional", def: "Relating to or belonging to a profession; competent or skilled." },
+    { word: "creative", def: "Relating to or involving the imagination or original ideas." },
+    { word: "exhibition", def: "A public display of works of art or items of interest." },
+    { word: "inspiration", def: "The process of being mentally stimulated to do or feel something creative." },
+    { word: "masterpiece", def: "A work of outstanding artistry, skill, or workmanship." }
+];
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// UI Elements
+const scoreDisplay = document.getElementById('score-display');
+const livesDisplay = document.getElementById('lives-display');
+const definitionDisplay = document.getElementById('definition-display');
+const startScreen = document.getElementById('start-screen');
+const gameOverScreen = document.getElementById('game-over-screen');
+const finalScoreText = document.getElementById('final-score-text');
+const startBtn = document.getElementById('start-btn');
+const restartBtn = document.getElementById('restart-btn');
+
+// Game State Variables
+let gameState = 'START';
+let score = 0;
+let lives = 3;
+let currentTargetIndex = -1;
+
+// Controls
+const keys = {
+    left: false,
+    right: false,
+    space: false,
+    spacePressed: false
+};
+
+window.addEventListener('keydown', (e) => {
+    if (e.code === 'ArrowLeft') keys.left = true;
+    if (e.code === 'ArrowRight') keys.right = true;
+    if (e.code === 'Space') {
+        if (!keys.space) keys.spacePressed = true;
+        keys.space = true;
+        e.preventDefault();
+    }
+});
+
+window.addEventListener('keyup', (e) => {
+    if (e.code === 'ArrowLeft') keys.left = false;
+    if (e.code === 'ArrowRight') keys.right = false;
+    if (e.code === 'Space') keys.space = false;
+});
+
+// Player Object with Smooth Movement Physics
+class Player {
+    constructor() {
+        this.width = 44;
+        this.height = 40;
+        this.x = canvas.width / 2 - this.width / 2;
+        this.y = canvas.height - 60;
+        this.vx = 0;
+        this.maxSpeed = 7;
+        this.acceleration = 0.8;
+        this.friction = 0.85;
+    }
+
+    update() {
+        if (keys.left) {
+            this.vx -= this.acceleration;
+        }
+        if (keys.right) {
+            this.vx += this.acceleration;
+        }
+
+        // Apply friction
+        this.vx *= this.friction;
+
+        // Cap speed
+        if (this.vx > this.maxSpeed) this.vx = this.maxSpeed;
+        if (this.vx < -this.maxSpeed) this.vx = -this.maxSpeed;
+
+        this.x += this.vx;
+
+        // Boundaries
+        if (this.x < 10) {
+            this.x = 10;
+            this.vx = 0;
+        }
+        if (this.x + this.width > canvas.width - 10) {
+            this.x = canvas.width - 10 - this.width;
+            this.vx = 0;
+        }
+    }
+
+    draw() {
+        ctx.save();
+        ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
+
+        // Tilt effect based on velocity
+        ctx.rotate(this.vx * 0.03);
+
+        // Thruster flame
+        ctx.beginPath();
+        ctx.moveTo(-8, 15);
+        ctx.lineTo(0, 25 + Math.random() * 8);
+        ctx.lineTo(8, 15);
+        ctx.fillStyle = '#00eaff';
+        ctx.shadowColor = '#00eaff';
+        ctx.shadowBlur = 10;
+        ctx.fill();
+
+        // Ship Body
+        ctx.beginPath();
+        ctx.moveTo(0, -20);
+        ctx.lineTo(22, 15);
+        ctx.lineTo(10, 10);
+        ctx.lineTo(0, 15);
+        ctx.lineTo(-10, 10);
+        ctx.lineTo(-22, 15);
+        ctx.closePath();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = '#00eaff';
+        ctx.shadowBlur = 8;
+        ctx.fill();
+
+        // Cockpit
+        ctx.beginPath();
+        ctx.arc(0, -2, 5, 0, Math.PI * 2);
+        ctx.fillStyle = '#00eaff';
+        ctx.fill();
+
+        ctx.restore();
+    }
+}
+
+// Laser Bullet Class
+class Bullet {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.speed = 12;
+        this.radius = 3;
+        this.markedForDeletion = false;
+    }
+
+    update() {
+        this.y -= this.speed;
+        if (this.y < 0) this.markedForDeletion = true;
+    }
+
+    draw() {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = '#00ffff';
+        ctx.shadowColor = '#00ffff';
+        ctx.shadowBlur = 10;
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.rect(this.x - 2, this.y, 4, 12);
+        ctx.fillStyle = 'rgba(0, 255, 255, 0.5)';
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+// Alien Ship Class
+class Alien {
+    constructor(x, y, word, isTarget) {
+        this.x = x;
+        this.y = y;
+        this.width = 140;
+        this.height = 45;
+        this.word = word;
+        this.isTarget = isTarget;
+
+        // Hover animation
+        this.baseY = y;
+        this.hoverOffset = Math.random() * Math.PI * 2;
+        this.hoverSpeed = 0.04;
+        this.hoverAmplitude = 8;
+
+        // Dive bombing state
+        this.isDiving = false;
+        this.vx = 0;
+        this.vy = 0;
+        this.markedForDeletion = false;
+    }
+
+    startDive(targetX, targetY) {
+        this.isDiving = true;
+        const dx = targetX - this.x;
+        const dy = targetY - this.y;
+        const dist = Math.hypot(dx, dy);
+        const speed = 7;
+        this.vx = (dx / dist) * speed;
+        this.vy = (dy / dist) * speed;
+    }
+
+    update(player) {
+        if (!this.isDiving) {
+            this.hoverOffset += this.hoverSpeed;
+            this.y = this.baseY + Math.sin(this.hoverOffset) * this.hoverAmplitude;
+        } else {
+            this.x += this.vx;
+            this.y += this.vy;
+
+            // Check collision with player during dive
+            const dist = Math.hypot((this.x + this.width/2) - (player.x + player.width/2), (this.y + this.height/2) - (player.y + player.height/2));
+            if (dist < 45) {
+                handlePlayerHit();
+                this.markedForDeletion = true;
+            }
+
+            // Remove if off screen
+            if (this.y > canvas.height + 50 || this.x < -150 || this.x > canvas.width + 150) {
+                this.markedForDeletion = true;
+            }
+        }
+    }
+
+    draw() {
+        ctx.save();
+        ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
+
+        // Alien Body styling
+        const bodyColor = this.isDiving ? '#ff4757' : '#2ed573';
+        const glowColor = this.isDiving ? 'rgba(255, 71, 87, 0.8)' : 'rgba(46, 213, 115, 0.6)';
+
+        ctx.shadowColor = glowColor;
+        ctx.shadowBlur = 12;
+
+        // Outer Hull Box
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+        ctx.strokeStyle = bodyColor;
+        ctx.lineWidth = 2;
+
+        ctx.beginPath();
+        ctx.roundRect(-this.width / 2, -this.height / 2, this.width, this.height, 8);
+        ctx.fill();
+        ctx.stroke();
+
+        // Top decorative alien lights
+        ctx.fillStyle = bodyColor;
+        ctx.beginPath();
+        ctx.arc(-this.width/2 + 15, -this.height/2 + 8, 3, 0, Math.PI*2);
+        ctx.arc(this.width/2 - 15, -this.height/2 + 8, 3, 0, Math.PI*2);
+        ctx.fill();
+
+        // Vocabulary Word Text on Hull
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 14px "Segoe UI", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(this.word, 0, 2);
+
+        ctx.restore();
+    }
+}
+
+// Particle system for explosions
+class Particle {
+    constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * 8;
+        this.vy = (Math.random() - 0.5) * 8;
+        this.radius = Math.random() * 3 + 1;
+        this.color = color;
+        this.alpha = 1;
+        this.decay = Math.random() * 0.03 + 0.015;
+    }
+
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.alpha -= this.decay;
+    }
+
+    draw() {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, this.alpha);
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+// Global Game Variables
+let player;
+let bullets = [];
+let aliens = [];
+let particles = [];
+let stars = [];
+
+// Initialize Starfield Background
+for (let i = 0; i < 70; i++) {
+    stars.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        size: Math.random() * 2,
+        speed: Math.random() * 0.8 + 0.2
+    });
+}
+
+function createExplosion(x, y, color = '#00eaff') {
+    for (let i = 0; i < 25; i++) {
+        particles.push(new Particle(x, y, color));
+    }
+}
+
+function spawnWave() {
+    aliens = [];
+    
+    // Pick target word
+    currentTargetIndex = Math.floor(Math.random() * vocabData.length);
+    const targetItem = vocabData[currentTargetIndex];
+    definitionDisplay.textContent = `"${targetItem.def}"`;
+
+    // Pick 3 distractor words
+    let choices = [targetItem];
+    let remaining = vocabData.filter((_, idx) => idx !== currentTargetIndex);
+    
+    // Shuffle remaining and pick 3
+    remaining.sort(() => Math.random() - 0.5);
+    choices = choices.concat(remaining.slice(0, 3));
+
+    // Shuffle choices array so correct word is in random position
+    choices.sort(() => Math.random() - 0.5);
+
+    // Position 4 aliens across the screen
+    const spacing = 180;
+    const startX = (canvas.width - (spacing * 3 + 140)) / 2;
+    const yPos = 180;
+
+    choices.forEach((item, index) => {
+        const x = startX + index * spacing;
+        const isTarget = item.word === targetItem.word;
+        aliens.push(new Alien(x, yPos, item.word, isTarget));
+    });
+}
+
+function handlePlayerHit() {
+    lives--;
+    updateUI();
+    createExplosion(player.x + player.width/2, player.y + player.height/2, '#ff4757');
+
+    if (lives <= 0) {
+        gameOver();
+    }
+}
+
+function updateUI() {
+    scoreDisplay.textContent = `SCORE: ${score}`;
+    let hearts = '';
+    for (let i = 0; i < lives; i++) hearts += '❤️ ';
+    livesDisplay.textContent = `LIVES: ${hearts || 'NONE'}`;
+}
+
+function startGame() {
+    score = 0;
+    lives = 3;
+    bullets = [];
+    particles = [];
+    player = new Player();
+    updateUI();
+    
+    startScreen.style.display = 'none';
+    gameOverScreen.style.display = 'none';
+    gameState = 'PLAYING';
+    
+    spawnWave();
+}
+
+function gameOver() {
+    gameState = 'GAMEOVER';
+    finalScoreText.textContent = `Your Final Score: ${score}`;
+    gameOverScreen.style.display = 'flex';
+}
+
+function update() {
+    // Starfield animation
+    stars.forEach(star => {
+        star.y += star.speed;
+        if (star.y > canvas.height) {
+            star.y = 0;
+            star.x = Math.random() * canvas.width;
+        }
+    });
+
+    if (gameState !== 'PLAYING') return;
+
+    player.update();
+
+    // Shooting mechanics
+    if (keys.spacePressed) {
+        bullets.push(new Bullet(player.x + player.width / 2, player.y));
+        keys.spacePressed = false;
+    }
+
+    // Bullets update & collision
+    bullets.forEach(bullet => bullet.update());
+    bullets = bullets.filter(b => !b.markedForDeletion);
+
+    // Particles update
+    particles.forEach(p => p.update());
+    particles = particles.filter(p => p.alpha > 0);
+
+    // Aliens update & collision detection
+    let waveCleared = false;
+
+    aliens.forEach(alien => {
+        alien.update(player);
+
+        // Check bullet hit on alien
+        bullets.forEach(bullet => {
+            if (!bullet.markedForDeletion && !alien.markedForDeletion) {
+                if (
+                    bullet.x > alien.x &&
+                    bullet.x < alien.x + alien.width &&
+                    bullet.y > alien.y &&
+                    bullet.y < alien.y + alien.height
+                ) {
+                    bullet.markedForDeletion = true;
+
+                    if (alien.isTarget) {
+                        // Correct Shot!
+                        score += 100;
+                        createExplosion(alien.x + alien.width / 2, alien.y + alien.height / 2, '#2ed573');
+                        waveCleared = true;
+                    } else {
+                        // Incorrect Shot! Aggressive Dive Bomb!
+                        createExplosion(alien.x + alien.width / 2, alien.y + alien.height / 2, '#ff4757');
+                        alien.startDive(player.x + player.width/2, player.y + player.height/2);
+                    }
+                }
+            }
+        });
+    });
+
+    // Remove deleted diving aliens
+    aliens = aliens.filter(a => !a.markedForDeletion);
+
+    // If correct alien was shot, spawn next wave
+    if (waveCleared) {
+        updateUI();
+        spawnWave();
+    }
+}
+
+function render() {
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw Background Stars
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    stars.forEach(star => {
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+        ctx.fill();
+    });
+
+    if (gameState === 'PLAYING' || gameState === 'GAMEOVER') {
+        player.draw();
+        bullets.forEach(b => b.draw());
+        aliens.forEach(a => a.draw());
+        particles.forEach(p => p.draw());
+    }
+}
+
+function gameLoop() {
+    update();
+    render();
+    requestAnimationFrame(gameLoop);
+}
+
+startBtn.addEventListener('click', startGame);
+restartBtn.addEventListener('click', startGame);
+
+// Start Animation Loop
+requestAnimationFrame(gameLoop);
+</script>
+
+</body>
+</html>
