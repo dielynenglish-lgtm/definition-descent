@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Vocab Galaga</title>
+  <style>
+    body {
+      background-color: #0b0c10;
+      color: #ffffff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 0;
+      padding: 15px;
+    }
+    #game-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    #definition-box {
+      background: #1f2833;
+      border: 2px solid #66fcf1;
+      border-radius: 8px;
+      padding: 12px 20px;
+      width: 600px;
+      text-align: center;
+      margin-bottom: 10px;
+      box-sizing: border-box;
+    }
+    #definition-text {
+      font-size: 1.1rem;
+      color: #45f3c4;
+      font-weight: bold;
+      margin-top: 5px;
+    }
+    #info-panel {
+      display: flex;
+      justify-content: space-between;
+      width: 600px;
+      margin-bottom: 8px;
+      font-size: 1.2rem;
+      font-weight: bold;
+    }
+    .lives-icon {
+      color: #ff0055;
+      font-size: 1.3rem;
+    }
+    canvas {
+      border: 3px solid #1f2833;
+      background-color: #000005;
+      box-shadow: 0 0 20px rgba(102, 252, 241, 0.2);
+    }
+  </style>
+</head>
+<body>
+
+  <div id="game-container">
+    <div id="definition-box">
+      <div style="font-size: 0.85rem; color: #c5c6c7; letter-spacing: 1px;">TARGET DEFINITION:</div>
+      <div id="definition-text">Loading...</div>
+    </div>
+
+    <div id="info-panel">
+      <div>Score: <span id="score">0</span></div>
+      <div>Lives: <span id="lives" class="lives-icon">❤️❤️❤️</span></div>
+    </div>
+
+    <canvas id="galagaCanvas" width="600" height="600"></canvas>
+  </div>
+
+  <script>
+    // --- 1. VOCABULARY DATASET (10 WORDS) ---
+    const vocabList = [
+      { word: "reservation", def: "An arrangement to secure a seat, table, or room in advance." },
+      { word: "preference", def: "A greater liking for one alternative over another." },
+      { word: "secure", def: "To gain possession of, protect, or make safe from danger." },
+      { word: "session", def: "A period devoted to a particular activity or purpose." },
+      { word: "massage", def: "Rubbing and kneading of muscles and joints to relieve tension." },
+      { word: "promptly", def: "Done without delay; immediately or at the appointed time." },
+      { word: "opening", def: "An available position, vacant time slot, or gap." },
+      { word: "appointment", def: "An arrangement to meet at a particular time and place." },
+      { word: "confirm", def: "To establish the truth, correctness, or validity of something." },
+      { word: "schedule", def: "A plan that gives expected times for actions or events." }
+    ];
+
+    // --- 2. GAME SETUP & CANVASES ---
+    const canvas = document.getElementById("galagaCanvas");
+    const ctx = canvas.getContext("2d");
+
+    let score = 0;
+    let lives = 3;
+    let activeTarget = null;
+    let gameOver = false;
+
+    // Keys State
+    const keys = {
+      Left: false,
+      Right: false,
+      Space: false,
+      spacePressed: false // Prevent continuous fire stream
+    };
+
+    // --- 3. ENTITIES & PHYSICS ---
+    const player = {
+      x: canvas.width / 2 - 20,
+      y: canvas.height - 50,
+      width: 40,
+      height: 25,
+      vx: 0,
+      speed: 7,
+      friction: 0.88
+    };
+
+    let projectiles = [];
+    let aliens = [];
+
+    // Background Stars
+    const stars = Array.from({ length: 50 }, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      size: Math.random() * 2,
+      speed: Math.random() * 1.5 + 0.5
+    }));
+
+    // User Controls
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowLeft") keys.Left = true;
+      if (e.key === "ArrowRight") keys.Right = true;
+      if (e.key === " " || e.code === "Space") {
+        keys.Space = true;
+      }
+    });
+
+    window.addEventListener("keyup", (e) => {
+      if (e.key === "ArrowLeft") keys.Left = false;
+      if (e.key === "ArrowRight") keys.Right = false;
+      if (e.key === " " || e.code === "Space") {
+        keys.Space = false;
+        keys.spacePressed = false;
+      }
+    });
+
+    // --- 4. GAME LOGIC ---
+
+    function spawnAlienWave() {
+      aliens = [];
+      // Select active target
+      activeTarget = vocabList[Math.floor(Math.random() * vocabList.length)];
+      document.getElementById("definition-text").textContent = `"${activeTarget.def}"`;
+
+      // Select 3 unique distractors
+      const distractors = vocabList
+        .filter(v => v.word !== activeTarget.word)
+        .sort(() => 0.5 - Math.random())
+        .slice(0, 3);
+
+      // Combine and shuffle words for the 4 aliens
+      const waveWords = [activeTarget.word, ...distractors.map(d => d.word)]
+        .sort(() => 0.5 - Math.random());
+
+      const spacing = canvas.width / 4;
+      for (let i = 0; i < 4; i++) {
+        const targetX = spacing * i + spacing / 2;
+        aliens.push({
+          x: targetX,
+          y: 80,
+          homeX: targetX,
+          homeY: 80,
+          width: 100,
+          height: 40,
+          word: waveWords[i],
+          isCorrect: waveWords[i] === activeTarget.word,
+          state: "hover", // 'hover' or 'dive'
+          vx: 0,
+          vy: 0,
+          hoverOffset: Math.random() * Math.PI * 2
+        });
+      }
+    }
+
+    function updatePlayer() {
+      // Smooth movement physics
+      if (keys.Left) player.vx -= 1.2;
+      if (keys.Right) player.vx += 1.2;
+
+      player.vx *= player.friction;
+      player.x += player.vx;
+
+      // Keep inside screen bounds
+      if (player.x < 10) player.x = 10;
+      if (player.x + player.width > canvas.width - 10) player.x = canvas.width - player.width - 10;
+
+      // Fire projectile
+      if (keys.Space && !keys.spacePressed && !gameOver) {
+        projectiles.push({
+          x: player.x + player.width / 2 - 2.5,
+          y: player.y,
+          width: 5,
+          height: 15,
+          speed: 10
+        });
+        keys.spacePressed = true;
+      }
+    }
+
+    function updateProjectiles() {
+      for (let i = projectiles.length - 1; i >= 0; i--) {
+        projectiles[i].y -= projectiles[i].speed;
+        if (projectiles[i].y < -20) {
+          projectiles.splice(i, 1);
+        }
+      }
+    }
+
+    function updateAliens(timestamp) {
+      aliens.forEach(alien => {
+        if (alien.state === "hover") {
+          // Gentle hovering motion
+          alien.y = alien.homeY + Math.sin(timestamp / 300 + alien.hoverOffset) * 6;
+        } else if (alien.state === "dive") {
+          // Aggressive dive-bomb physics targeting player
+          const dx = (player.x + player.width / 2) - alien.x;
+          const dy = player.y - alien.y;
+          const angle = Math.atan2(dy, dx);
+
+          alien.vx += Math.cos(angle) * 0.4;
+          alien.vy += Math.sin(angle) * 0.4 + 0.1; // downward bias
+
+          // Cap speed
+          const speed = Math.hypot(alien.vx, alien.vy);
+          if (speed > 8) {
+            alien.vx = (alien.vx / speed) * 8;
+            alien.vy = (alien.vy / speed) * 8;
+          }
+
+          alien.x += alien.vx;
+          alien.y += alien.vy;
+
+          // Check hit player during dive
+          const hitPlayer = 
+            alien.x + alien.width / 2 > player.x &&
+            alien.x - alien.width / 2 < player.x + player.width &&
+            alien.y + alien.height / 2 > player.y &&
+            alien.y - alien.height / 2 < player.y + player.height;
+
+          // Offscreen or hit player -> deduct life and reset alien to top
+          if (hitPlayer || alien.y > canvas.height + 50) {
+            loseLife();
+            alien.state = "hover";
+            alien.x = alien.homeX;
+            alien.y = alien.homeY;
+            alien.vx = 0;
+            alien.vy = 0;
+          }
+        }
+      });
+    }
+
+    function loseLife() {
+      if (gameOver) return;
+      lives--;
+      document.getElementById("lives").textContent = "❤️".repeat(Math.max(0, lives));
+      if (lives <= 0) {
+        gameOver = true;
+      }
+    }
+
+    function checkCollisions() {
+      for (let pIdx = projectiles.length - 1; pIdx >= 0; pIdx--) {
+        const p = projectiles[pIdx];
+
+        for (let aIdx = 0; aIdx < aliens.length; aIdx++) {
+          const a = aliens[aIdx];
+
+          // Collision check
+          if (
+            p.x < a.x + a.width / 2 &&
+            p.x + p.width > a.x - a.width / 2 &&
+            p.y < a.y + a.height / 2 &&
+            p.y + p.height > a.y - a.height / 2
+          ) {
+            // Remove projectile
+            projectiles.splice(pIdx, 1);
+
+            if (a.isCorrect) {
+              // CORRECT ALIEN SHOT
+              score += 100;
+              document.getElementById("score").textContent = score;
+              spawnAlienWave(); // Immediately destroy wave & spawn new definition
+            } else {
+              // INCORRECT ALIEN SHOT -> Aggressively Dive-Bomb
+              if (a.state !== "dive") {
+                a.state = "dive";
+                a.vy = 2; // Initial push downwards
+              }
+            }
+            break;
+          }
+        }
+      }
+    }
+
+    // --- 5. RENDERING PIPELINE ---
+
+    function drawStars() {
+      ctx.fillStyle = "#ffffff";
+      stars.forEach(star => {
+        star.y += star.speed;
+        if (star.y > canvas.height) star.y = 0;
+        ctx.fillRect(star.x, star.y, star.size, star.size);
+      });
+    }
+
+    function drawPlayer() {
+      ctx.fillStyle = "#66fcf1";
+      // Ship body
+      ctx.beginPath();
+      ctx.moveTo(player.x + player.width / 2, player.y);
+      ctx.lineTo(player.x + player.width, player.y + player.height);
+      ctx.lineTo(player.x, player.y + player.height);
+      ctx.closePath();
+      ctx.fill();
+
+      // Wing details
+      ctx.fillStyle = "#45f3c4";
+      ctx.fillRect(player.x + 5, player.y + player.height - 5, 5, 8);
+      ctx.fillRect(player.x + player.width - 10, player.y + player.height - 5, 5, 8);
+    }
+
+    function drawProjectiles() {
+      ctx.fillStyle = "#ff0055";
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = "#ff0055";
+      projectiles.forEach(p => {
+        ctx.fillRect(p.x, p.y, p.width, p.height);
+      });
+      ctx.shadowBlur = 0; // Reset glow
+    }
+
+    function drawAliens() {
+      aliens.forEach(a => {
+        // Alien hull
+        ctx.fillStyle = a.state === "dive" ? "#ff2e63" : "#1f4068";
+        ctx.strokeStyle = a.state === "dive" ? "#ff0055" : "#00fff0";
+        ctx.lineWidth = 2;
+
+        ctx.beginPath();
+        ctx.roundRect(a.x - a.width / 2, a.y - a.height / 2, a.width, a.height, 8);
+        ctx.fill();
+        ctx.stroke();
+
+        // Vocabulary word text on hull
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 13px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(a.word, a.x, a.y);
+      });
+    }
+
+    function drawGameOver() {
+      ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = "#ff0055";
+      ctx.font = "bold 36px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 20);
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "18px Arial";
+      ctx.fillText(`Final Score: ${score}`, canvas.width / 2, canvas.height / 2 + 20);
+      ctx.fillText("Refresh page to play again", canvas.width / 2, canvas.height / 2 + 60);
+    }
+
+    // --- 6. MAIN GAME LOOP ---
+
+    function gameLoop(timestamp) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      drawStars();
+
+      if (!gameOver) {
+        updatePlayer();
+        updateProjectiles();
+        updateAliens(timestamp);
+        checkCollisions();
+
+        drawPlayer();
+        drawProjectiles();
+        drawAliens();
+      } else {
+        drawGameOver();
+      }
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    // Start game
+    spawnAlienWave();
+    requestAnimationFrame(gameLoop);
+  </script>
+</body>
+</html>
