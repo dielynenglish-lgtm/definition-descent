@@ -1,0 +1,1571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Word Tower Defense - Ammo Reload Loop</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Rajdhani:wght@500;600;700&display=swap');
+
+    body {
+      font-family: 'Rajdhani', sans-serif;
+      background-color: #0b0f19;
+      color: #e2e8f0;
+      user-select: none;
+    }
+
+    .font-orbitron {
+      font-family: 'Orbitron', sans-serif;
+    }
+
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+
+    .glass-card {
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .pulse-glow {
+      animation: pulseGlow 2s infinite alternate;
+    }
+
+    @keyframes pulseGlow {
+      0% { box-shadow: 0 0 10px rgba(239, 68, 68, 0.4); }
+      100% { box-shadow: 0 0 25px rgba(239, 68, 68, 0.9); }
+    }
+
+    .pulse-green {
+      animation: pulseGreen 1.5s infinite alternate;
+    }
+
+    @keyframes pulseGreen {
+      0% { box-shadow: 0 0 8px rgba(34, 197, 94, 0.3); }
+      100% { box-shadow: 0 0 20px rgba(34, 197, 94, 0.8); }
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+
+    .btn-action {
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .btn-action:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+    }
+    .btn-action:active {
+      transform: translateY(0);
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-6px); }
+      40%, 80% { transform: translateX(6px); }
+    }
+    .shake-anim {
+      animation: shake 0.4s ease-in-out;
+    }
+  </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden bg-slate-950 text-slate-100">
+
+  <!-- Top Navigation / Status Header -->
+  <header class="h-16 glass-panel px-6 flex items-center justify-between border-b border-slate-800 z-10 shrink-0">
+    <div class="flex items-center space-x-3">
+      <div class="w-10 h-10 rounded-lg bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/30">
+        <i class="fa-solid fa-shield-halved text-xl text-white"></i>
+      </div>
+      <div>
+        <h1 class="text-xl font-bold font-orbitron tracking-wider bg-gradient-to-r from-cyan-400 via-sky-300 to-indigo-400 bg-clip-text text-transparent">
+          WORD TOWER DEFENSE
+        </h1>
+        <p class="text-xs text-slate-400 font-medium">The "Ammo Reload" Loop</p>
+      </div>
+    </div>
+
+    <!-- Central Status Display -->
+    <div class="flex items-center space-x-8">
+      <!-- Base Health Bar -->
+      <div class="w-64 flex flex-col">
+        <div class="flex justify-between items-center text-xs font-semibold mb-1">
+          <span class="text-slate-300 flex items-center gap-1.5"><i class="fa-solid fa-heart text-red-500"></i> BASE INTEGRITY</span>
+          <span id="baseHpText" class="font-orbitron text-cyan-400">100%</span>
+        </div>
+        <div class="w-full bg-slate-800 rounded-full h-3 p-0.5 border border-slate-700/80 shadow-inner">
+          <div id="baseHpBar" class="bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 h-full rounded-full transition-all duration-300" style="width: 100%;"></div>
+        </div>
+      </div>
+
+      <!-- Wave Counter -->
+      <div class="flex items-center space-x-3 glass-card px-4 py-1.5 rounded-lg border border-slate-700/50">
+        <div class="text-slate-400 text-xs uppercase tracking-wider font-semibold">Wave</div>
+        <div id="waveCounter" class="text-2xl font-black font-orbitron text-amber-400">1</div>
+      </div>
+
+      <!-- Score & Kills -->
+      <div class="flex items-center space-x-4 text-xs font-medium text-slate-300">
+        <div>Score: <span id="scoreText" class="font-orbitron text-lg text-emerald-400 font-bold">0</span></div>
+        <div class="h-6 w-px bg-slate-800"></div>
+        <div>Kills: <span id="killsText" class="font-orbitron text-lg text-sky-400 font-bold">0</span></div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="flex items-center space-x-3">
+      <button id="btnSpeed" class="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 transition flex items-center gap-1.5">
+        <i class="fa-solid fa-forward text-cyan-400"></i> <span id="speedText">1x Speed</span>
+      </button>
+      <button id="btnSound" class="p-2 rounded bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 transition">
+        <i id="soundIcon" class="fa-solid fa-volume-high text-cyan-400"></i>
+      </button>
+      <button id="btnHelp" class="p-2 rounded bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 transition">
+        <i class="fa-solid fa-circle-info text-amber-400"></i>
+      </button>
+      <button id="btnRestart" class="px-4 py-1.5 rounded-lg bg-red-600/80 hover:bg-red-500 text-xs font-bold text-white shadow-lg shadow-red-900/30 transition flex items-center gap-1.5">
+        <i class="fa-solid fa-rotate-right"></i> Restart
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Game Layout -->
+  <div class="flex-1 flex overflow-hidden relative">
+
+    <!-- Canvas Area -->
+    <div class="flex-1 relative bg-slate-950 flex items-center justify-center p-2 overflow-hidden">
+      <canvas id="gameCanvas" class="rounded-xl shadow-2xl border border-slate-800/80 bg-slate-900/90 block"></canvas>
+      
+      <!-- Wave Banner Overlay -->
+      <div id="waveOverlay" class="absolute inset-0 bg-slate-950/60 backdrop-blur-sm flex flex-col items-center justify-center transition-opacity duration-500 pointer-events-auto z-20 hidden">
+        <div class="text-center p-8 glass-panel rounded-2xl max-w-md w-full border border-cyan-500/30 shadow-2xl shadow-cyan-950/50">
+          <div class="w-16 h-16 bg-cyan-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-cyan-500/40">
+            <i class="fa-solid fa-crosshairs text-3xl text-cyan-400"></i>
+          </div>
+          <h2 id="overlayTitle" class="text-3xl font-black font-orbitron text-cyan-300 mb-2">PREPARE DEFENSES</h2>
+          <p id="overlayDesc" class="text-sm text-slate-300 mb-6 leading-relaxed">
+            Enemies approach along the designated path! Keep turrets loaded by solving vocabulary puzzles in the sidebar.
+          </p>
+          <button id="btnStartWave" class="btn-action w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold font-orbitron tracking-wider text-base shadow-lg shadow-cyan-500/30">
+            START WAVE 1
+          </button>
+        </div>
+      </div>
+
+      <!-- Game Over Overlay -->
+      <div id="gameOverOverlay" class="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center transition-opacity duration-500 pointer-events-auto z-30 hidden">
+        <div class="text-center p-8 glass-panel rounded-2xl max-w-lg w-full border border-red-500/40 shadow-2xl shadow-red-950/80">
+          <div class="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/40 text-red-500 animate-pulse">
+            <i class="fa-solid fa-skull-crossbones text-4xl"></i>
+          </div>
+          <h2 class="text-4xl font-black font-orbitron text-red-500 mb-1">BASE BREACHED</h2>
+          <p class="text-slate-400 text-sm mb-6">The enemy has overrun your base core.</p>
+          
+          <div class="grid grid-cols-3 gap-3 mb-6 bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+            <div>
+              <div class="text-xs text-slate-400">Waves Survived</div>
+              <div id="goWave" class="text-2xl font-bold font-orbitron text-amber-400">0</div>
+            </div>
+            <div>
+              <div class="text-xs text-slate-400">Enemies Defeated</div>
+              <div id="goKills" class="text-2xl font-bold font-orbitron text-cyan-400">0</div>
+            </div>
+            <div>
+              <div class="text-xs text-slate-400">Final Score</div>
+              <div id="goScore" class="text-2xl font-bold font-orbitron text-emerald-400">0</div>
+            </div>
+          </div>
+
+          <button id="btnRestartGame" class="btn-action w-full py-3 px-6 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold font-orbitron tracking-wider text-sm shadow-lg shadow-red-600/30">
+            PLAY AGAIN
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sidebar Right Panel (380px fixed) -->
+    <aside class="w-96 glass-panel border-l border-slate-800/80 flex flex-col shrink-0 z-10 overflow-hidden">
+      
+      <!-- Reload Puzzle Section (Core Mechanic) -->
+      <div id="reloadSection" class="p-5 border-b border-slate-800/80 bg-slate-900/70 relative">
+        <!-- Badge -->
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping"></span>
+            <h2 class="text-sm font-bold font-orbitron text-amber-400 tracking-wide uppercase flex items-center gap-2">
+              <i class="fa-solid fa-bolt"></i> Vocabulary Reload Panel
+            </h2>
+          </div>
+          <span id="reloadTriggerTag" class="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">STANDBY</span>
+        </div>
+
+        <!-- Reload Puzzle Content Container -->
+        <div id="puzzleContainer" class="rounded-xl bg-slate-950/80 border border-slate-800 p-4 transition-all duration-300">
+          
+          <!-- Standby State -->
+          <div id="puzzleStandby" class="text-center py-6">
+            <i class="fa-solid fa-rotate text-3xl text-slate-600 mb-2"></i>
+            <p class="text-xs text-slate-400 font-medium">Turrets are fully operational.</p>
+            <p class="text-[11px] text-slate-500 mt-1">When any turret runs out of ammo (10 shots), a Reload Puzzle will appear here to reload ALL turrets!</p>
+          </div>
+
+          <!-- Active Puzzle State (Hidden by default) -->
+          <div id="puzzleActive" class="hidden space-y-3">
+            <div class="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-amber-200 text-xs">
+              <div class="font-bold flex items-center gap-1.5 mb-1 text-amber-400 font-orbitron">
+                <i class="fa-solid fa-triangle-exclamation"></i> AMMO DEPLETED!
+              </div>
+              Select the correct word for the definition below to <span class="underline text-emerald-300 font-semibold">instantly reload ALL turrets</span>!
+            </div>
+
+            <!-- Definition Box -->
+            <div class="bg-slate-900 p-3.5 rounded-lg border border-slate-700/80 shadow-inner">
+              <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Definition:</div>
+              <div id="puzzleDefinition" class="text-xs font-semibold text-slate-100 italic leading-relaxed">
+                "Having or showing creativity and original thought."
+              </div>
+            </div>
+
+            <!-- Option Buttons -->
+            <div id="puzzleOptions" class="grid grid-cols-1 gap-2 pt-1">
+              <!-- Dynamically populated 3 options -->
+            </div>
+
+            <!-- Feedback Message -->
+            <div id="puzzleFeedback" class="text-xs font-bold text-center h-5 transition-all"></div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Turret Status Cards -->
+      <div class="flex-1 p-5 overflow-y-auto space-y-4">
+        <h3 class="text-xs font-bold font-orbitron text-slate-400 uppercase tracking-wider flex items-center justify-between">
+          <span>Defensive Turrets (3)</span>
+          <span class="text-[10px] text-slate-500 font-sans font-normal">Capacity: 10 shots</span>
+        </h3>
+
+        <!-- Turret 1 Card -->
+        <div id="cardTurret0" class="glass-card p-3 rounded-xl border border-slate-800 transition-all duration-300">
+          <div class="flex justify-between items-center mb-1.5">
+            <div class="flex items-center gap-2">
+              <div class="w-3 h-3 rounded-full bg-cyan-400"></div>
+              <span class="text-xs font-bold font-orbitron text-slate-200">Turret Alpha</span>
+            </div>
+            <span id="statusTurret0" class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">ACTIVE</span>
+          </div>
+          <!-- Ammo Indicator -->
+          <div class="space-y-1">
+            <div class="flex justify-between text-[11px] font-semibold text-slate-400">
+              <span>Ammo Level</span>
+              <span id="ammoCount0" class="font-orbitron text-cyan-400">10 / 10</span>
+            </div>
+            <div class="grid grid-cols-10 gap-1 bg-slate-950 p-1 rounded-md border border-slate-800" id="ammoGrid0">
+              <!-- 10 ammo segment indicators -->
+            </div>
+          </div>
+          <div id="lockTimer0" class="hidden text-[11px] font-bold text-red-400 mt-2 text-center bg-red-950/40 p-1 rounded border border-red-800/40">
+            <i class="fa-solid fa-lock"></i> LOCKDOWN: <span id="lockSec0">5.0</span>s
+          </div>
+        </div>
+
+        <!-- Turret 2 Card -->
+        <div id="cardTurret1" class="glass-card p-3 rounded-xl border border-slate-800 transition-all duration-300">
+          <div class="flex justify-between items-center mb-1.5">
+            <div class="flex items-center gap-2">
+              <div class="w-3 h-3 rounded-full bg-purple-400"></div>
+              <span class="text-xs font-bold font-orbitron text-slate-200">Turret Beta</span>
+            </div>
+            <span id="statusTurret1" class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">ACTIVE</span>
+          </div>
+          <!-- Ammo Indicator -->
+          <div class="space-y-1">
+            <div class="flex justify-between text-[11px] font-semibold text-slate-400">
+              <span>Ammo Level</span>
+              <span id="ammoCount1" class="font-orbitron text-purple-400">10 / 10</span>
+            </div>
+            <div class="grid grid-cols-10 gap-1 bg-slate-950 p-1 rounded-md border border-slate-800" id="ammoGrid1">
+              <!-- 10 ammo segment indicators -->
+            </div>
+          </div>
+          <div id="lockTimer1" class="hidden text-[11px] font-bold text-red-400 mt-2 text-center bg-red-950/40 p-1 rounded border border-red-800/40">
+            <i class="fa-solid fa-lock"></i> LOCKDOWN: <span id="lockSec1">5.0</span>s
+          </div>
+        </div>
+
+        <!-- Turret 3 Card -->
+        <div id="cardTurret2" class="glass-card p-3 rounded-xl border border-slate-800 transition-all duration-300">
+          <div class="flex justify-between items-center mb-1.5">
+            <div class="flex items-center gap-2">
+              <div class="w-3 h-3 rounded-full bg-amber-400"></div>
+              <span class="text-xs font-bold font-orbitron text-slate-200">Turret Gamma</span>
+            </div>
+            <span id="statusTurret2" class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">ACTIVE</span>
+          </div>
+          <!-- Ammo Indicator -->
+          <div class="space-y-1">
+            <div class="flex justify-between text-[11px] font-semibold text-slate-400">
+              <span>Ammo Level</span>
+              <span id="ammoCount2" class="font-orbitron text-amber-400">10 / 10</span>
+            </div>
+            <div class="grid grid-cols-10 gap-1 bg-slate-950 p-1 rounded-md border border-slate-800" id="ammoGrid2">
+              <!-- 10 ammo segment indicators -->
+            </div>
+          </div>
+          <div id="lockTimer2" class="hidden text-[11px] font-bold text-red-400 mt-2 text-center bg-red-950/40 p-1 rounded border border-red-800/40">
+            <i class="fa-solid fa-lock"></i> LOCKDOWN: <span id="lockSec2">5.0</span>s
+          </div>
+        </div>
+
+        <!-- 10 Vocabulary Words Bank Box -->
+        <div class="p-3 bg-slate-900/60 rounded-xl border border-slate-800">
+          <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+            <span class="flex items-center gap-1.5"><i class="fa-solid fa-book-open text-sky-400"></i> Vocabulary Target Words</span>
+            <span class="text-[10px] text-cyan-400 font-orbitron">10 Words</span>
+          </div>
+          <div class="flex flex-wrap gap-1.5">
+            <span class="text-xs px-2 py-0.5 bg-slate-800 text-cyan-300 rounded border border-cyan-500/20 font-semibold">imaginative</span>
+            <span class="text-xs px-2 py-0.5 bg-slate-800 text-purple-300 rounded border border-purple-500/20 font-semibold">artistic</span>
+            <span class="text-xs px-2 py-0.5 bg-slate-800 text-blue-300 rounded border border-blue-500/20 font-semibold">atmosphere</span>
+            <span class="text-xs px-2 py-0.5 bg-slate-800 text-amber-300 rounded border border-amber-500/20 font-semibold">gallery</span>
+            <span class="text-xs px-2 py-0.5 bg-slate-800 text-emerald-300 rounded border border-emerald-500/20 font-semibold">architecture</span>
+            <span class="text-xs px-2 py-0.5 bg-slate-800 text-rose-300 rounded border border-rose-500/20 font-semibold">professional</span>
+            <span class="text-xs px-2 py-0.5 bg-slate-800 text-teal-300 rounded border border-teal-500/20 font-semibold">creative</span>
+            <span class="text-xs px-2 py-0.5 bg-slate-800 text-indigo-300 rounded border border-indigo-500/20 font-semibold">exhibit</span>
+            <span class="text-xs px-2 py-0.5 bg-slate-800 text-fuchsia-300 rounded border border-fuchsia-500/20 font-semibold">aesthetic</span>
+            <span class="text-xs px-2 py-0.5 bg-slate-800 text-sky-300 rounded border border-sky-500/20 font-semibold">sculpture</span>
+          </div>
+        </div>
+
+      </div>
+    </aside>
+  </div>
+
+  <!-- Help / Instructions Modal -->
+  <div id="helpModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+    <div class="glass-panel p-6 rounded-2xl max-w-lg w-full border border-slate-700 m-4">
+      <div class="flex justify-between items-center mb-4 border-b border-slate-800 pb-3">
+        <h3 class="text-lg font-bold font-orbitron text-cyan-400 flex items-center gap-2">
+          <i class="fa-solid fa-gamepad"></i> Game Rules & Mechanics
+        </h3>
+        <button id="btnCloseHelp" class="text-slate-400 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="space-y-3 text-xs text-slate-300 leading-relaxed">
+        <div class="flex gap-3 items-start bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
+          <i class="fa-solid fa-crosshairs text-cyan-400 text-lg mt-0.5"></i>
+          <div>
+            <span class="font-bold text-white">Turret Defense:</span>
+            Your 3 turrets automatically lock onto and fire at enemies walking along the designated path toward your base.
+          </div>
+        </div>
+
+        <div class="flex gap-3 items-start bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
+          <i class="fa-solid fa-arrows-rotate text-amber-400 text-lg mt-0.5"></i>
+          <div>
+            <span class="font-bold text-white">10 Shots Ammo Limit:</span>
+            Each turret holds 10 shots. When a turret runs out of ammo, it stops firing and triggers a Vocabulary Puzzle in the sidebar.
+          </div>
+        </div>
+
+        <div class="flex gap-3 items-start bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
+          <i class="fa-solid fa-circle-check text-emerald-400 text-lg mt-0.5"></i>
+          <div>
+            <span class="font-bold text-white">Correct Answer:</span>
+            Clicking the correct vocabulary word instantly reloads <span class="text-emerald-400 font-semibold">ALL turrets to maximum ammo</span>!
+          </div>
+        </div>
+
+        <div class="flex gap-3 items-start bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
+          <i class="fa-solid fa-lock text-red-400 text-lg mt-0.5"></i>
+          <div>
+            <span class="font-bold text-white">5-Second Lockdown Penalty:</span>
+            Clicking the wrong word locks that specific turret down for a <span class="text-red-400 font-semibold">5-second penalty phase</span>!
+          </div>
+        </div>
+
+        <div class="flex gap-3 items-start bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
+          <i class="fa-solid fa-shield text-indigo-400 text-lg mt-0.5"></i>
+          <div>
+            <span class="font-bold text-white">Base Integrity:</span>
+            Base health starts at 100% and drops by 10% each time an enemy breaches the base core on the right.
+          </div>
+        </div>
+      </div>
+
+      <button id="btnGotIt" class="btn-action mt-5 w-full py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-lg font-orbitron text-xs">
+        GOT IT, START PLAYING
+      </button>
+    </div>
+  </div>
+
+  <!-- JavaScript Code -->
+  <script>
+    // --- 10 Vocabulary Target Words & Definitions ---
+    const VOCABULARY = [
+      {
+        word: "imaginative",
+        definition: "Having or showing creativity, original thinking, or high inventive power."
+      },
+      {
+        word: "artistic",
+        definition: "Having or revealing natural creative skill in visual arts, design, or aesthetics."
+      },
+      {
+        word: "atmosphere",
+        definition: "The pervading tone, mood, or aesthetic ambience surrounding a space or environment."
+      },
+      {
+        word: "gallery",
+        definition: "A specialized room, hall, or building used for displaying works of fine art."
+      },
+      {
+        word: "architecture",
+        definition: "The complex art and science of designing, planning, and constructing physical structures."
+      },
+      {
+        word: "professional",
+        definition: "Relating to or conforming to the high technical or ethical standards of a specialized profession."
+      },
+      {
+        word: "creative",
+        definition: "Involving the use of imagination or original ideas to create something new."
+      },
+      {
+        word: "exhibit",
+        definition: "To publicly display a work of art or item of interest in an art gallery or museum."
+      },
+      {
+        word: "aesthetic",
+        definition: "Concerned with beauty or the appreciation of artistic taste and visual style."
+      },
+      {
+        word: "sculpture",
+        definition: "The art of making three-dimensional representative or abstract forms, especially by carving stone or wood."
+      }
+    ];
+
+    // --- Audio Synthesizer (Web Audio API) ---
+    class SoundFX {
+      constructor() {
+        this.enabled = true;
+        this.ctx = null;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) {
+            this.ctx = new AudioContext();
+          }
+        }
+      }
+
+      playShoot() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(580, now);
+        osc.frequency.exponentialRampToValueAtTime(110, now + 0.08);
+
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.08);
+      }
+
+      playReloadSuccess() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const freqs = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6 arpeggio
+
+        freqs.forEach((freq, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          const startTime = now + (idx * 0.07);
+
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, startTime);
+
+          gain.gain.setValueAtTime(0.12, startTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.2);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc.start(startTime);
+          osc.stop(startTime + 0.2);
+        });
+      }
+
+      playLockout() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(160, now);
+        osc.frequency.setValueAtTime(90, now + 0.1);
+
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.3);
+      }
+
+      playHit() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(220, now);
+        osc.frequency.exponentialRampToValueAtTime(45, now + 0.05);
+
+        gain.gain.setValueAtTime(0.05, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.05);
+      }
+
+      playBaseDamage() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(120, now);
+        osc.frequency.linearRampToValueAtTime(50, now + 0.4);
+
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.4);
+      }
+    }
+
+    const sfx = new SoundFX();
+
+    // --- Game Canvas Setup ---
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      const container = canvas.parentElement;
+      const rect = container.getBoundingClientRect();
+      const padding = 16;
+      canvas.width = Math.max(600, rect.width - padding);
+      canvas.height = Math.max(450, rect.height - padding);
+      recalculatePathAndTurrets();
+    }
+
+    // Path Waypoints (Normalized coordinates to scale dynamically)
+    const normalizedPath = [
+      { x: 0.0, y: 0.30 },
+      { x: 0.22, y: 0.30 },
+      { x: 0.28, y: 0.70 },
+      { x: 0.52, y: 0.70 },
+      { x: 0.58, y: 0.25 },
+      { x: 0.78, y: 0.25 },
+      { x: 0.84, y: 0.65 },
+      { x: 1.0, y: 0.65 }
+    ];
+
+    let pathPoints = [];
+
+    // Normalized Turret Positions
+    const normalizedTurretPos = [
+      { x: 0.25, y: 0.50, name: 'Alpha', color: '#38bdf8' },
+      { x: 0.55, y: 0.46, name: 'Beta', color: '#c084fc' },
+      { x: 0.81, y: 0.45, name: 'Gamma', color: '#fbbf24' }
+    ];
+
+    // --- Game State Variables ---
+    let gameLoopReq = null;
+    let lastTime = 0;
+    let gameSpeed = 1;
+    let isPaused = false;
+    let waveInProgress = false;
+    let gameOver = false;
+
+    let baseHp = 100;
+    let waveNumber = 1;
+    let score = 0;
+    let killCount = 0;
+
+    let enemies = [];
+    let turrets = [];
+    let projectiles = [];
+    let particles = [];
+    let floatingTexts = [];
+
+    // Spawn parameters
+    let spawnQueue = [];
+    let spawnTimer = 0;
+    let spawnInterval = 1000;
+
+    // Active Puzzle State
+    let activePuzzle = null; // { turretIndex, item, options }
+
+    // --- Turret Class ---
+    class Turret {
+      constructor(index, x, y, name, color) {
+        this.index = index;
+        this.x = x;
+        this.y = y;
+        this.name = name;
+        this.color = color;
+        this.maxAmmo = 10;
+        this.ammo = 10;
+        this.range = 165;
+        this.fireRate = 1.0; // Shots per second
+        this.cooldown = 0;
+        this.lockdownTime = 0; // seconds remaining on 5s penalty
+        this.target = null;
+        this.angle = 0;
+        this.barrelRecoil = 0;
+      }
+
+      update(dt) {
+        // Countdown lockdown penalty
+        if (this.lockdownTime > 0) {
+          this.lockdownTime = Math.max(0, this.lockdownTime - dt);
+          if (this.lockdownTime === 0) {
+            updateTurretUI(this.index);
+          }
+        }
+
+        if (this.barrelRecoil > 0) {
+          this.barrelRecoil = Math.max(0, this.barrelRecoil - dt * 20);
+        }
+
+        if (this.cooldown > 0) {
+          this.cooldown -= dt;
+        }
+
+        // Turret cannot shoot if locked down or out of ammo
+        if (this.lockdownTime > 0 || this.ammo <= 0) {
+          this.target = null;
+          return;
+        }
+
+        // Find enemy target within range
+        this.findTarget();
+
+        if (this.target) {
+          const dx = this.target.x - this.x;
+          const dy = this.target.y - this.y;
+          this.angle = Math.atan2(dy, dx);
+
+          // Shoot when cooldown is ready
+          if (this.cooldown <= 0) {
+            this.shoot();
+          }
+        }
+      }
+
+      findTarget() {
+        let bestEnemy = null;
+        let maxProgress = -1;
+
+        for (let enemy of enemies) {
+          if (enemy.dead) continue;
+          const dist = Math.hypot(enemy.x - this.x, enemy.y - this.y);
+          if (dist <= this.range) {
+            if (enemy.pathIndex > maxProgress) {
+              maxProgress = enemy.pathIndex;
+              bestEnemy = enemy;
+            }
+          }
+        }
+        this.target = bestEnemy;
+      }
+
+      shoot() {
+        if (this.ammo <= 0) return;
+
+        this.ammo--;
+        this.cooldown = 1 / this.fireRate;
+        this.barrelRecoil = 8;
+
+        sfx.playShoot();
+
+        // Create projectile
+        projectiles.push(new Projectile(
+          this.x + Math.cos(this.angle) * 20,
+          this.y + Math.sin(this.angle) * 20,
+          this.target,
+          this.color,
+          25
+        ));
+
+        updateTurretUI(this.index);
+
+        // When ammo reaches 0, trigger Vocabulary Reload Puzzle
+        if (this.ammo === 0) {
+          triggerReloadPuzzle(this.index);
+        }
+      }
+
+      draw(ctx) {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        // Range indicator
+        ctx.beginPath();
+        ctx.arc(0, 0, this.range, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.03)';
+        ctx.fill();
+        ctx.strokeStyle = this.lockdownTime > 0 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(56, 189, 248, 0.15)';
+        ctx.setLineDash([4, 4]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Base Ring
+        ctx.beginPath();
+        ctx.arc(0, 0, 24, 0, Math.PI * 2);
+        ctx.fillStyle = '#0f172a';
+        ctx.fill();
+        ctx.strokeStyle = this.lockdownTime > 0 ? '#ef4444' : (this.ammo === 0 ? '#f59e0b' : this.color);
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // Barrel (Rotated)
+        ctx.save();
+        ctx.rotate(this.angle);
+
+        ctx.fillStyle = '#334155';
+        ctx.fillRect(0 - this.barrelRecoil, -6, 26, 12);
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(0 - this.barrelRecoil, -6, 26, 12);
+
+        if (this.barrelRecoil > 4) {
+          ctx.beginPath();
+          ctx.arc(26 - this.barrelRecoil, 0, 8, 0, Math.PI * 2);
+          ctx.fillStyle = this.color;
+          ctx.fill();
+        }
+
+        ctx.restore();
+
+        // Center Dome
+        ctx.beginPath();
+        ctx.arc(0, 0, 14, 0, Math.PI * 2);
+        ctx.fillStyle = this.lockdownTime > 0 ? '#ef4444' : (this.ammo === 0 ? '#f59e0b' : this.color);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, 8, 0, Math.PI * 2);
+        ctx.fillStyle = '#1e293b';
+        ctx.fill();
+
+        // Ammo Overhead Badge
+        ctx.font = 'bold 10px Orbitron, sans-serif';
+        ctx.textAlign = 'center';
+
+        if (this.lockdownTime > 0) {
+          ctx.fillStyle = '#ef4444';
+          ctx.fillText(`LOCKED (${this.lockdownTime.toFixed(1)}s)`, 0, -32);
+        } else if (this.ammo === 0) {
+          ctx.fillStyle = '#f59e0b';
+          ctx.fillText('RELOAD!', 0, -32);
+        } else {
+          ctx.fillStyle = '#94a3b8';
+          ctx.fillText(`${this.ammo}/10 AMMO`, 0, -32);
+        }
+
+        ctx.restore();
+      }
+    }
+
+    // --- Enemy Class ---
+    class Enemy {
+      constructor(type, wave) {
+        this.type = type;
+        this.pathIndex = 0;
+        this.x = pathPoints[0].x;
+        this.y = pathPoints[0].y;
+        this.targetPointIdx = 1;
+
+        const hpMultiplier = 1 + (wave - 1) * 0.35;
+        
+        if (type === 'runner') {
+          this.maxHp = Math.round(40 * hpMultiplier);
+          this.speed = 130;
+          this.radius = 11;
+          this.color = '#38bdf8';
+          this.reward = 15;
+        } else if (type === 'heavy') {
+          this.maxHp = Math.round(150 * hpMultiplier);
+          this.speed = 55;
+          this.radius = 18;
+          this.color = '#a855f7';
+          this.reward = 35;
+        } else if (type === 'boss') {
+          this.maxHp = Math.round(400 * hpMultiplier);
+          this.speed = 40;
+          this.radius = 24;
+          this.color = '#ef4444';
+          this.reward = 100;
+        } else {
+          this.maxHp = Math.round(80 * hpMultiplier);
+          this.speed = 85;
+          this.radius = 14;
+          this.color = '#22c55e';
+          this.reward = 20;
+        }
+
+        this.hp = this.maxHp;
+        this.dead = false;
+        this.reachedBase = false;
+      }
+
+      update(dt) {
+        if (this.dead || this.reachedBase) return;
+
+        const target = pathPoints[this.targetPointIdx];
+        const dx = target.x - this.x;
+        const dy = target.y - this.y;
+        const dist = Math.hypot(dx, dy);
+
+        const moveStep = this.speed * dt;
+
+        if (dist <= moveStep) {
+          this.x = target.x;
+          this.y = target.y;
+          this.targetPointIdx++;
+
+          if (this.targetPointIdx >= pathPoints.length) {
+            this.reachedBase = true;
+            onEnemyReachBase(this);
+          }
+        } else {
+          this.x += (dx / dist) * moveStep;
+          this.y += (dy / dist) * moveStep;
+        }
+
+        this.pathIndex = this.targetPointIdx - 1 + (1 - dist / (dist + 0.001));
+      }
+
+      draw(ctx) {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        // Body Shadow
+        ctx.beginPath();
+        ctx.arc(0, 4, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0,0,0,0.4)';
+        ctx.fill();
+
+        // Enemy Main Circle
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Inner Core
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius * 0.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#0f172a';
+        ctx.fill();
+
+        // HP Bar
+        const barW = this.radius * 2.2;
+        const barH = 5;
+        const hpPercent = Math.max(0, this.hp / this.maxHp);
+
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+        ctx.fillRect(-barW / 2, -this.radius - 12, barW, barH);
+
+        ctx.fillStyle = hpPercent > 0.5 ? '#22c55e' : (hpPercent > 0.25 ? '#eab308' : '#ef4444');
+        ctx.fillRect(-barW / 2, -this.radius - 12, barW * hpPercent, barH);
+
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(-barW / 2, -this.radius - 12, barW, barH);
+
+        ctx.restore();
+      }
+    }
+
+    // --- Projectile Class ---
+    class Projectile {
+      constructor(x, y, target, color, damage) {
+        this.x = x;
+        this.y = y;
+        this.target = target;
+        this.color = color;
+        this.damage = damage;
+        this.speed = 500;
+        this.hit = false;
+      }
+
+      update(dt) {
+        if (this.hit) return;
+
+        const tx = this.target.x;
+        const ty = this.target.y;
+
+        const dx = tx - this.x;
+        const dy = ty - this.y;
+        const dist = Math.hypot(dx, dy);
+
+        const moveStep = this.speed * dt;
+
+        if (dist <= moveStep) {
+          this.x = tx;
+          this.y = ty;
+          this.hit = true;
+          this.onHit();
+        } else {
+          this.x += (dx / dist) * moveStep;
+          this.y += (dy / dist) * moveStep;
+        }
+
+        if (Math.random() < 0.6) {
+          particles.push(new Particle(this.x, this.y, this.color, 2, 0.2));
+        }
+      }
+
+      onHit() {
+        if (this.target && !this.target.dead) {
+          this.target.hp -= this.damage;
+          sfx.playHit();
+
+          for (let i = 0; i < 6; i++) {
+            particles.push(new Particle(this.x, this.y, this.color, Math.random() * 3 + 2, 0.3));
+          }
+
+          if (this.target.hp <= 0) {
+            this.target.dead = true;
+            onEnemyKilled(this.target);
+          }
+        }
+      }
+
+      draw(ctx) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        ctx.shadowColor = this.color;
+        ctx.shadowBlur = 8;
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    // --- Particle Class ---
+    class Particle {
+      constructor(x, y, color, size, lifespan) {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        this.size = size;
+        this.lifespan = lifespan;
+        this.remaining = lifespan;
+
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 80 + 20;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed;
+      }
+
+      update(dt) {
+        this.remaining -= dt;
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
+      }
+
+      draw(ctx) {
+        if (this.remaining <= 0) return;
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, this.remaining / this.lifespan);
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    // --- Floating Text Class ---
+    class FloatingText {
+      constructor(text, x, y, color) {
+        this.text = text;
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        this.lifespan = 1.0;
+        this.remaining = 1.0;
+      }
+
+      update(dt) {
+        this.remaining -= dt;
+        this.y -= 20 * dt;
+      }
+
+      draw(ctx) {
+        if (this.remaining <= 0) return;
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, this.remaining / this.lifespan);
+        ctx.font = 'bold 14px Orbitron, sans-serif';
+        ctx.fillStyle = this.color;
+        ctx.textAlign = 'center';
+        ctx.fillText(this.text, this.x, this.y);
+        ctx.restore();
+      }
+    }
+
+    // --- Canvas & Core Initialization ---
+    function recalculatePathAndTurrets() {
+      const w = canvas.width;
+      const h = canvas.height;
+
+      pathPoints = normalizedPath.map(p => ({
+        x: p.x * w,
+        y: p.y * h
+      }));
+
+      if (turrets.length === 0) {
+        turrets = normalizedTurretPos.map((tp, idx) => {
+          return new Turret(idx, tp.x * w, tp.y * h, tp.name, tp.color);
+        });
+      } else {
+        turrets.forEach((t, idx) => {
+          t.x = normalizedTurretPos[idx].x * w;
+          t.y = normalizedTurretPos[idx].y * h;
+        });
+      }
+    }
+
+    function initAmmoGridUI() {
+      for (let i = 0; i < 3; i++) {
+        const grid = document.getElementById(`ammoGrid${i}`);
+        grid.innerHTML = '';
+        for (let j = 0; j < 10; j++) {
+          const seg = document.createElement('div');
+          seg.className = 'h-2 rounded-sm bg-cyan-400 transition-all duration-200';
+          seg.id = `ammoSeg_${i}_${j}`;
+          grid.appendChild(seg);
+        }
+      }
+    }
+
+    function updateTurretUI(index) {
+      const turret = turrets[index];
+      const countEl = document.getElementById(`ammoCount${index}`);
+      const statusEl = document.getElementById(`statusTurret${index}`);
+      const cardEl = document.getElementById(`cardTurret${index}`);
+      const lockTimerEl = document.getElementById(`lockTimer${index}`);
+      const lockSecEl = document.getElementById(`lockSec${index}`);
+
+      if (countEl) countEl.innerText = `${turret.ammo} / 10`;
+
+      for (let j = 0; j < 10; j++) {
+        const seg = document.getElementById(`ammoSeg_${index}_${j}`);
+        if (seg) {
+          if (j < turret.ammo) {
+            seg.className = 'h-2 rounded-sm bg-cyan-400 shadow-sm shadow-cyan-500/50';
+          } else {
+            seg.className = 'h-2 rounded-sm bg-slate-800';
+          }
+        }
+      }
+
+      if (turret.lockdownTime > 0) {
+        statusEl.className = 'text-[10px] font-bold px-2 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse';
+        statusEl.innerText = 'LOCKED';
+        cardEl.className = 'glass-card p-3 rounded-xl border border-red-500/50 bg-red-950/20';
+        lockTimerEl.classList.remove('hidden');
+        if (lockSecEl) lockSecEl.innerText = turret.lockdownTime.toFixed(1);
+      } else if (turret.ammo === 0) {
+        statusEl.className = 'text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse';
+        statusEl.innerText = 'EMPTY';
+        cardEl.className = 'glass-card p-3 rounded-xl border border-amber-500/50 bg-amber-950/20';
+        lockTimerEl.classList.add('hidden');
+      } else {
+        statusEl.className = 'text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+        statusEl.innerText = 'ACTIVE';
+        cardEl.className = 'glass-card p-3 rounded-xl border border-slate-800';
+        lockTimerEl.classList.add('hidden');
+      }
+    }
+
+    function updateHeaderUI() {
+      document.getElementById('baseHpText').innerText = `${baseHp}%`;
+      const hpBar = document.getElementById('baseHpBar');
+      hpBar.style.width = `${baseHp}%`;
+
+      if (baseHp > 50) {
+        hpBar.className = 'bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 h-full rounded-full transition-all duration-300';
+      } else if (baseHp > 20) {
+        hpBar.className = 'bg-gradient-to-r from-amber-500 to-yellow-400 h-full rounded-full transition-all duration-300';
+      } else {
+        hpBar.className = 'bg-gradient-to-r from-red-600 to-rose-500 h-full rounded-full transition-all duration-300 animate-pulse';
+      }
+
+      document.getElementById('waveCounter').innerText = waveNumber;
+      document.getElementById('scoreText').innerText = score;
+      document.getElementById('killsText').innerText = killCount;
+    }
+
+    // --- Interactive Vocabulary Reload Puzzle ---
+    function triggerReloadPuzzle(turretIndex) {
+      if (activePuzzle !== null) return;
+
+      const randomIndex = Math.floor(Math.random() * VOCABULARY.length);
+      const targetItem = VOCABULARY[randomIndex];
+
+      const distractors = VOCABULARY.filter(item => item.word !== targetItem.word);
+      const shuffledDistractors = distractors.sort(() => 0.5 - Math.random()).slice(0, 2);
+
+      const options = [targetItem.word, ...shuffledDistractors.map(d => d.word)].sort(() => 0.5 - Math.random());
+
+      activePuzzle = {
+        turretIndex: turretIndex,
+        item: targetItem,
+        options: options
+      };
+
+      document.getElementById('puzzleStandby').classList.add('hidden');
+      document.getElementById('puzzleActive').classList.remove('hidden');
+      document.getElementById('reloadTriggerTag').className = 'text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500 text-slate-950 animate-bounce';
+      document.getElementById('reloadTriggerTag').innerText = 'RELOAD REQUIRED';
+
+      document.getElementById('puzzleDefinition').innerText = `"${targetItem.definition}"`;
+      document.getElementById('puzzleFeedback').innerText = '';
+
+      const optionsContainer = document.getElementById('puzzleOptions');
+      optionsContainer.innerHTML = '';
+
+      options.forEach(optionWord => {
+        const btn = document.createElement('button');
+        btn.className = 'btn-action w-full py-2.5 px-4 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold text-left border border-slate-700 flex items-center justify-between group transition';
+        btn.innerHTML = `
+          <span class="capitalize group-hover:text-cyan-300 font-orbitron">${optionWord}</span>
+          <i class="fa-solid fa-chevron-right text-[10px] text-slate-500 group-hover:text-cyan-400"></i>
+        `;
+        btn.onclick = () => checkPuzzleAnswer(optionWord, turretIndex);
+        optionsContainer.appendChild(btn);
+      });
+    }
+
+    function checkPuzzleAnswer(selectedWord, triggeringTurretIdx) {
+      if (!activePuzzle) return;
+
+      const isCorrect = selectedWord === activePuzzle.item.word;
+      const feedbackEl = document.getElementById('puzzleFeedback');
+      const puzzleContainer = document.getElementById('puzzleContainer');
+
+      if (isCorrect) {
+        // CORRECT: Reload all turrets instantly to maximum ammo (10)
+        sfx.playReloadSuccess();
+
+        feedbackEl.className = 'text-xs font-bold text-center text-emerald-400 animate-pulse';
+        feedbackEl.innerText = '✓ CORRECT! ALL TURRETS RELOADED!';
+
+        turrets.forEach((t, idx) => {
+          t.ammo = t.maxAmmo;
+          t.lockdownTime = 0;
+          updateTurretUI(idx);
+          floatingTexts.push(new FloatingText('+10 AMMO!', t.x, t.y - 20, '#22c55e'));
+        });
+
+        score += 50;
+        updateHeaderUI();
+
+        activePuzzle = null;
+
+        setTimeout(() => {
+          document.getElementById('puzzleActive').classList.add('hidden');
+          document.getElementById('puzzleStandby').classList.remove('hidden');
+          document.getElementById('reloadTriggerTag').className = 'text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700';
+          document.getElementById('reloadTriggerTag').innerText = 'STANDBY';
+        }, 1200);
+
+      } else {
+        // WRONG: Lock down specific turret for 5-second penalty phase
+        sfx.playLockout();
+
+        puzzleContainer.classList.add('shake-anim');
+        setTimeout(() => puzzleContainer.classList.remove('shake-anim'), 400);
+
+        feedbackEl.className = 'text-xs font-bold text-center text-red-400';
+        feedbackEl.innerText = `✗ WRONG! Turret ${turrets[triggeringTurretIdx].name} Locked for 5s!`;
+
+        const t = turrets[triggeringTurretIdx];
+        t.lockdownTime = 5.0;
+        updateTurretUI(triggeringTurretIdx);
+
+        floatingTexts.push(new FloatingText('LOCKED DOWN 5s!', t.x, t.y - 20, '#ef4444'));
+
+        activePuzzle = null;
+
+        setTimeout(() => {
+          const emptyTurret = turrets.find(tur => tur.ammo === 0 && tur.lockdownTime === 0);
+          if (emptyTurret) {
+            triggerReloadPuzzle(emptyTurret.index);
+          } else {
+            document.getElementById('puzzleActive').classList.add('hidden');
+            document.getElementById('puzzleStandby').classList.remove('hidden');
+            document.getElementById('reloadTriggerTag').className = 'text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700';
+            document.getElementById('reloadTriggerTag').innerText = 'STANDBY';
+          }
+        }, 1200);
+      }
+    }
+
+    // --- Wave Management ---
+    function prepareWave(wave) {
+      spawnQueue = [];
+      const count = 5 + wave * 3;
+
+      for (let i = 0; i < count; i++) {
+        if (wave >= 3 && i % 6 === 0) {
+          spawnQueue.push('heavy');
+        } else if (wave >= 2 && i % 4 === 0) {
+          spawnQueue.push('runner');
+        } else if (wave >= 4 && i === count - 1) {
+          spawnQueue.push('boss');
+        } else {
+          spawnQueue.push('regular');
+        }
+      }
+
+      spawnInterval = Math.max(400, 1200 - wave * 80);
+      spawnTimer = 0;
+
+      const overlay = document.getElementById('waveOverlay');
+      document.getElementById('overlayTitle').innerText = `WAVE ${wave}`;
+      document.getElementById('overlayDesc').innerText = `Incoming horde: ${count} enemies. Keep turrets loaded!`;
+      document.getElementById('btnStartWave').innerText = `START WAVE ${wave}`;
+      overlay.classList.remove('hidden');
+    }
+
+    function startWave() {
+      document.getElementById('waveOverlay').classList.add('hidden');
+      waveInProgress = true;
+    }
+
+    function onEnemyKilled(enemy) {
+      killCount++;
+      score += enemy.reward;
+      updateHeaderUI();
+      checkWaveEnd();
+    }
+
+    function onEnemyReachBase(enemy) {
+      baseHp = Math.max(0, baseHp - 10);
+      sfx.playBaseDamage();
+      updateHeaderUI();
+
+      floatingTexts.push(new FloatingText('-10% BASE HP!', canvas.width - 70, canvas.height * 0.65, '#ef4444'));
+
+      if (baseHp <= 0) {
+        triggerGameOver();
+      } else {
+        checkWaveEnd();
+      }
+    }
+
+    function checkWaveEnd() {
+      if (spawnQueue.length === 0 && enemies.every(e => e.dead || e.reachedBase)) {
+        waveInProgress = false;
+        waveNumber++;
+        score += 100;
+        updateHeaderUI();
+
+        setTimeout(() => {
+          if (!gameOver) {
+            prepareWave(waveNumber);
+          }
+        }, 1000);
+      }
+    }
+
+    function triggerGameOver() {
+      gameOver = true;
+      waveInProgress = false;
+
+      document.getElementById('goWave').innerText = waveNumber;
+      document.getElementById('goKills').innerText = killCount;
+      document.getElementById('goScore').innerText = score;
+
+      document.getElementById('gameOverOverlay').classList.remove('hidden');
+    }
+
+    function restartGame() {
+      gameOver = false;
+      waveInProgress = false;
+      baseHp = 100;
+      waveNumber = 1;
+      score = 0;
+      killCount = 0;
+      enemies = [];
+      projectiles = [];
+      particles = [];
+      floatingTexts = [];
+      activePuzzle = null;
+
+      turrets.forEach((t, idx) => {
+        t.ammo = t.maxAmmo;
+        t.lockdownTime = 0;
+        t.cooldown = 0;
+        updateTurretUI(idx);
+      });
+
+      document.getElementById('gameOverOverlay').classList.add('hidden');
+      updateHeaderUI();
+
+      document.getElementById('puzzleActive').classList.add('hidden');
+      document.getElementById('puzzleStandby').classList.remove('hidden');
+      document.getElementById('reloadTriggerTag').className = 'text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700';
+      document.getElementById('reloadTriggerTag').innerText = 'STANDBY';
+
+      prepareWave(1);
+    }
+
+    // --- Main Game Loop ---
+    function update(dt) {
+      if (gameOver) return;
+
+      turrets.forEach((t, idx) => {
+        t.update(dt);
+        if (t.lockdownTime > 0) {
+          const secEl = document.getElementById(`lockSec${idx}`);
+          if (secEl) secEl.innerText = t.lockdownTime.toFixed(1);
+        }
+      });
+
+      if (!waveInProgress) return;
+
+      if (spawnQueue.length > 0) {
+        spawnTimer += dt * 1000;
+        if (spawnTimer >= spawnInterval) {
+          spawnTimer = 0;
+          const nextType = spawnQueue.shift();
+          enemies.push(new Enemy(nextType, waveNumber));
+        }
+      }
+
+      enemies.forEach(e => e.update(dt));
+
+      projectiles.forEach(p => p.update(dt));
+      projectiles = projectiles.filter(p => !p.hit);
+
+      particles.forEach(pt => pt.update(dt));
+      particles = particles.filter(pt => pt.remaining > 0);
+
+      floatingTexts.forEach(ft => ft.update(dt));
+      floatingTexts = floatingTexts.filter(ft => ft.remaining > 0);
+    }
+
+    function render() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Grid background
+      ctx.strokeStyle = 'rgba(30, 41, 59, 0.4)';
+      ctx.lineWidth = 1;
+      const gridSize = 40;
+      for (let x = 0; x < canvas.width; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+      for (let y = 0; y < canvas.height; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+
+      // Draw path
+      if (pathPoints.length > 1) {
+        ctx.beginPath();
+        ctx.moveTo(pathPoints[0].x, pathPoints[0].y);
+        for (let i = 1; i < pathPoints.length; i++) {
+          ctx.lineTo(pathPoints[i].x, pathPoints[i].y);
+        }
+        ctx.strokeStyle = 'rgba(14, 165, 233, 0.15)';
+        ctx.lineWidth = 36;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(pathPoints[0].x, pathPoints[0].y);
+        for (let i = 1; i < pathPoints.length; i++) {
+          ctx.lineTo(pathPoints[i].x, pathPoints[i].y);
+        }
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 20;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(pathPoints[0].x, pathPoints[0].y);
+        for (let i = 1; i < pathPoints.length; i++) {
+          ctx.lineTo(pathPoints[i].x, pathPoints[i].y);
+        }
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([8, 8]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      // Draw Base Gate
+      const basePoint = pathPoints[pathPoints.length - 1];
+      if (basePoint) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(basePoint.x, basePoint.y, 30, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.15)';
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(basePoint.x, basePoint.y, 22, 0, Math.PI * 2);
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        ctx.font = 'bold 10px Orbitron, sans-serif';
+        ctx.fillStyle = '#ef4444';
+        ctx.textAlign = 'center';
+        ctx.fillText('BASE CORE', basePoint.x, basePoint.y + 40);
+        ctx.restore();
+      }
+
+      // Draw Turrets
+      turrets.forEach(t => t.draw(ctx));
+
+      // Draw Enemies
+      enemies.forEach(e => {
+        if (!e.dead && !e.reachedBase) e.draw(ctx);
+      });
+
+      // Draw Projectiles
+      projectiles.forEach(p => p.draw(ctx));
+
+      // Draw Particles
+      particles.forEach(pt => pt.draw(ctx));
+
+      // Draw Floating Texts
+      floatingTexts.forEach(ft => ft.draw(ctx));
+    }
+
+    function gameLoop(timestamp) {
+      if (!lastTime) lastTime = timestamp;
+      let dt = (timestamp - lastTime) / 1000;
+      lastTime = timestamp;
+
+      if (dt > 0.1) dt = 0.1;
+
+      if (!isPaused) {
+        update(dt * gameSpeed);
+      }
+
+      render();
+
+      gameLoopReq = requestAnimationFrame(gameLoop);
+    }
+
+    // --- Controls & Event Listeners ---
+    window.addEventListener('resize', resizeCanvas);
+
+    document.getElementById('btnStartWave').addEventListener('click', startWave);
+    document.getElementById('btnRestart').addEventListener('click', restartGame);
+    document.getElementById('btnRestartGame').addEventListener('click', restartGame);
+
+    document.getElementById('btnSpeed').addEventListener('click', () => {
+      if (gameSpeed === 1) {
+        gameSpeed = 2;
+        document.getElementById('speedText').innerText = '2x Speed';
+      } else {
+        gameSpeed = 1;
+        document.getElementById('speedText').innerText = '1x Speed';
+      }
+    });
+
+    const soundBtn = document.getElementById('btnSound');
+    const soundIcon = document.getElementById('soundIcon');
+    soundBtn.addEventListener('click', () => {
+      sfx.enabled = !sfx.enabled;
+      if (sfx.enabled) {
+        soundIcon.className = 'fa-solid fa-volume-high text-cyan-400';
+      } else {
+        soundIcon.className = 'fa-solid fa-volume-xmark text-slate-500';
+      }
+    });
+
+    const helpModal = document.getElementById('helpModal');
+    document.getElementById('btnHelp').addEventListener('click', () => helpModal.classList.remove('hidden'));
+    document.getElementById('btnCloseHelp').addEventListener('click', () => helpModal.classList.add('hidden'));
+    document.getElementById('btnGotIt').addEventListener('click', () => helpModal.classList.add('hidden'));
+
+    window.addEventListener('load', () => {
+      resizeCanvas();
+      initAmmoGridUI();
+      updateHeaderUI();
+      prepareWave(1);
+      requestAnimationFrame(gameLoop);
+    });
+  </script>
+</body>
+</html>
