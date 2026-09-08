@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crossword Arcade Frogger</title>
+  <style>
+    body {
+      background-color: #111;
+      color: #fff;
+      font-family: 'Courier New', Courier, monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 0;
+      padding: 10px;
+    }
+
+    #game-container {
+      width: 600px;
+      text-align: center;
+    }
+
+    #header-puzzle {
+      background: #222;
+      border: 2px solid #555;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      font-size: 16px;
+      box-shadow: 0 0 10px rgba(0,255,200,0.2);
+    }
+
+    #puzzle-text {
+      color: #00ffcc;
+      font-weight: bold;
+    }
+
+    #timer-display {
+      font-size: 18px;
+      margin-top: 5px;
+      color: #ff3366;
+    }
+
+    canvas {
+      background-color: #000;
+      border: 4px solid #fff;
+      box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+    }
+
+    .instructions {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #aaa;
+    }
+  </style>
+</head>
+<body>
+
+<div id="game-container">
+  <div id="header-puzzle">
+    <div><strong>PUZZLE:</strong> <span id="puzzle-text">Loading...</span></div>
+    <div id="timer-display">TIME LEFT: <span id="time-val">45</span>s</div>
+  </div>
+
+  <canvas id="froggerCanvas" width="600" height="500"></canvas>
+
+  <div class="instructions">
+    Use <strong>ARROW KEYS</strong> or <strong>WASD</strong> to hop across lanes.<br>
+    Avoid cars (Definitions) | Jump on Logs (Terms) | Land on the correct Target Word!
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('froggerCanvas');
+const ctx = canvas.getContext('2d');
+const puzzleTextEl = document.getElementById('puzzle-text');
+const timeValEl = document.getElementById('time-val');
+
+// Game Config
+const GRID_SIZE = 50;
+const ROWS = 10;
+const COLS = 12;
+const GAME_WIDTH = COLS * GRID_SIZE;  // 600
+const GAME_HEIGHT = ROWS * GRID_SIZE; // 500
+
+// 10 Vocabulary Words and Game Puzzles
+const VOCABULARY = [
+  { word: "ADJUSTMENT", hint: "To improve your position, make a small _____.", def: "A small change made to get a desired result" },
+  { word: "GRIP", hint: "Hold firmly so you do not lose your _____.", def: "To hold tightly" },
+  { word: "STRAIN", hint: "Pushing too hard can cause physical _____.", def: "Exhausting effort or stretch tight" },
+  { word: "FLEXIBLE", hint: "Materials that bend easily are ____.", def: "Capable of bending without breaking" },
+  { word: "LOOSEN", hint: "Turn the screw counter-clockwise to _____ it.", def: "To make or become less tight" },
+  { word: "SLIGHTLY", hint: "Move left just _____, not too far.", def: "To a small degree or extent" },
+  { word: "DEMONSTRATE", hint: "The teacher will _____ how the game works.", def: "To clearly show or explain" },
+  { word: "MATRIX", hint: "The game grid creates a 2D movement _____.", def: "A grid or environment" },
+  { word: "MOVEMENT", hint: "Grid-hopping requires precise timing and _____.", def: "An act of changing physical position" },
+  { word: "DESTINATION", hint: "Reach the safety zone at your top _____.", def: "The place to which something is going" }
+];
+
+let currentLevelIndex = 0;
+let timer = 45;
+let timerInterval = null;
+let gameActive = true;
+
+// Player Properties
+const player = {
+  x: 5 * GRID_SIZE,
+  y: 9 * GRID_SIZE,
+  width: GRID_SIZE,
+  height: GRID_SIZE,
+  reset: function() {
+    this.x = 5 * GRID_SIZE;
+    this.y = 9 * GRID_SIZE;
+  }
+};
+
+// Lane Elements (Cars & Logs)
+let obstacles = [];
+let targetZones = [];
+
+function initLevel() {
+  const currentPuzzle = VOCABULARY[currentLevelIndex];
+  puzzleTextEl.textContent = currentPuzzle.hint;
+
+  // Reset Timer
+  timer = 45;
+  timeValEl.textContent = timer;
+  if(timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    if(!gameActive) return;
+    timer--;
+    timeValEl.textContent = timer;
+    if (timer <= 0) {
+      alert("TIME UP! Level Resetting...");
+      resetRound();
+    }
+  }, 1000);
+
+  player.reset();
+
+  // Setup Top Safety Zones (Row 0)
+  targetZones = [];
+  const correctWord = currentPuzzle.word;
+  // Pick two random wrong words
+  const wrongOptions = VOCABULARY.filter(v => v.word !== correctWord)
+                                 .sort(() => 0.5 - Math.random())
+                                 .slice(0, 3);
+
+  const choices = [correctWord, wrongOptions[0].word, wrongOptions[1].word, wrongOptions[2].word]
+                  .sort(() => 0.5 - Math.random());
+
+  for(let i = 0; i < 4; i++) {
+    targetZones.push({
+      x: (i * 3 + 0.5) * GRID_SIZE,
+      y: 0,
+      width: 2 * GRID_SIZE,
+      height: GRID_SIZE,
+      word: choices[i]
+    });
+  }
+
+  // Generate Lanes: Rows 1 to 4 (River - Logs), Rows 5 to 8 (Road - Cars)
+  obstacles = [];
+
+  // River Logs (Row 1 to 4)
+  const logWords = VOCABULARY.map(v => v.word);
+  for (let row = 1; row <= 4; row++) {
+    const speed = (row % 2 === 0 ? 1 : -1) * (1.5 + Math.random() * 1.5);
+    for (let col = 0; col < 2; col++) {
+      obstacles.push({
+        x: col * 300 + (row * 40),
+        y: row * GRID_SIZE,
+        width: 140,
+        height: GRID_SIZE,
+        speed: speed,
+        type: 'log',
+        label: logWords[(row * 2 + col) % logWords.length]
+      });
+    }
+  }
+
+  // Road Cars (Row 5 to 8)
+  const carDefs = VOCABULARY.map(v => v.def);
+  for (let row = 5; row <= 8; row++) {
+    const speed = (row % 2 === 0 ? -1 : 1) * (2 + Math.random() * 2);
+    for (let col = 0; col < 2; col++) {
+      obstacles.push({
+        x: col * 320 + (row * 30),
+        y: row * GRID_SIZE,
+        width: 120,
+        height: GRID_SIZE,
+        speed: speed,
+        type: 'car',
+        label: carDefs[(row * 2 + col) % carDefs.length]
+      });
+    }
+  }
+}
+
+function resetRound() {
+  player.reset();
+  initLevel();
+}
+
+// Input Handlers
+window.addEventListener('keydown', (e) => {
+  if (!gameActive) return;
+
+  if ((e.key === 'ArrowLeft' || e.key === 'a') && player.x > 0) {
+    player.x -= GRID_SIZE;
+  } else if ((e.key === 'ArrowRight' || e.key === 'd') && player.x + GRID_SIZE < GAME_WIDTH) {
+    player.x += GRID_SIZE;
+  } else if ((e.key === 'ArrowUp' || e.key === 'w') && player.y > 0) {
+    player.y -= GRID_SIZE;
+  } else if ((e.key === 'ArrowDown' || e.key === 's') && player.y + GRID_SIZE < GAME_HEIGHT) {
+    player.y += GRID_SIZE;
+  }
+});
+
+function update() {
+  // Move Obstacles
+  obstacles.forEach(obs => {
+    obs.x += obs.speed;
+    if (obs.speed > 0 && obs.x > GAME_WIDTH) obs.x = -obs.width;
+    if (obs.speed < 0 && obs.x + obs.width < 0) obs.x = GAME_WIDTH;
+  });
+
+  const playerRow = player.y / GRID_SIZE;
+
+  // Collision Logic - Road Lanes (Cars)
+  if (playerRow >= 5 && playerRow <= 8) {
+    let hitCar = false;
+    obstacles.filter(o => o.type === 'car').forEach(car => {
+      if (player.x < car.x + car.width &&
+          player.x + player.width > car.x &&
+          player.y < car.y + car.height &&
+          player.y + player.height > car.y) {
+        hitCar = true;
+      }
+    });
+    if (hitCar) {
+      alert("CRASH! You hit a definition car.");
+      player.reset();
+    }
+  }
+
+  // Collision Logic - River Lanes (Logs)
+  if (playerRow >= 1 && playerRow <= 4) {
+    let onLog = false;
+    obstacles.filter(o => o.type === 'log').forEach(log => {
+      if (player.x + player.width / 2 > log.x &&
+          player.x + player.width / 2 < log.x + log.width &&
+          player.y === log.y) {
+        onLog = true;
+        player.x += log.speed; // Drifts with log
+      }
+    });
+
+    if (!onLog || player.x < 0 || player.x + player.width > GAME_WIDTH) {
+      alert("SPLASH! You fell into the water.");
+      player.reset();
+    }
+  }
+
+  // Win/Safety Zone Checking (Row 0)
+  if (playerRow === 0) {
+    let landedZone = targetZones.find(z => player.x >= z.x && player.x + player.width <= z.x + z.width);
+    const targetWord = VOCABULARY[currentLevelIndex].word;
+
+    if (landedZone && landedZone.word === targetWord) {
+      alert(`CORRECT! "${targetWord}" completes the puzzle!`);
+      currentLevelIndex = (currentLevelIndex + 1) % VOCABULARY.length;
+      resetRound();
+    } else {
+      alert("INCORRECT ZONE! Try again.");
+      player.reset();
+    }
+  }
+}
+
+function render() {
+  // Clear Canvas
+  ctx.fillStyle = '#111';
+  ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+  // Draw River (Rows 1 to 4)
+  ctx.fillStyle = '#003366';
+  ctx.fillRect(0, GRID_SIZE * 1, GAME_WIDTH, GRID_SIZE * 4);
+
+  // Draw Road (Rows 5 to 8)
+  ctx.fillStyle = '#333';
+  ctx.fillRect(0, GRID_SIZE * 5, GAME_WIDTH, GRID_SIZE * 4);
+
+  // Draw Start Row (Row 9)
+  ctx.fillStyle = '#228B22';
+  ctx.fillRect(0, GRID_SIZE * 9, GAME_WIDTH, GRID_SIZE);
+
+  // Draw Top Zone Row (Row 0)
+  ctx.fillStyle = '#111';
+  ctx.fillRect(0, 0, GAME_WIDTH, GRID_SIZE);
+
+  // Render Target Zones
+  targetZones.forEach(z => {
+    ctx.fillStyle = '#444';
+    ctx.fillRect(z.x, z.y + 5, z.width, z.height - 10);
+    ctx.strokeStyle = '#00ffcc';
+    ctx.strokeRect(z.x, z.y + 5, z.width, z.height - 10);
+
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 12px Courier New';
+    ctx.textAlign = 'center';
+    ctx.fillText(z.word, z.x + z.width / 2, z.y + 30);
+  });
+
+  // Render Obstacles
+  obstacles.forEach(obs => {
+    if (obs.type === 'log') {
+      ctx.fillStyle = '#8B4513';
+      ctx.fillRect(obs.x, obs.y + 4, obs.width, obs.height - 8);
+      ctx.fillStyle = '#FFE4C4';
+      ctx.font = '11px Courier New';
+      ctx.textAlign = 'center';
+      ctx.fillText(obs.label, obs.x + obs.width / 2, obs.y + 28);
+    } else {
+      ctx.fillStyle = '#CC0000';
+      ctx.fillRect(obs.x, obs.y + 4, obs.width, obs.height - 8);
+      ctx.fillStyle = '#FFF';
+      ctx.font = '10px Courier New';
+      ctx.textAlign = 'center';
+      ctx.fillText(obs.label.substring(0, 16) + '...', obs.x + obs.width / 2, obs.y + 28);
+    }
+  });
+
+  // Draw Player Character (Frogger)
+  ctx.fillStyle = '#00FF00';
+  ctx.beginPath();
+  ctx.arc(player.x + GRID_SIZE / 2, player.y + GRID_SIZE / 2, GRID_SIZE / 2 - 4, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function gameLoop() {
+  update();
+  render();
+  requestAnimationFrame(gameLoop);
+}
+
+// Start Game
+initLevel();
+gameLoop();
+</script>
+</body>
+</html>
