@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flashcard Memory Matrix</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+    h1 { margin-bottom: 15px; color: #333; }
+    
+    .stats {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 20px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: #444;
+    }
+    
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, 120px);
+      grid-gap: 12px;
+      perspective: 1000px;
+    }
+
+    .card {
+      width: 120px;
+      height: 100px;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.4s ease;
+      cursor: pointer;
+    }
+
+    .card.flipped, .card.matched {
+      transform: rotateY(180deg);
+    }
+
+    .card-face {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      border-radius: 8px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 8px;
+      text-align: center;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+
+    .card-front {
+      background: #007bff;
+      color: white;
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+
+    .card-back {
+      background: #ffffff;
+      color: #333;
+      border: 2px solid #007bff;
+      transform: rotateY(180deg);
+      font-size: 0.9rem;
+    }
+
+    .card.matched .card-back {
+      background: #28a745;
+      color: white;
+      border-color: #28a745;
+    }
+
+    /* Victory Screen Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.6);
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-content {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      text-align: center;
+      max-width: 400px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    }
+    .modal-content h2 { margin-bottom: 10px; color: #28a745; }
+    .modal-content p { margin: 8px 0; font-size: 1.1rem; }
+    .btn {
+      margin-top: 15px;
+      padding: 10px 20px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    .btn:hover { background: #0056b3; }
+  </style>
+</head>
+<body>
+
+  <h1>Memory Matrix</h1>
+
+  <div class="stats">
+    <div>Moves: <span id="move-counter">0</span></div>
+    <div>Matches: <span id="match-counter">0</span> / 8</div>
+    <div>Time Left: <span id="timer">90</span>s</div>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <!-- Victory / Game Over Modal -->
+  <div class="modal" id="modal">
+    <div class="modal-content">
+      <h2 id="modal-title">Victory!</h2>
+      <p id="modal-moves"></p>
+      <p id="modal-time"></p>
+      <p id="modal-rating"></p>
+      <button class="btn" onclick="restartGame()">Play Again</button>
+    </div>
+  </div>
+
+  <script>
+    const vocabularyPairs = [
+      { word: "Encounter", def: "An unexpected or casual meeting" },
+      { word: "Feast", def: "A large meal, typically a celebratory one" },
+      { word: "Merge", def: "Combine or cause to combine into a single entity" },
+      { word: "Distinct", def: "Recognizably different in nature from something else" },
+      { word: "Endure", def: "Suffer patiently or remain in existence" },
+      { word: "Reminder", def: "A thing that causes someone to remember something" },
+      { word: "Analyze", def: "Examine methodically and in detail" },
+      { word: "Persist", def: "Continue firmly in a course of action" }
+    ];
+
+    let cardsData = [];
+    let flippedCards = [];
+    let moves = 0;
+    let matches = 0;
+    let timer = 90;
+    let timerInterval = null;
+    let lockBoard = false;
+
+    const grid = document.getElementById('grid');
+    const moveCounter = document.getElementById('move-counter');
+    const matchCounter = document.getElementById('match-counter');
+    const timerDisplay = document.getElementById('timer');
+    const modal = document.getElementById('modal');
+
+    function initGame() {
+      // Reset state
+      grid.innerHTML = '';
+      flippedCards = [];
+      moves = 0;
+      matches = 0;
+      timer = 90;
+      lockBoard = false;
+      moveCounter.textContent = moves;
+      matchCounter.textContent = matches;
+      timerDisplay.textContent = timer;
+      modal.style.display = 'none';
+
+      clearInterval(timerInterval);
+      startTimer();
+
+      // Prepare cards array (8 words + 8 definitions)
+      cardsData = [];
+      vocabularyPairs.forEach((pair, index) => {
+        cardsData.push({ id: index, type: 'word', text: pair.word });
+        cardsData.push({ id: index, type: 'def', text: pair.def });
+      });
+
+      // Shuffle cards
+      cardsData.sort(() => 0.5 - Math.random());
+
+      // Create HTML elements
+      cardsData.forEach((item, idx) => {
+        const card = document.createElement('div');
+        card.classList.add('card');
+        card.dataset.id = item.id;
+        card.dataset.index = idx;
+
+        card.innerHTML = `
+          <div class="card-face card-front">?</div>
+          <div class="card-face card-back">${item.text}</div>
+        `;
+
+        card.addEventListener('click', () => flipCard(card));
+        grid.appendChild(card);
+      });
+    }
+
+    function startTimer() {
+      timerInterval = setInterval(() => {
+        timer--;
+        timerDisplay.textContent = timer;
+        if (timer <= 0) {
+          clearInterval(timerInterval);
+          endGame(false);
+        }
+      }, 1000);
+    }
+
+    function flipCard(card) {
+      if (lockBoard || card.classList.contains('flipped') || card.classList.contains('matched')) return;
+
+      card.classList.add('flipped');
+      flippedCards.push(card);
+
+      if (flippedCards.length === 2) {
+        moves++;
+        moveCounter.textContent = moves;
+        checkMatch();
+      }
+    }
+
+    function checkMatch() {
+      const [card1, card2] = flippedCards;
+      const isMatch = card1.dataset.id === card2.dataset.id;
+
+      if (isMatch) {
+        card1.classList.add('matched');
+        card2.classList.add('matched');
+        matches++;
+        matchCounter.textContent = matches;
+        flippedCards = [];
+
+        if (matches === 8) {
+          clearInterval(timerInterval);
+          endGame(true);
+        }
+      } else {
+        lockBoard = true;
+        setTimeout(() => {
+          card1.classList.remove('flipped');
+          card2.classList.remove('flipped');
+          flippedCards = [];
+          lockBoard = false;
+        }, 1000);
+      }
+    }
+
+    function calculateEfficiency() {
+      // Optimal moves = 8. Rating based on moves and time remaining.
+      const timeUsed = 90 - timer;
+      if (moves <= 12 && timeUsed <= 45) return "S Rank (Flawless)";
+      if (moves <= 16 && timeUsed <= 60) return "A Rank (Great)";
+      if (moves <= 22) return "B Rank (Good)";
+      return "C Rank (Needs Practice)";
+    }
+
+    function endGame(isWin) {
+      const modalTitle = document.getElementById('modal-title');
+      if (isWin) {
+        modalTitle.textContent = "Victory!";
+        modalTitle.style.color = "#28a745";
+        document.getElementById('modal-moves').textContent = `Total Moves: ${moves}`;
+        document.getElementById('modal-time').textContent = `Time Remaining: ${timer}s`;
+        document.getElementById('modal-rating').textContent = `Efficiency Rating: ${calculateEfficiency()}`;
+      } else {
+        modalTitle.textContent = "Time's Up!";
+        modalTitle.style.color = "#dc3545";
+        document.getElementById('modal-moves').textContent = `Moves Made: ${moves}`;
+        document.getElementById('modal-time').textContent = `Matches Found: ${matches}/8`;
+        document.getElementById('modal-rating').textContent = `Efficiency Rating: Try Again!`;
+      }
+      modal.style.display = 'flex';
+    }
+
+    function restartGame() {
+      initGame();
+    }
+
+    // Start on load
+    initGame();
+  </script>
+</body>
+</html>

@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vocabulary Money Ladder</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background: radial-gradient(circle, #0a192f 0%, #020c1b 100%);
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .game-container {
+      background: #0f2b48;
+      border: 4px solid #ffd700;
+      border-radius: 15px;
+      box-shadow: 0 0 30px rgba(255, 215, 0, 0.3);
+      width: 100%;
+      max-width: 900px;
+      padding: 25px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    header {
+      text-align: center;
+      border-bottom: 2px solid #ffd700;
+      padding-bottom: 15px;
+    }
+
+    h1 {
+      color: #ffd700;
+      font-size: 2.2rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      text-shadow: 2px 2px 4px #000;
+    }
+
+    .main-content {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .quiz-area {
+      flex: 2;
+      min-width: 280px;
+      display: flex;
+      flex-direction: flex-column;
+      justify-content: space-between;
+      gap: 15px;
+    }
+
+    .status-bar {
+      display: flex;
+      justify-content: space-between;
+      background: #0a192f;
+      padding: 12px 20px;
+      border-radius: 8px;
+      border: 1px solid #ffd700;
+      font-weight: bold;
+    }
+
+    .timer {
+      color: #ff4d4d;
+      font-size: 1.2rem;
+    }
+
+    .prize-current {
+      color: #ffd700;
+      font-size: 1.2rem;
+    }
+
+    .question-card {
+      background: #173b62;
+      border: 2px solid #38bdf8;
+      border-radius: 10px;
+      padding: 20px;
+      min-height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-size: 1.2rem;
+      box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+    }
+
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .btn {
+      background: linear-gradient(180deg, #1e40af 0%, #1e3a8a 100%);
+      color: #fff;
+      border: 2px solid #ffd700;
+      padding: 15px;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: left;
+    }
+
+    .btn:hover {
+      background: #ffd700;
+      color: #000;
+      font-weight: bold;
+      transform: translateY(-2px);
+    }
+
+    .ladder-area {
+      flex: 1;
+      min-width: 200px;
+      background: #0a192f;
+      border: 2px solid #ffd700;
+      border-radius: 10px;
+      padding: 15px;
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 6px;
+    }
+
+    .ladder-step {
+      padding: 8px 12px;
+      border-radius: 5px;
+      background: #173b62;
+      display: flex;
+      justify-content: space-between;
+      font-weight: bold;
+      font-size: 0.9rem;
+      color: #94a3b8;
+    }
+
+    .ladder-step.active {
+      background: #ffd700;
+      color: #000;
+      box-shadow: 0 0 10px #ffd700;
+    }
+
+    .ladder-step.completed {
+      color: #38bdf8;
+    }
+
+    .overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(2, 12, 27, 0.95);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+    }
+
+    .modal {
+      background: #0f2b48;
+      border: 4px solid #ffd700;
+      border-radius: 15px;
+      padding: 30px;
+      text-align: center;
+      max-width: 450px;
+      width: 90%;
+    }
+
+    .modal h2 {
+      color: #ffd700;
+      margin-bottom: 15px;
+      font-size: 2rem;
+    }
+
+    .modal p {
+      margin-bottom: 20px;
+      font-size: 1.1rem;
+    }
+
+    .action-btn {
+      background: #ffd700;
+      color: #000;
+      border: none;
+      padding: 12px 25px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      border-radius: 25px;
+      cursor: pointer;
+      text-transform: uppercase;
+    }
+
+    .action-btn:hover {
+      background: #fff;
+      box-shadow: 0 0 15px #fff;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    @media (max-width: 600px) {
+      .options-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="game-container">
+    <header>
+      <h1>VOCABULARY MONEY LADDER</h1>
+    </header>
+
+    <div class="main-content">
+      <div class="quiz-area">
+        <div class="status-bar">
+          <div class="timer">TIME: <span id="time-display">60</span>s</div>
+          <div class="prize-current">BANK: $<span id="bank-display">0</span></div>
+        </div>
+
+        <div class="question-card" id="question-text">
+          Question definition goes here...
+        </div>
+
+        <div class="options-grid" id="options-container">
+          <!-- Option buttons inserted dynamically -->
+        </div>
+      </div>
+
+      <div class="ladder-area" id="ladder">
+        <!-- Money ladder generated dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- End Game Modal -->
+  <div class="overlay hidden" id="game-modal">
+    <div class="modal">
+      <h2 id="modal-title">GAME OVER</h2>
+      <p id="modal-message">You lost the game!</p>
+      <button class="action-btn" id="restart-btn">PLAY AGAIN</button>
+    </div>
+  </div>
+
+  <script>
+    const vocabularyData = [
+      {
+        word: "coincidence",
+        definition: "A remarkable concurrence of events or circumstances without apparent causal connection.",
+        distractors: ["A planned meeting", "A strict rule", "A large celebratory meal"]
+      },
+      {
+        word: "invade",
+        definition: "To enter a place or region in large numbers, especially to occupy or subjugate it.",
+        distractors: ["To leave quietly", "To combine together", "To offer hard physical work"]
+      },
+      {
+        word: "overthrow",
+        definition: "To remove forcibly from power or rule.",
+        distractors: ["To build a new structure", "To meet unexpectedly", "To obey strictly"]
+      },
+      {
+        word: "rigid",
+        definition: "Not able to be changed or adapted; stiff and unyielding.",
+        distractors: ["Flexible and soft", "High-ranking in society", "Accidental"]
+      },
+      {
+        word: "labor",
+        definition: "Hard physical work, especially manual work.",
+        distractors: ["A grand party", "A wealthy ruler", "A casual meeting"]
+      },
+      {
+        word: "peasant",
+        definition: "A poor farmer of low social status who owns or rents a small piece of land.",
+        distractors: ["A member of the highest social class", "A powerful monarch", "A strict law"]
+      },
+      {
+        word: "noble",
+        definition: "Belonging to a high class in society, especially having a title or land.",
+        distractors: ["A poor farm worker", "Hard manual labor", "A sudden accident"]
+      },
+      {
+        word: "encounter",
+        definition: "To unexpectedly experience or come face-to-face with someone or something.",
+        distractors: ["To combine two things", "To force out of power", "To plan in advance"]
+      },
+      {
+        word: "feast",
+        definition: "A large meal, typically one in celebration of something.",
+        distractors: ["Hard physical work", "A small quick snack", "A state of stiffness"]
+      },
+      {
+        word: "merge",
+        definition: "To combine or cause to combine to form a single entity.",
+        distractors: ["To separate into parts", "To attack and occupy", "To rule over a kingdom"]
+      }
+    ];
+
+    const prizeValues = [
+      100, 500, 1000, 5000, 10000, 25000, 50000, 100000, 500000, 1000000
+    ];
+
+    let currentLevel = 0;
+    let shuffledVocab = [];
+    let timer = 60;
+    let timerInterval = null;
+
+    const questionText = document.getElementById("question-text");
+    const optionsContainer = document.getElementById("options-container");
+    const ladderContainer = document.getElementById("ladder");
+    const timeDisplay = document.getElementById("time-display");
+    const bankDisplay = document.getElementById("bank-display");
+    const modal = document.getElementById("game-modal");
+    const modalTitle = document.getElementById("modal-title");
+    const modalMessage = document.getElementById("modal-message");
+    const restartBtn = document.getElementById("restart-btn");
+
+    function shuffleArray(array) {
+      const arr = [...array];
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function renderLadder() {
+      ladderContainer.innerHTML = "";
+      prizeValues.forEach((value, index) => {
+        const step = document.createElement("div");
+        step.className = "ladder-step";
+        if (index === currentLevel) step.classList.add("active");
+        if (index < currentLevel) step.classList.add("completed");
+        
+        step.innerHTML = `<span>Q${index + 1}</span> <span>$${value.toLocaleString()}</span>`;
+        ladderContainer.appendChild(step);
+      });
+    }
+
+    function startTimer() {
+      clearInterval(timerInterval);
+      timer = 60;
+      timeDisplay.textContent = timer;
+      timerInterval = setInterval(() => {
+        timer--;
+        timeDisplay.textContent = timer;
+        if (timer <= 0) {
+          clearInterval(timerInterval);
+          endGame(false, "Time ran out!");
+        }
+      }, 1000);
+    }
+
+    function loadQuestion() {
+      if (currentLevel >= shuffledVocab.length) {
+        endGame(true);
+        return;
+      }
+
+      renderLadder();
+      startTimer();
+
+      const item = shuffledVocab[currentLevel];
+      questionText.textContent = `Which word matches: "${item.definition}"?`;
+
+      const choices = shuffleArray([item.word, ...item.distractors]);
+      optionsContainer.innerHTML = "";
+
+      choices.forEach(choice => {
+        const button = document.createElement("button");
+        button.className = "btn";
+        button.textContent = choice;
+        button.onclick = () => checkAnswer(choice, item.word);
+        optionsContainer.appendChild(button);
+      });
+
+      bankDisplay.textContent = currentLevel === 0 ? "0" : prizeValues[currentLevel - 1].toLocaleString();
+    }
+
+    function checkAnswer(selected, correct) {
+      clearInterval(timerInterval);
+      if (selected === correct) {
+        currentLevel++;
+        if (currentLevel < shuffledVocab.length) {
+          loadQuestion();
+        } else {
+          bankDisplay.textContent = prizeValues[prizeValues.length - 1].toLocaleString();
+          endGame(true);
+        }
+      } else {
+        endGame(false, `Wrong answer! The correct word was "${correct}".`);
+      }
+    }
+
+    function endGame(isWin, customMessage = "") {
+      clearInterval(timerInterval);
+      modal.classList.remove("hidden");
+      if (isWin) {
+        modalTitle.textContent = "CONGRATULATIONS!";
+        modalMessage.textContent = "You mastered all 10 words and won $1,000,000!";
+      } else {
+        modalTitle.textContent = "GAME OVER";
+        modalMessage.textContent = customMessage || "You lost the game!";
+      }
+    }
+
+    function initGame() {
+      currentLevel = 0;
+      shuffledVocab = shuffleArray(vocabularyData);
+      modal.classList.add("hidden");
+      loadQuestion();
+    }
+
+    restartBtn.addEventListener("click", initGame);
+
+    // Launch game on load
+    initGame();
+  </script>
+</body>
+</html>

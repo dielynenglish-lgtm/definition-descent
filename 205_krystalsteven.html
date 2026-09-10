@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocab Tetris: Drop & Unlock</title>
+    <style>
+        :root {
+            --bg-color: #0b0c10;
+            --panel-color: #1f2833;
+            --accent-cyan: #66fcf1;
+            --accent-green: #45a29e;
+            --text-color: #c5c6c7;
+            --danger: #ff4d4d;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .game-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            max-width: 900px;
+            width: 100%;
+        }
+
+        .header h1 {
+            color: var(--accent-cyan);
+            margin: 0;
+            font-size: 2.2rem;
+            text-shadow: 0 0 10px rgba(102, 252, 241, 0.5);
+            text-align: center;
+        }
+
+        .def-box {
+            background: var(--panel-color);
+            border: 2px solid var(--accent-cyan);
+            border-radius: 8px;
+            padding: 15px 20px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 0 15px rgba(102, 252, 241, 0.2);
+            box-sizing: border-box;
+        }
+
+        .def-title {
+            color: var(--accent-cyan);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 5px;
+        }
+
+        .def-text {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #ffffff;
+            min-height: 1.5em;
+        }
+
+        .main-layout {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .canvas-container {
+            position: relative;
+            border: 4px solid var(--panel-color);
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.8), 0 0 10px var(--accent-green);
+            border-radius: 4px;
+        }
+
+        canvas {
+            background-color: #050508;
+            display: block;
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 220px;
+        }
+
+        .info-card {
+            background: var(--panel-color);
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid var(--accent-cyan);
+        }
+
+        .info-card label {
+            display: block;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            color: var(--accent-cyan);
+            margin-bottom: 5px;
+        }
+
+        .info-card .value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .controls-card {
+            background: var(--panel-color);
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .controls-card h3 {
+            margin-top: 0;
+            color: var(--accent-cyan);
+            font-size: 1rem;
+        }
+
+        .key {
+            background: #000;
+            border: 1px solid var(--accent-cyan);
+            color: var(--accent-cyan);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 0.8rem;
+            margin-top: 5px;
+        }
+
+        .status-locked {
+            background: rgba(255, 77, 77, 0.2);
+            color: var(--danger);
+            border: 1px solid var(--danger);
+        }
+
+        .status-unlocked {
+            background: rgba(102, 252, 241, 0.2);
+            color: var(--accent-cyan);
+            border: 1px solid var(--accent-cyan);
+        }
+
+        #start-btn {
+            background: var(--accent-cyan);
+            color: #000;
+            border: none;
+            padding: 12px 24px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 0 10px var(--accent-cyan);
+            width: 100%;
+        }
+
+        #start-btn:hover {
+            background: #fff;
+            box-shadow: 0 0 20px #fff;
+        }
+    </style>
+</head>
+<body>
+
+<div class="game-wrapper">
+    <div class="header">
+        <h1>VOCAB TETRIS</h1>
+    </div>
+
+    <div class="def-box">
+        <div class="def-title">Target Definition</div>
+        <div class="def-text" id="current-def">Click START GAME to Begin</div>
+    </div>
+
+    <div class="main-layout">
+        <div class="canvas-container">
+            <canvas id="tetris" width="240" height="480"></canvas>
+        </div>
+
+        <div class="sidebar">
+            <button id="start-btn">START GAME</button>
+
+            <div class="info-card">
+                <label>Timer</label>
+                <div class="value" id="timer">60s</div>
+            </div>
+
+            <div class="info-card">
+                <label>Score</label>
+                <div class="value" id="score">0</div>
+            </div>
+
+            <div class="info-card">
+                <label>Block Status</label>
+                <div id="block-status" class="status-badge status-locked">LOCKED</div>
+            </div>
+
+            <div class="controls-card">
+                <h3>Controls</h3>
+                <p><span class="key">Y</span> = Match Definition</p>
+                <p><span class="key">N</span> = Doesn't Match</p>
+                <hr style="border-color: #333; margin: 8px 0;">
+                <p style="color: #888;">When Unlocked:</p>
+                <p><span class="key">←</span> <span class="key">→</span> Move Left/Right</p>
+                <p><span class="key">↑</span> Rotate Block</p>
+                <p><span class="key">↓</span> Soft Drop</p>
+                <p><span class="key">Space</span> Snap to Bottom</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+    const canvas = document.getElementById('tetris');
+    const context = canvas.getContext('2d');
+    const COLS = 10;
+    const ROWS = 20;
+    const BLOCK_SIZE = 24;
+
+    context.scale(BLOCK_SIZE, BLOCK_SIZE);
+
+    const vocabList = [
+        { word: "ban", def: "To officially prohibit or forbid something" },
+        { word: "welfare", def: "The health, happiness, and fortunes of a person or group" },
+        { word: "controversy", def: "A prolonged public disagreement or heated debate" },
+        { word: "prey", def: "An animal that is hunted and killed by another for food" },
+        { word: "rear", def: "The back part of something, or to raise/bring up children" },
+        { word: "sniff", def: "To draw air up through the nose audibly or to smell something" },
+        { word: "dignity", def: "The state or quality of being worthy of honor or respect" },
+        { word: "intact", def: "Not damaged or impaired; kept whole and complete" },
+        { word: "assemble", def: "To fit together the separate component parts of something" },
+        { word: "mount", def: "To climb up or attach/fix something in place for display" }
+    ];
+
+    const SHAPES = [
+        [[0, 1, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0]],
+        [[0, 2, 0], [0, 2, 0], [0, 2, 2]],
+        [[3, 3], [3, 3]],
+        [[0, 4, 0], [4, 4, 4], [0, 0, 0]]
+    ];
+
+    const COLORS = [null, '#00f0f0', '#f0a000', '#f0f000', '#a000f0'];
+
+    let board = createMatrix(COLS, ROWS);
+    let score = 0;
+    let timeRemaining = 60;
+    let timerInterval = null;
+    let dropCounter = 0;
+    let dropInterval = 1000;
+    let lastTime = 0;
+    let gameOver = false;
+    let gameStarted = false;
+    let animFrameId = null;
+
+    let currentDefinition = null;
+    let player = {
+        pos: {x: 0, y: 0},
+        matrix: null,
+        colorIndex: 0,
+        word: "",
+        isLocked: true,
+        matchesDef: false
+    };
+
+    function createMatrix(w, h) {
+        const matrix = [];
+        while (h--) matrix.push(new Array(w).fill(0));
+        return matrix;
+    }
+
+    function resetPlayer() {
+        const shapeIndex = Math.floor(Math.random() * SHAPES.length);
+        player.matrix = JSON.parse(JSON.stringify(SHAPES[shapeIndex]));
+        player.colorIndex = shapeIndex + 1;
+        player.pos.y = 0;
+        player.pos.x = Math.floor(COLS / 2) - Math.floor(player.matrix[0].length / 2);
+        player.isLocked = true;
+        dropInterval = 1000;
+
+        currentDefinition = vocabList[Math.floor(Math.random() * vocabList.length)];
+        document.getElementById('current-def').innerText = currentDefinition.def;
+
+        const shouldMatch = Math.random() < 0.5;
+        player.matchesDef = shouldMatch;
+
+        if (shouldMatch) {
+            player.word = currentDefinition.word;
+        } else {
+            let otherWords = vocabList.filter(v => v.word !== currentDefinition.word);
+            player.word = otherWords[Math.floor(Math.random() * otherWords.length)].word;
+        }
+
+        updateUI();
+
+        if (collide(board, player)) {
+            endGame("Board Overfilled!");
+        }
+    }
+
+    function updateUI() {
+        const statusEl = document.getElementById('block-status');
+        if (player.isLocked) {
+            statusEl.innerText = "LOCKED";
+            statusEl.className = "status-badge status-locked";
+        } else {
+            statusEl.innerText = "UNLOCKED";
+            statusEl.className = "status-badge status-unlocked";
+        }
+        document.getElementById('score').innerText = score;
+    }
+
+    function drawMatrix(matrix, offset, isLocked, colorIndex) {
+        matrix.forEach((row, y) => {
+            row.forEach((value, x) => {
+                if (value !== 0) {
+                    context.fillStyle = isLocked ? 'rgba(150, 150, 150, 0.4)' : COLORS[colorIndex];
+                    context.fillRect(x + offset.x, y + offset.y, 1, 1);
+                    context.strokeStyle = '#000';
+                    context.lineWidth = 0.05;
+                    context.strokeRect(x + offset.x, y + offset.y, 1, 1);
+                }
+            });
+        });
+    }
+
+    function drawWord() {
+        context.fillStyle = '#ffffff';
+        context.font = 'bold 0.8px sans-serif';
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        
+        let startX = player.pos.x + player.matrix[0].length / 2;
+        let startY = player.pos.y + player.matrix.length / 2;
+        
+        context.shadowColor = 'black';
+        context.shadowBlur = 4;
+        context.fillText(player.word.toUpperCase(), startX, startY);
+        context.shadowBlur = 0;
+    }
+
+    function draw() {
+        context.fillStyle = '#050508';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        drawBoard();
+        if (player.matrix) {
+            drawMatrix(player.matrix, player.pos, player.isLocked, player.colorIndex);
+            drawWord();
+        }
+    }
+
+    function drawBoard() {
+        board.forEach((row, y) => {
+            row.forEach((value, x) => {
+                if (value !== 0) {
+                    context.fillStyle = COLORS[value];
+                    context.fillRect(x, y, 1, 1);
+                    context.strokeStyle = '#050508';
+                    context.lineWidth = 0.05;
+                    context.strokeRect(x, y, 1, 1);
+                }
+            });
+        });
+    }
+
+    function merge(board, player) {
+        player.matrix.forEach((row, y) => {
+            row.forEach((value, x) => {
+                if (value !== 0) {
+                    board[y + player.pos.y][x + player.pos.x] = player.colorIndex;
+                }
+            });
+        });
+    }
+
+    function collide(board, player) {
+        const m = player.matrix;
+        const o = player.pos;
+        for (let y = 0; y < m.length; ++y) {
+            for (let x = 0; x < m[y].length; ++x) {
+                if (m[y][x] !== 0 && (board[y + o.y] && board[y + o.y][x + o.x]) !== 0) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    function playerDrop() {
+        player.pos.y++;
+        if (collide(board, player)) {
+            player.pos.y--;
+            merge(board, player);
+            clearRows();
+            resetPlayer();
+        }
+        dropCounter = 0;
+    }
+
+    function snapDown() {
+        if (player.isLocked) return;
+        while (!collide(board, player)) {
+            player.pos.y++;
+        }
+        player.pos.y--;
+        merge(board, player);
+        clearRows();
+        resetPlayer();
+    }
+
+    function clearRows() {
+        let linesCleared = 0;
+        outer: for (let y = board.length - 1; y >= 0; --y) {
+            for (let x = 0; x < board[y].length; ++x) {
+                if (board[y][x] === 0) continue outer;
+            }
+            const row = board.splice(y, 1)[0].fill(0);
+            board.unshift(row);
+            ++y;
+            linesCleared++;
+        }
+        if (linesCleared > 0) {
+            score += linesCleared * 100;
+            updateUI();
+        }
+    }
+
+    function playerMove(dir) {
+        if (player.isLocked) return;
+        player.pos.x += dir;
+        if (collide(board, player)) player.pos.x -= dir;
+    }
+
+    function playerRotate() {
+        if (player.isLocked) return;
+        const pos = player.pos.x;
+        let offset = 1;
+        rotate(player.matrix);
+        while (collide(board, player)) {
+            player.pos.x += offset;
+            offset = -(offset + (offset > 0 ? 1 : -1));
+            if (offset > player.matrix[0].length) {
+                rotate(player.matrix, -1);
+                player.pos.x = pos;
+                return;
+            }
+        }
+    }
+
+    function rotate(matrix, dir = 1) {
+        for (let y = 0; y < matrix.length; ++y) {
+            for (let x = 0; x < y; ++x) {
+                [matrix[x][y], matrix[y][x]] = [matrix[y][x], matrix[x][y]];
+            }
+        }
+        if (dir > 0) matrix.forEach(row => row.reverse());
+        else matrix.reverse();
+    }
+
+    function handleGuess(userGuessedMatch) {
+        if (!player.isLocked) return;
+
+        if (userGuessedMatch === player.matchesDef) {
+            player.isLocked = false;
+            dropInterval = 1000;
+            score += 20;
+        } else {
+            dropInterval = 150;
+        }
+        updateUI();
+    }
+
+    function update(time = 0) {
+        if (!gameStarted || gameOver) return;
+
+        const deltaTime = time - lastTime;
+        lastTime = time;
+
+        dropCounter += deltaTime;
+        if (dropCounter > dropInterval) {
+            playerDrop();
+        }
+
+        draw();
+        animFrameId = requestAnimationFrame(update);
+    }
+
+    function startGame() {
+        if (animFrameId) cancelAnimationFrame(animFrameId);
+        board = createMatrix(COLS, ROWS);
+        score = 0;
+        timeRemaining = 60;
+        gameOver = false;
+        gameStarted = true;
+
+        document.getElementById('start-btn').innerText = "RESTART GAME";
+        
+        if (timerInterval) clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            timeRemaining--;
+            document.getElementById('timer').innerText = timeRemaining + "s";
+            if (timeRemaining <= 0) {
+                endGame("Time's Up!");
+            }
+        }, 1000);
+
+        resetPlayer();
+        lastTime = performance.now();
+        update();
+    }
+
+    function endGame(reason) {
+        gameOver = true;
+        gameStarted = false;
+        clearInterval(timerInterval);
+        if (animFrameId) cancelAnimationFrame(animFrameId);
+        document.getElementById('current-def').innerText = `GAME OVER (${reason}) - Final Score: ${score}`;
+    }
+
+    document.getElementById('start-btn').addEventListener('click', startGame);
+
+    document.addEventListener('keydown', event => {
+        if (!gameStarted || gameOver) return;
+
+        const key = event.key.toLowerCase();
+        if (key === 'y') handleGuess(true);
+        else if (key === 'n') handleGuess(false);
+        else if (event.keyCode === 37) playerMove(-1);
+        else if (event.keyCode === 39) playerMove(1);
+        else if (event.keyCode === 40) playerDrop();
+        else if (event.keyCode === 38) playerRotate();
+        else if (event.keyCode === 32) snapDown();
+    });
+
+    draw();
+});
+</script>
+</body>
+</html>

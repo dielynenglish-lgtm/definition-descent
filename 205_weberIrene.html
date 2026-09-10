@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Whack-A-Word: Anime Arcade Edition</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+        body {
+            background: linear-gradient(135deg, #12002b 0%, #29004d 50%, #4a0066 100%);
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            color: #ff007f;
+            text-shadow: 0 0 10px #ff007f, 0 0 20px #ff007f, 0 0 40px #00f0ff;
+            margin-bottom: 5px;
+            font-size: 2.5rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .subtitle {
+            color: #00f0ff;
+            font-weight: bold;
+            margin-bottom: 15px;
+            text-shadow: 0 0 5px #00f0ff;
+        }
+
+        /* Stats Bar */
+        .hud {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            max-width: 600px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px solid #00f0ff;
+            border-radius: 12px;
+            padding: 10px 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.3);
+        }
+
+        .hud-box {
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        .hud-box span {
+            color: #ff007f;
+        }
+
+        /* Definition Box */
+        .definition-container {
+            width: 100%;
+            max-width: 600px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(5px);
+            border: 2px solid #ff007f;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+            min-height: 90px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 0 15px rgba(255, 0, 127, 0.3);
+        }
+
+        .def-title {
+            color: #00f0ff;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        .def-text {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #ffffff;
+        }
+
+        /* Game Board */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            width: 100%;
+            max-width: 600px;
+            margin-bottom: 20px;
+        }
+
+        .hole {
+            position: relative;
+            width: 100%;
+            padding-top: 80%; /* Aspect ratio */
+            background: #10002b;
+            border: 3px solid #ff007f;
+            border-radius: 50% / 30%;
+            overflow: hidden;
+            box-shadow: inset 0 10px 20px rgba(0, 0, 0, 0.8), 0 0 10px rgba(255, 0, 127, 0.2);
+        }
+
+        .mole {
+            position: absolute;
+            bottom: -100%;
+            left: 10%;
+            width: 80%;
+            height: 85%;
+            background: linear-gradient(180deg, #7b2cbf 0%, #3c096c 100%);
+            border: 2px solid #00f0ff;
+            border-top-left-radius: 40px;
+            border-top-right-radius: 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: bottom 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.5);
+        }
+
+        .mole.up {
+            bottom: 0;
+        }
+
+        .mole-text {
+            color: #ffffff;
+            font-weight: bold;
+            font-size: 1.1rem;
+            text-align: center;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+            padding: 5px;
+            word-break: break-word;
+        }
+
+        /* Whack animations */
+        .mole.hit {
+            background: #ff007f !important;
+            transform: scale(0.9);
+            transition: transform 0.1s;
+        }
+
+        .mole.wrong {
+            background: #e63946 !important;
+        }
+
+        /* Controls */
+        .btn {
+            background: linear-gradient(45deg, #ff007f, #7b2cbf);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(255, 0, 127, 0.5);
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 0 25px rgba(0, 240, 255, 0.8);
+        }
+
+        .btn:disabled {
+            background: #555;
+            box-shadow: none;
+            cursor: not-allowed;
+            transform: none;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Whack-A-Word</h1>
+    <div class="subtitle">⚡ High School Vocabulary Arcade ⚡</div>
+
+    <div class="hud">
+        <div class="hud-box">Score: <span id="score">0</span></div>
+        <div class="hud-box">Time Left: <span id="timer">60</span>s</div>
+    </div>
+
+    <div class="definition-container">
+        <div class="def-title">Target Definition</div>
+        <div class="def-text" id="definition">Click "START GAME" to begin!</div>
+    </div>
+
+    <div class="grid">
+        <div class="hole"><div class="mole" id="mole-0"><div class="mole-text"></div></div></div>
+        <div class="hole"><div class="mole" id="mole-1"><div class="mole-text"></div></div></div>
+        <div class="hole"><div class="mole" id="mole-2"><div class="mole-text"></div></div></div>
+        <div class="hole"><div class="mole" id="mole-3"><div class="mole-text"></div></div></div>
+        <div class="hole"><div class="mole" id="mole-4"><div class="mole-text"></div></div></div>
+        <div class="hole"><div class="mole" id="mole-5"><div class="mole-text"></div></div></div>
+    </div>
+
+    <button id="start-btn" class="btn">Start Game</button>
+
+    <script>
+        // High School Vocabulary Dataset
+        const vocabulary = [
+            { word: "miraculous", def: "Remarkable, extraordinary, or bringing highly surprising good fortune." },
+            { word: "massive", def: "Exceptionally large, heavy, solid, or impressive in size." },
+            { word: "vomit", def: "To eject matter from the stomach through the mouth." },
+            { word: "physician", def: "A qualified practitioner of medicine; a doctor." },
+            { word: "dose", def: "A measured amount of medicine taken at one time." },
+            { word: "established", def: "Accepted and recognized as secure, permanent, or authoritative." },
+            { word: "undergo", def: "To experience, endure, or be subjected to a process or change." }
+        ];
+
+        // Game State Variables
+        let score = 0;
+        let timeLeft = 60;
+        let gameActive = false;
+        let currentTarget = null;
+        let timerInterval = null;
+        let spawnTimeout = null;
+        let activeHoles = new Set();
+
+        // DOM Elements
+        const scoreDisplay = document.getElementById("score");
+        const timerDisplay = document.getElementById("timer");
+        const definitionDisplay = document.getElementById("definition");
+        const startBtn = document.getElementById("start-btn");
+        const moles = document.querySelectorAll(".mole");
+
+        // Event Listeners
+        startBtn.addEventListener("click", startGame);
+
+        moles.forEach((mole) => {
+            mole.addEventListener("click", function () {
+                if (!gameActive || !this.classList.contains("up")) return;
+
+                const clickedWord = this.querySelector(".mole-text").textContent;
+
+                if (clickedWord === currentTarget.word) {
+                    // Correct Hit
+                    score += 10;
+                    scoreDisplay.textContent = score;
+                    this.classList.add("hit");
+                    setTimeout(() => this.classList.remove("hit"), 200);
+                    hideMole(this);
+                    
+                    // Switch to a new definition when matched correctly!
+                    pickNewDefinition();
+                } else {
+                    // Incorrect Hit
+                    score = Math.max(0, score - 5);
+                    scoreDisplay.textContent = score;
+                    this.classList.add("wrong");
+                    setTimeout(() => this.classList.remove("wrong"), 200);
+                    hideMole(this);
+                }
+            });
+        });
+
+        function startGame() {
+            if (gameActive) return;
+
+            // Reset Game State
+            score = 0;
+            timeLeft = 60;
+            gameActive = true;
+            scoreDisplay.textContent = score;
+            timerDisplay.textContent = timeLeft;
+            startBtn.disabled = true;
+
+            pickNewDefinition();
+
+            // Start Countdown Timer
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timerDisplay.textContent = timeLeft;
+
+                if (timeLeft <= 0) {
+                    endGame();
+                }
+            }, 1000);
+
+            // Start Spawning Moles Loop
+            spawnLoop();
+        }
+
+        function pickNewDefinition() {
+            // Pick a random word object from vocabulary array
+            const randomIndex = Math.floor(Math.random() * vocabulary.length);
+            currentTarget = vocabulary[randomIndex];
+            definitionDisplay.textContent = `"${currentTarget.def}"`;
+        }
+
+        function getRandomHoleIndex() {
+            let index;
+            do {
+                index = Math.floor(Math.random() * 6);
+            } while (activeHoles.has(index));
+            return index;
+        }
+
+        function spawnLoop() {
+            if (!gameActive) return;
+
+            // Pop up a mole if less than 3 holes are active
+            if (activeHoles.size < 3) {
+                spawnMole();
+            }
+
+            // Random delay before spawning next mole (Between 600ms and 1200ms)
+            const randomDelay = Math.floor(Math.random() * 600) + 600;
+            spawnTimeout = setTimeout(spawnLoop, randomDelay);
+        }
+
+        function spawnMole() {
+            const holeIdx = getRandomHoleIndex();
+            const moleEl = document.getElementById(`mole-${holeIdx}`);
+            const moleTextEl = moleEl.querySelector(".mole-text");
+
+            activeHoles.add(holeIdx);
+
+            // FREQUENCY LOGIC:
+            // 60% chance to spawn the CORRECT word, 40% chance for a DISTRACTOR word.
+            // This ensures the target word appears much more frequently on screen!
+            let chosenWord = "";
+            if (Math.random() < 0.6) {
+                chosenWord = currentTarget.word;
+            } else {
+                const distractors = vocabulary.filter(v => v.word !== currentTarget.word);
+                chosenWord = distractors[Math.floor(Math.random() * distractors.length)].word;
+            }
+
+            moleTextEl.textContent = chosenWord;
+            moleEl.classList.add("up");
+
+            // Auto-hide mole after 1.8 seconds if not clicked
+            setTimeout(() => {
+                if (gameActive && moleEl.classList.contains("up")) {
+                    hideMole(moleEl, holeIdx);
+                }
+            }, 1800);
+        }
+
+        function hideMole(moleEl, index = null) {
+            moleEl.classList.remove("up");
+            
+            if (index === null) {
+                // Find index if not passed directly
+                index = parseInt(moleEl.id.replace("mole-", ""));
+            }
+            activeHoles.delete(index);
+        }
+
+        function endGame() {
+            gameActive = false;
+            clearInterval(timerInterval);
+            clearTimeout(spawnTimeout);
+
+            // Hide all remaining moles
+            moles.forEach((mole, idx) => hideMole(mole, idx));
+
+            definitionDisplay.textContent = `GAME OVER! Final Score: ${score} points.`;
+            startBtn.disabled = false;
+        }
+    </script>
+</body>
+</html>

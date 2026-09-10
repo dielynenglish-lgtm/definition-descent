@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Split-Screen Vocabulary Battle</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+        }
+
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Top Header Bar */
+        header {
+            height: 60px;
+            background: #1e1e24;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+
+        .timer-display {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #ffcc00;
+        }
+
+        .question-counter {
+            font-size: 1.2rem;
+            color: #aaa;
+        }
+
+        /* Split Screen Container */
+        .game-container {
+            flex: 1;
+            display: flex;
+            position: relative;
+        }
+
+        .divider {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: #444;
+            transform: translateX(-50%);
+            z-index: 5;
+        }
+
+        /* Player Sides */
+        .player-side {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            transition: background 0.2s ease;
+            position: relative;
+        }
+
+        #p1-side {
+            background-color: #1a0f1a;
+            border-right: 2px solid #ff0055;
+        }
+
+        #p2-side {
+            background-color: #0f1a14;
+            border-left: 2px solid #00ff66;
+        }
+
+        /* Player Header Info */
+        .player-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .p1-text { color: #ff0055; }
+        .p2-text { color: #00ff66; }
+
+        .score-box {
+            font-size: 2rem;
+            font-weight: bold;
+        }
+
+        /* Definition Box */
+        .definition-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            min-height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        /* Grid of 4 Choices */
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-gap: 15px;
+            flex: 1;
+        }
+
+        .option-card {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 15px;
+            font-size: 1.3rem;
+            font-weight: bold;
+            position: relative;
+            border: 2px solid transparent;
+        }
+
+        .key-badge {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 4px 10px;
+            border-radius: 5px;
+            font-size: 0.9rem;
+            color: #fff;
+        }
+
+        /* Penalty Lockout Overlay */
+        .lockout-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255, 0, 0, 0.4);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2rem;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 10px #000;
+            backdrop-filter: blur(4px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.1s ease;
+            z-index: 8;
+        }
+
+        .lockout-overlay.active {
+            opacity: 1;
+        }
+
+        /* Victory / End Screen Overlay */
+        #victory-screen {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+        }
+
+        #victory-screen.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .victory-title {
+            font-size: 3.5rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .victory-scores {
+            font-size: 1.8rem;
+            margin-bottom: 30px;
+            color: #ccc;
+        }
+
+        .rematch-btn {
+            background: #00ff66;
+            color: #000;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 0 15px #00ff66;
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+        }
+
+        .rematch-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 25px #00ff66;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="question-counter" id="q-counter">Question 1 / 10</div>
+        <div class="timer-display" id="timer">60s</div>
+    </header>
+
+    <div class="game-container">
+        <div class="divider"></div>
+
+        <!-- PLAYER 1 (RED / LEFT) -->
+        <div class="player-side" id="p1-side">
+            <div class="lockout-overlay" id="p1-lockout">LOCKED OUT</div>
+            <div class="player-info">
+                <h2 class="p1-text">Player 1 (Left)</h2>
+                <div class="score-box p1-text" id="p1-score">0</div>
+            </div>
+            <div class="definition-card" id="p1-def">Loading...</div>
+            <div class="options-grid">
+                <div class="option-card" id="p1-opt-0"><span class="key-badge">Q</span><span class="word-text"></span></div>
+                <div class="option-card" id="p1-opt-1"><span class="key-badge">W</span><span class="word-text"></span></div>
+                <div class="option-card" id="p1-opt-2"><span class="key-badge">A</span><span class="word-text"></span></div>
+                <div class="option-card" id="p1-opt-3"><span class="key-badge">S</span><span class="word-text"></span></div>
+            </div>
+        </div>
+
+        <!-- PLAYER 2 (GREEN / RIGHT) -->
+        <div class="player-side" id="p2-side">
+            <div class="lockout-overlay" id="p2-lockout">LOCKED OUT</div>
+            <div class="player-info">
+                <h2 class="p2-text">Player 2 (Right)</h2>
+                <div class="score-box p2-text" id="p2-score">0</div>
+            </div>
+            <div class="definition-card" id="p2-def">Loading...</div>
+            <div class="options-grid">
+                <div class="option-card" id="p2-opt-0"><span class="key-badge">I</span><span class="word-text"></span></div>
+                <div class="option-card" id="p2-opt-1"><span class="key-badge">O</span><span class="word-text"></span></div>
+                <div class="option-card" id="p2-opt-2"><span class="key-badge">K</span><span class="word-text"></span></div>
+                <div class="option-card" id="p2-opt-3"><span class="key-badge">L</span><span class="word-text"></span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VICTORY SCREEN OVERLAY -->
+    <div id="victory-screen">
+        <div class="victory-title" id="winner-text">MISSION COMPLETE</div>
+        <div class="victory-scores" id="final-scores">P1: 0 | P2: 0</div>
+        <button class="rematch-btn" onclick="resetGame()">Rematch</button>
+    </div>
+
+    <script>
+        // B1 Level Vocabulary Bank (10 Words & Definitions)
+        const vocabBank = [
+            { word: "Analyze", def: "To examine something in detail in order to understand it." },
+            { word: "Benefit", def: "An advantage or profit gained from something." },
+            { word: "Create", def: "To bring something into existence." },
+            { word: "Estimate", def: "To roughly calculate or judge the value or quantity of something." },
+            { word: "Indicate", def: "To point out or show something clearly." },
+            { word: "Method", def: "A particular procedure for accomplishing or approaching something." },
+            { word: "Occur", def: "To happen or take place." },
+            { word: "Process", def: "A series of actions or steps taken in order to achieve a end." },
+            { word: "Require", def: "To need something for a particular purpose." },
+            { word: "Source", def: "A place, person, or thing from which something comes." }
+        ];
+
+        // Key Mappings
+        const p1Keys = { 'q': 0, 'w': 1, 'a': 2, 's': 3 };
+        const p2Keys = { 'i': 0, 'o': 1, 'k': 2, 'l': 3 };
+
+        // Game State Variables
+        let currentQuestions = [];
+        let questionIndex = 0;
+        let p1Score = 0;
+        let p2Score = 0;
+        let p1Locked = false;
+        let p2Locked = false;
+        let timerSeconds = 60;
+        let timerInterval = null;
+        let gameActive = false;
+
+        function shuffle(array) {
+            return array.sort(() => Math.random() - 0.5);
+        }
+
+        function initGame() {
+            p1Score = 0;
+            p2Score = 0;
+            questionIndex = 0;
+            timerSeconds = 60;
+            p1Locked = false;
+            p2Locked = false;
+            
+            document.getElementById('p1-score').innerText = p1Score;
+            document.getElementById('p2-score').innerText = p2Score;
+            document.getElementById('p1-lockout').classList.remove('active');
+            document.getElementById('p2-lockout').classList.remove('active');
+            document.getElementById('victory-screen').classList.remove('active');
+
+            // Generate 10 randomized questions
+            currentQuestions = shuffle([...vocabBank]).slice(0, 10).map(item => {
+                // Get 3 incorrect choices randomly
+                let distractors = vocabBank.filter(v => v.word !== item.word);
+                distractors = shuffle(distractors).slice(0, 3).map(v => v.word);
+                
+                // Shuffle choices together
+                let choices = shuffle([item.word, ...distractors]);
+                return {
+                    def: item.def,
+                    correctWord: item.word,
+                    choices: choices
+                };
+            });
+
+            gameActive = true;
+            loadQuestion();
+            startTimer();
+        }
+
+        function startTimer() {
+            clearInterval(timerInterval);
+            document.getElementById('timer').innerText = timerSeconds + 's';
+            timerInterval = setInterval(() => {
+                timerSeconds--;
+                document.getElementById('timer').innerText = timerSeconds + 's';
+                if (timerSeconds <= 0) {
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        function loadQuestion() {
+            if (questionIndex >= 10) {
+                endGame();
+                return;
+            }
+
+            // Unlock players for the new round
+            p1Locked = false;
+            p2Locked = false;
+            document.getElementById('p1-lockout').classList.remove('active');
+            document.getElementById('p2-lockout').classList.remove('active');
+
+            let q = currentQuestions[questionIndex];
+            document.getElementById('q-counter').innerText = `Question ${questionIndex + 1} / 10`;
+
+            // Populate Player 1 Display
+            document.getElementById('p1-def').innerText = q.def;
+            for (let i = 0; i < 4; i++) {
+                document.querySelector(`#p1-opt-${i} .word-text`).innerText = q.choices[i];
+            }
+
+            // Populate Player 2 Display
+            document.getElementById('p2-def').innerText = q.def;
+            for (let i = 0; i < 4; i++) {
+                document.querySelector(`#p2-opt-${i} .word-text`).innerText = q.choices[i];
+            }
+        }
+
+        function handleGuess(player, choiceIndex) {
+            if (!gameActive) return;
+
+            let q = currentQuestions[questionIndex];
+            let selectedWord = q.choices[choiceIndex];
+
+            if (player === 1) {
+                if (p1Locked) return;
+                if (selectedWord === q.correctWord) {
+                    p1Score++;
+                    document.getElementById('p1-score').innerText = p1Score;
+                    advanceRound();
+                } else {
+                    // Flash red penalty lockout
+                    p1Locked = true;
+                    document.getElementById('p1-lockout').classList.add('active');
+                    checkBothLocked();
+                }
+            } else if (player === 2) {
+                if (p2Locked) return;
+                if (selectedWord === q.correctWord) {
+                    p2Score++;
+                    document.getElementById('p2-score').innerText = p2Score;
+                    advanceRound();
+                } else {
+                    // Flash red penalty lockout
+                    p2Locked = true;
+                    document.getElementById('p2-lockout').classList.add('active');
+                    checkBothLocked();
+                }
+            }
+        }
+
+        function checkBothLocked() {
+            // If both players guessed wrong, advance to next question automatically
+            if (p1Locked && p2Locked) {
+                setTimeout(() => {
+                    advanceRound();
+                }, 800);
+            }
+        }
+
+        function advanceRound() {
+            questionIndex++;
+            loadQuestion();
+        }
+
+        function endGame() {
+            gameActive = false;
+            clearInterval(timerInterval);
+
+            let winnerText = "MISSION COMPLETE";
+            if (p1Score > p2Score) {
+                winnerText = "PLAYER 1 WINS!";
+            } else if (p2Score > p1Score) {
+                winnerText = "PLAYER 2 WINS!";
+            } else {
+                winnerText = "IT'S A DRAW!";
+            }
+
+            document.getElementById('winner-text').innerText = winnerText;
+            document.getElementById('final-scores').innerText = `Final Score — P1: ${p1Score} | P2: ${p2Score}`;
+            document.getElementById('victory-screen').classList.add('active');
+        }
+
+        function resetGame() {
+            initGame();
+        }
+
+        // Global Key Listener
+        window.addEventListener('keydown', (e) => {
+            let key = e.key.toLowerCase();
+
+            if (key in p1Keys) {
+                handleGuess(1, p1Keys[key]);
+            } else if (key in p2Keys) {
+                handleGuess(2, p2Keys[key]);
+            }
+        });
+
+        // Start Game on Load
+        window.onload = initGame;
+    </script>
+</body>
+</html>

@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scientific Breakthroughs: Marble Popper</title>
+    <style>
+        body {
+            background-color: #1a1a2e;
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            margin-bottom: 5px;
+            color: #0f3460;
+            text-shadow: 1px 1px 2px #e94560;
+        }
+        #game-container {
+            position: relative;
+            box-shadow: 0 0 20px rgba(233, 69, 96, 0.5);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        canvas {
+            background-color: #16213e;
+            display: block;
+        }
+        #ui-panel {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(15, 52, 96, 0.9);
+            padding: 15px;
+            box-sizing: border-box;
+            text-align: center;
+            border-top: 3px solid #e94560;
+        }
+        #target-def {
+            font-size: 18px;
+            font-weight: bold;
+            color: #e94560;
+            margin-bottom: 5px;
+        }
+        #score-board {
+            display: flex;
+            justify-content: space-between;
+            font-size: 16px;
+        }
+        #game-over {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 18px;
+            background-color: #e94560;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover { background-color: #ff5e7e; }
+    </style>
+</head>
+<body>
+
+    <h1>Vocabulary Orbital Popper</h1>
+    <p>Shoot the word marble that matches the definition in your launcher!</p>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="800" height="500"></canvas>
+        <div id="ui-panel">
+            <div id="target-def">Loading definition...</div>
+            <div id="score-board">
+                <span id="score-text">Score: 0</span>
+                <span id="lives-text">Strikes Left: 3</span>
+            </div>
+        </div>
+        <div id="game-over">
+            <h2 id="end-title">Game Over!</h2>
+            <p id="end-score">Final Score: 0</p>
+            <button onclick="resetGame()">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const defDisplay = document.getElementById('target-def');
+        const scoreDisplay = document.getElementById('score-text');
+        const livesDisplay = document.getElementById('lives-text');
+        const gameOverScreen = document.getElementById('game-over');
+        
+        // Vocabulary Data
+        const vocab = [
+            { word: "Breakthrough", def: "A sudden, dramatic, and important discovery or development." },
+            { word: "Laboratory", def: "A room or building equipped for scientific experiments." },
+            { word: "Workshop", def: "A room or building in which goods are manufactured or repaired." },
+            { word: "Calculation", def: "A mathematical determination of the size or number of something." },
+            { word: "Envision", def: "Imagine as a future possibility; visualize." },
+            { word: "Striking", def: "Attracting attention by reason of being unusual or prominent." },
+            { word: "Formula", def: "A mathematical relationship or rule expressed in symbols." },
+            { word: "Equation", def: "A statement that the values of two mathematical expressions are equal." },
+            { word: "Orbit", def: "The curved path of a celestial object or spacecraft." },
+            { word: "Abstract", def: "Existing in thought or as an idea but not having a physical existence." },
+            { word: "Contribution", def: "The part played by a person in bringing about a result." },
+            { word: "Forge", def: "To create a relationship, new conditions, or shape an object through effort." }
+        ];
+
+        // Path coordinates (zigzag)
+        const path = [
+            {x: 50, y: 50}, {x: 750, y: 50}, 
+            {x: 750, y: 150}, {x: 50, y: 150}, 
+            {x: 50, y: 250}, {x: 750, y: 250},
+            {x: 750, y: 350} // Danger Pit
+        ];
+
+        let marbles = [];
+        let projectiles = [];
+        let score = 0;
+        let strikes = 3;
+        let currentTarget = null;
+        let mouseX = canvas.width / 2;
+        let mouseY = canvas.height / 2;
+        let frameCount = 0;
+        let isGameOver = false;
+
+        const launcher = { x: 400, y: 410, angle: 0 };
+        
+        function pickNewTarget() {
+            if (marbles.length > 0) {
+                // Pick a definition based on a marble currently on the track
+                const randomMarble = marbles[Math.floor(Math.random() * marbles.length)];
+                currentTarget = vocab.find(v => v.word === randomMarble.word);
+            } else {
+                currentTarget = vocab[Math.floor(Math.random() * vocab.length)];
+            }
+            defDisplay.innerText = "Target: " + currentTarget.def;
+        }
+
+        class Marble {
+            constructor(word) {
+                this.word = word;
+                this.pathIndex = 0;
+                this.x = path[0].x;
+                this.y = path[0].y;
+                this.speed = 1.2; 
+                this.radius = 28;
+                this.color = `hsl(${Math.random() * 360}, 70%, 50%)`;
+            }
+            update() {
+                let target = path[this.pathIndex + 1];
+                if (!target) return false; // Reached the pit
+                
+                let dx = target.x - this.x;
+                let dy = target.y - this.y;
+                let dist = Math.hypot(dx, dy);
+                
+                if (dist < this.speed) {
+                    this.pathIndex++;
+                } else {
+                    this.x += (dx / dist) * this.speed;
+                    this.y += (dy / dist) * this.speed;
+                }
+                return true;
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = "white";
+                ctx.stroke();
+
+                ctx.fillStyle = "white";
+                ctx.font = "bold 10px Arial";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText(this.word, this.x, this.y);
+            }
+        }
+
+        class Projectile {
+            constructor(x, y, angle) {
+                this.x = x;
+                this.y = y;
+                this.vx = Math.cos(angle) * 8;
+                this.vy = Math.sin(angle) * 8;
+                this.radius = 8;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = "#e94560";
+                ctx.fill();
+            }
+        }
+
+        function drawTrack() {
+            ctx.beginPath();
+            ctx.moveTo(path[0].x, path[0].y);
+            for (let i = 1; i < path.length; i++) {
+                ctx.lineTo(path[i].x, path[i].y);
+            }
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+            ctx.lineWidth = 40;
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+            ctx.stroke();
+            
+            // Danger Pit
+            ctx.beginPath();
+            ctx.arc(path[path.length-1].x, path[path.length-1].y, 35, 0, Math.PI*2);
+            ctx.fillStyle = "black";
+            ctx.fill();
+            ctx.strokeStyle = "red";
+            ctx.lineWidth = 3;
+            ctx.stroke();
+        }
+
+        function drawLauncher() {
+            launcher.angle = Math.atan2(mouseY - launcher.y, mouseX - launcher.x);
+            
+            ctx.save();
+            ctx.translate(launcher.x, launcher.y);
+            ctx.rotate(launcher.angle);
+            
+            // Draw Turret Barrel
+            ctx.fillStyle = "#a2a8d3";
+            ctx.fillRect(0, -10, 40, 20);
+            
+            // Draw Turret Base
+            ctx.beginPath();
+            ctx.arc(0, 0, 25, 0, Math.PI * 2);
+            ctx.fillStyle = "#38598b";
+            ctx.fill();
+            
+            ctx.restore();
+        }
+
+        function handleCollisions() {
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                let p = projectiles[i];
+                let hit = false;
+
+                for (let j = marbles.length - 1; j >= 0; j--) {
+                    let m = marbles[j];
+                    let dist = Math.hypot(p.x - m.x, p.y - m.y);
+                    
+                    if (dist < p.radius + m.radius) {
+                        hit = true;
+                        if (m.word === currentTarget.word) {
+                            score += 100;
+                            scoreDisplay.innerText = "Score: " + score;
+                            marbles.splice(j, 1);
+                            pickNewTarget();
+                        } else {
+                            score -= 20; // Penalty for wrong hit
+                            scoreDisplay.innerText = "Score: " + score;
+                        }
+                        break;
+                    }
+                }
+                
+                if (hit || p.x < 0 || p.x > canvas.width || p.y < 0 || p.y > canvas.height) {
+                    projectiles.splice(i, 1);
+                }
+            }
+        }
+
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            mouseX = e.clientX - rect.left;
+            mouseY = e.clientY - rect.top;
+        });
+
+        canvas.addEventListener('mousedown', () => {
+            if (isGameOver) return;
+            projectiles.push(new Projectile(launcher.x, launcher.y, launcher.angle));
+        });
+
+        function resetGame() {
+            marbles = [];
+            projectiles = [];
+            score = 0;
+            strikes = 3;
+            frameCount = 0;
+            isGameOver = false;
+            scoreDisplay.innerText = "Score: " + score;
+            livesDisplay.innerText = "Strikes Left: " + strikes;
+            gameOverScreen.style.display = "none";
+            pickNewTarget();
+            gameLoop();
+        }
+
+        function gameLoop() {
+            if (isGameOver) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            drawTrack();
+            
+            // Spawn Marbles (approx every 1.5 seconds)
+            if (frameCount % 90 === 0) {
+                let randomWord = vocab[Math.floor(Math.random() * vocab.length)].word;
+                marbles.push(new Marble(randomWord));
+                if (!currentTarget) pickNewTarget();
+            }
+
+            // Update & Draw Marbles
+            for (let i = marbles.length - 1; i >= 0; i--) {
+                let m = marbles[i];
+                let alive = m.update();
+                m.draw();
+                
+                if (!alive) {
+                    marbles.splice(i, 1);
+                    strikes--;
+                    livesDisplay.innerText = "Strikes Left: " + strikes;
+                    if (strikes <= 0) {
+                        isGameOver = true;
+                        document.getElementById('end-score').innerText = "Final Score: " + score;
+                        gameOverScreen.style.display = "flex";
+                    }
+                }
+            }
+
+            // Update & Draw Projectiles
+            projectiles.forEach(p => { p.update(); p.draw(); });
+            
+            handleCollisions();
+            drawLauncher();
+
+            frameCount++;
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Initialize
+        resetGame();
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Endless Runner: Definition Gates</title>
+<style>
+  body {
+    margin: 0;
+    padding: 0;
+    background-color: #1a1a2e;
+    color: #ffffff;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    overflow: hidden;
+  }
+
+  #game-container {
+    position: relative;
+    width: 800px;
+    height: 450px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  canvas {
+    background: #0f3460;
+    display: block;
+  }
+
+  #overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 12px;
+    box-sizing: border-box;
+    background: rgba(22, 33, 62, 0.9);
+    border-bottom: 2px solid #e94560;
+    text-align: center;
+    font-size: 18px;
+    font-weight: bold;
+    color: #e94560;
+    z-index: 10;
+  }
+
+  #hud {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    right: 10px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 16px;
+    font-weight: bold;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  .hud-card {
+    background: rgba(0, 0, 0, 0.6);
+    padding: 6px 12px;
+    border-radius: 4px;
+    border: 1px solid #e94560;
+  }
+
+  #game-over {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.85);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 20;
+  }
+
+  #game-over.hidden {
+    display: none;
+  }
+
+  button {
+    background: #e94560;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    font-size: 18px;
+    font-weight: bold;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-top: 15px;
+    transition: 0.2s;
+  }
+
+  button:hover {
+    background: #ff6b81;
+  }
+</style>
+</head>
+<body>
+
+<div id="game-container">
+  <div id="overlay">Definition: <span id="definition-text">Loading...</span></div>
+  
+  <div id="hud">
+    <div class="hud-card">Distance: <span id="score">0</span>m</div>
+    <div class="hud-card">Shields: <span id="shields">3</span></div>
+    <div class="hud-card">Speed: <span id="speed">1.0</span>x</div>
+  </div>
+
+  <div id="game-over" class="hidden">
+    <h1 style="color: #e94560; margin-bottom: 5px;">GAME OVER</h1>
+    <p id="final-score">Distance Survived: 0m</p>
+    <button onclick="resetGame()">Play Again</button>
+  </div>
+
+  <canvas id="gameCanvas" width="800" height="450"></canvas>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// Vocabulary Words & Definitions
+const vocabList = [
+  { word: "presentation", def: "A speech or talk in which a new idea or product is shown and explained." },
+  { word: "boost", def: "To help or encourage something to increase or improve." },
+  { word: "accomplish", def: "To achieve or complete something successfully." },
+  { word: "purchase", def: "To acquire something by paying money for it." },
+  { word: "trigger", def: "To cause an event or action to happen or exist." },
+  { word: "psychology", def: "The scientific study of the human mind and its functions." },
+  { word: "stability", def: "The state of being resistant to change or deterioration." },
+  { word: "analyze", def: "To examine methodically and in detail for explanation or interpretation." },
+  { word: "innovate", def: "To make changes in something established, especially by introducing new methods." },
+  { word: "strategy", def: "A plan of action designed to achieve a long-term or overall aim." }
+];
+
+// Game State Variables
+let gameSpeed = 4;
+let baseSpeed = 4;
+let distance = 0;
+let shields = 3;
+let gameOver = false;
+let frameCount = 0;
+
+// Lanes: Left (0), Right (1)
+const laneX = [250, 550];
+
+// Player Object
+const player = {
+  lane: 0, // 0 = Left, 1 = Right
+  y: 350,
+  width: 40,
+  height: 50,
+  isJumping: false,
+  jumpHeight: 0,
+  jumpVelocity: 0,
+  gravity: 0.8
+};
+
+// Obstacles & Gates
+let obstacles = [];
+let gate = null;
+let currentTargetVocab = null;
+let gateTimer = 0;
+
+// Controls
+window.addEventListener('keydown', (e) => {
+  if (gameOver) return;
+  if (e.key === 'ArrowLeft') player.lane = 0;
+  if (e.key === 'ArrowRight') player.lane = 1;
+  if (e.key === 'ArrowUp' && !player.isJumping) {
+    player.isJumping = true;
+    player.jumpVelocity = -12;
+  }
+});
+
+function spawnGate() {
+  // Select target word
+  currentTargetVocab = vocabList[Math.floor(Math.random() * vocabList.length)];
+  document.getElementById('definition-text').innerText = currentTargetVocab.def;
+
+  // Choose wrong word
+  let wrongWord;
+  do {
+    wrongWord = vocabList[Math.floor(Math.random() * vocabList.length)].word;
+  } while (wrongWord === currentTargetVocab.word);
+
+  const correctLane = Math.random() < 0.5 ? 0 : 1;
+  
+  gate = {
+    y: -100,
+    leftWord: correctLane === 0 ? currentTargetVocab.word : wrongWord,
+    rightWord: correctLane === 1 ? currentTargetVocab.word : wrongWord,
+    correctLane: correctLane,
+    passed: false
+  };
+}
+
+function spawnObstacle() {
+  const lane = Math.random() < 0.5 ? 0 : 1;
+  obstacles.push({
+    x: laneX[lane],
+    y: -30,
+    width: 60,
+    height: 20
+  });
+}
+
+function update() {
+  if (gameOver) return;
+
+  frameCount++;
+  distance += Math.floor(gameSpeed / 2);
+  baseSpeed += 0.0005; // Progressive speed system
+  gameSpeed = Math.max(gameSpeed, baseSpeed);
+
+  // Jump physics
+  if (player.isJumping) {
+    player.jumpHeight += player.jumpVelocity;
+    player.jumpVelocity += player.gravity;
+    if (player.jumpHeight >= 0) {
+      player.jumpHeight = 0;
+      player.isJumping = false;
+    }
+  }
+
+  // Gate Spawning (Every ~10 seconds at standard speed)
+  gateTimer++;
+  if (gateTimer > 500 && !gate) {
+    spawnGate();
+    gateTimer = 0;
+  }
+
+  // Spawn ground obstacles periodically
+  if (frameCount % 120 === 0 && !gate) {
+    spawnObstacle();
+  }
+
+  // Move Obstacles
+  for (let i = obstacles.length - 1; i >= 0; i--) {
+    let obs = obstacles[i];
+    obs.y += gameSpeed;
+
+    // Check collision with player
+    const playerX = laneX[player.lane];
+    if (
+      Math.abs(obs.x - playerX) < 30 &&
+      obs.y > player.y - 20 &&
+      obs.y < player.y + player.height &&
+      player.jumpHeight === 0 // Can jump over
+    ) {
+      shields--;
+      obstacles.splice(i, 1);
+      if (shields <= 0) triggerGameOver();
+      continue;
+    }
+
+    if (obs.y > canvas.height) obstacles.splice(i, 1);
+  }
+
+  // Move Gate
+  if (gate) {
+    gate.y += gameSpeed;
+
+    // Check Gate Pass
+    if (gate.y > player.y && !gate.passed) {
+      gate.passed = true;
+      if (player.lane === gate.correctLane) {
+        // Correct Gate: Speed boost + points
+        distance += 200;
+        gameSpeed += 2; // Temporary speed boost
+      } else {
+        // Wrong Gate: Break shield + slow down
+        shields--;
+        gameSpeed = Math.max(3, gameSpeed - 3);
+        if (shields <= 0) triggerGameOver();
+      }
+    }
+
+    if (gate.y > canvas.height) {
+      gate = null;
+    }
+  }
+
+  // UI Updates
+  document.getElementById('score').innerText = distance;
+  document.getElementById('shields').innerText = shields;
+  document.getElementById('speed').innerText = (gameSpeed / 4).toFixed(1);
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Draw Lanes
+  ctx.strokeStyle = '#16213e';
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(canvas.width / 2, 0);
+  ctx.lineTo(canvas.width / 2, canvas.height);
+  ctx.stroke();
+
+  // Draw Ground Obstacles
+  ctx.fillStyle = '#e94560';
+  obstacles.forEach(obs => {
+    ctx.fillRect(obs.x - obs.width / 2, obs.y, obs.width, obs.height);
+  });
+
+  // Draw Gate Structure
+  if (gate) {
+    // Left Archway
+    ctx.fillStyle = '#0f3460';
+    ctx.strokeStyle = '#00fff5';
+    ctx.lineWidth = 3;
+    
+    // Arch A
+    ctx.fillRect(100, gate.y, 300, 60);
+    ctx.strokeRect(100, gate.y, 300, 60);
+    
+    // Arch B
+    ctx.fillRect(400, gate.y, 300, 60);
+    ctx.strokeRect(400, gate.y, 300, 60);
+
+    // Text on Archways
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 20px Segoe UI';
+    ctx.textAlign = 'center';
+    ctx.fillText(gate.leftWord, 250, gate.y + 35);
+    ctx.fillText(gate.rightWord, 550, gate.y + 35);
+  }
+
+  // Draw Player
+  const currentX = laneX[player.lane];
+  const currentY = player.y + player.jumpHeight;
+  
+  ctx.fillStyle = '#00fff5';
+  ctx.fillRect(currentX - player.width / 2, currentY, player.width, player.height);
+}
+
+function gameLoop() {
+  update();
+  draw();
+  if (!gameOver) requestAnimationFrame(gameLoop);
+}
+
+function triggerGameOver() {
+  gameOver = true;
+  document.getElementById('final-score').innerText = `Distance Survived: ${distance}m`;
+  document.getElementById('game-over').classList.remove('hidden');
+}
+
+function resetGame() {
+  gameSpeed = 4;
+  baseSpeed = 4;
+  distance = 0;
+  shields = 3;
+  gameOver = false;
+  frameCount = 0;
+  gateTimer = 0;
+  obstacles = [];
+  gate = null;
+  document.getElementById('game-over').classList.add('hidden');
+  document.getElementById('definition-text').innerText = "Get Ready!";
+  requestAnimationFrame(gameLoop);
+}
+
+// Start Game
+resetGame();
+</script>
+</body>
+</html>

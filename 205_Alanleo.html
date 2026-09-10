@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crossword Arcade Frogger</title>
+<style>
+    body {
+        background-color: #1e1e2f;
+        color: #ffffff;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin: 0;
+        padding: 20px;
+    }
+
+    #game-header {
+        text-align: center;
+        max-width: 600px;
+        margin-bottom: 10px;
+        background: #2b2b40;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }
+
+    #puzzle-definition {
+        font-size: 1.2rem;
+        color: #ffd700;
+        margin-bottom: 5px;
+    }
+
+    #timer-score {
+        display: flex;
+        justify-content: space-between;
+        font-weight: bold;
+        font-size: 1.1rem;
+    }
+
+    #game-container {
+        position: relative;
+        width: 600px;
+        height: 500px;
+        background-color: #333;
+        overflow: hidden;
+        border: 4px solid #fff;
+        border-radius: 8px;
+    }
+
+    /* Lanes Styling */
+    .lane {
+        position: absolute;
+        width: 100%;
+        height: 50px;
+        box-sizing: border-box;
+    }
+
+    .safety-zone { top: 0px; background-color: #2e7d32; display: flex; justify-content: space-around; align-items: center; }
+    .river-lane  { background-color: #1565c0; border-bottom: 1px dashed rgba(255,255,255,0.2); }
+    .middle-bank { top: 200px; background-color: #4e342e; }
+    .road-lane   { background-color: #424242; border-bottom: 1px dashed #757575; }
+    .start-zone  { top: 450px; background-color: #2e7d32; }
+
+    /* Top Safety Slots */
+    .top-slot {
+        width: 80px;
+        height: 40px;
+        background-color: #1b5e20;
+        border: 2px solid #ffd700;
+        color: #fff;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-weight: bold;
+        font-size: 0.85rem;
+        border-radius: 4px;
+        text-align: center;
+    }
+
+    /* Moving Objects */
+    .game-object {
+        position: absolute;
+        height: 40px;
+        top: 5px;
+        border-radius: 5px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        font-weight: bold;
+        color: #fff;
+        padding: 0 5px;
+        box-sizing: border-box;
+        text-align: center;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .log { background-color: #8d6e63; border: 2px solid #5d4037; }
+    .car { background-color: #d32f2f; border: 2px solid #b71c1c; }
+
+    /* Player */
+    #player {
+        position: absolute;
+        width: 30px;
+        height: 30px;
+        background-color: #00e676;
+        border: 2px solid #fff;
+        border-radius: 50%;
+        z-index: 10;
+        transition: transform 0.1s;
+    }
+
+    /* Overlay Message */
+    #overlay {
+        position: absolute;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.85);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 20;
+    }
+
+    #overlay h2 { font-size: 2rem; margin-bottom: 10px; color: #ffd700; }
+    #overlay button {
+        padding: 10px 20px;
+        font-size: 1rem;
+        background-color: #00e676;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: bold;
+    }
+</style>
+</head>
+<body>
+
+<div id="game-header">
+    <div id="puzzle-definition">Loading Definition...</div>
+    <div id="timer-score">
+        <span>Time Left: <span id="timer">45</span>s</span>
+        <span>Score: <span id="score">0</span></span>
+    </div>
+</div>
+
+<div id="game-container">
+    <!-- Top Safety Zone -->
+    <div class="lane safety-zone">
+        <div class="top-slot" id="slot-0">Word A</div>
+        <div class="top-slot" id="slot-1">Word B</div>
+        <div class="top-slot" id="slot-2">Word C</div>
+        <div class="top-slot" id="slot-3">Word D</div>
+    </div>
+
+    <!-- River Lanes (Logs labeled with Vocab) -->
+    <div class="lane river-lane" style="top: 50px;" id="lane-1"></div>
+    <div class="lane river-lane" style="top: 100px;" id="lane-2"></div>
+    <div class="lane river-lane" style="top: 150px;" id="lane-3"></div>
+
+    <!-- Safe Middle Bank -->
+    <div class="lane middle-bank"></div>
+
+    <!-- Road Lanes (Cars labeled with Definitions) -->
+    <div class="lane road-lane" style="top: 250px;" id="lane-5"></div>
+    <div class="lane road-lane" style="top: 300px;" id="lane-6"></div>
+    <div class="lane road-lane" style="top: 350px;" id="lane-7"></div>
+    <div class="lane road-lane" style="top: 400px;" id="lane-8"></div>
+
+    <!-- Safe Start Zone -->
+    <div class="lane start-zone"></div>
+
+    <!-- Player Character -->
+    <div id="player"></div>
+
+    <!-- Game Overlay -->
+    <div id="overlay">
+        <h2 id="overlay-title">Crossword Arcade Frogger</h2>
+        <p id="overlay-desc" style="text-align: center; margin: 0 20px 20px 20px;">
+            Reach the correct word at the top safety zone matching the definition puzzle!<br>
+            Ride the logs (Vocabulary) and avoid the cars (Definitions).
+        </p>
+        <button id="start-btn" onclick="startGame()">Play Game</button>
+    </div>
+</div>
+
+<script>
+    // Vocabulary Data
+    const vocabList = [
+        { word: "grip", def: "A firm hold or grasp" },
+        { word: "adjustment", def: "A small change made to achieve a desired fit or result" },
+        { word: "strain", def: "A force pulling or stretching something tight" },
+        { word: "flexible", def: "Capable of bending easily without breaking" },
+        { word: "loosen", def: "To make or become less tight" },
+        { word: "slightly", def: "To a small degree; a little bit" },
+        { word: "demonstrate", def: "To clearly show or explain how something works" }
+    ];
+
+    // Game Constants & Variables
+    const GRID_SIZE = 50;
+    const GAME_WIDTH = 600;
+    const GAME_HEIGHT = 500;
+    
+    let playerPos = { x: 285, y: 460 }; // Start at bottom center
+    let currentTargetWord = "";
+    let score = 0;
+    let timeLeft = 45;
+    let timerInterval = null;
+    let gameLoopId = null;
+    let isPlaying = false;
+
+    // Movement Lane Matrices
+    const lanes = [
+        { id: 'lane-1', type: 'river', speed: 1.5, direction: 1, items: [] },
+        { id: 'lane-2', type: 'river', speed: -2.0, direction: -1, items: [] },
+        { id: 'lane-3', type: 'river', speed: 1.8, direction: 1, items: [] },
+        { id: 'lane-5', type: 'road', speed: -2.5, direction: -1, items: [] },
+        { id: 'lane-6', type: 'road', speed: 2.2, direction: 1, items: [] },
+        { id: 'lane-7', type: 'road', speed: -1.8, direction: -1, items: [] },
+        { id: 'lane-8', type: 'road', speed: 2.8, direction: 1, items: [] }
+    ];
+
+    function startGame() {
+        document.getElementById('overlay').style.display = 'none';
+        score = 0;
+        document.getElementById('score').innerText = score;
+        isPlaying = true;
+        
+        setupRound();
+        
+        if (gameLoopId) cancelAnimationFrame(gameLoopId);
+        gameLoopId = requestAnimationFrame(gameLoop);
+    }
+
+    function setupRound() {
+        // Reset Player Position
+        resetPlayer();
+
+        // Start/Reset 45-second Timer
+        clearInterval(timerInterval);
+        timeLeft = 45;
+        document.getElementById('timer').innerText = timeLeft;
+        timerInterval = setInterval(() => {
+            if (!isPlaying) return;
+            timeLeft--;
+            document.getElementById('timer').innerText = timeLeft;
+            if (timeLeft <= 0) {
+                gameOver("Time's Up!");
+            }
+        }, 1000);
+
+        // Select Target Vocabulary Word
+        const targetObj = vocabList[Math.floor(Math.random() * vocabList.length)];
+        currentTargetWord = targetObj.word;
+        document.getElementById('puzzle-definition').innerText = `Puzzle: "${targetObj.def}" [ ____ ]`;
+
+        // Populate Top Safety Slots (1 correct, 3 distractors)
+        let choices = [currentTargetWord];
+        while (choices.length < 4) {
+            let randWord = vocabList[Math.floor(Math.random() * vocabList.length)].word;
+            if (!choices.includes(randWord)) choices.push(randWord);
+        }
+        // Shuffle choices
+        choices.sort(() => Math.random() - 0.5);
+
+        for (let i = 0; i < 4; i++) {
+            const slot = document.getElementById(`slot-${i}`);
+            slot.innerText = choices[i];
+            slot.dataset.word = choices[i];
+        }
+
+        // Initialize Objects in Lanes
+        lanes.forEach(lane => {
+            lane.items = [];
+            const container = document.getElementById(lane.id);
+            container.innerHTML = ''; // Clear existing elements
+
+            // Create 2 objects per lane spaced out
+            for (let i = 0; i < 2; i++) {
+                const itemEl = document.createElement('div');
+                itemEl.className = `game-object ${lane.type === 'river' ? 'log' : 'car'}`;
+                
+                let text = "";
+                if (lane.type === 'river') {
+                    // Logs show vocabulary terms
+                    text = vocabList[Math.floor(Math.random() * vocabList.length)].word;
+                    itemEl.style.width = '120px';
+                } else {
+                    // Cars show definitions
+                    text = vocabList[Math.floor(Math.random() * vocabList.length)].def;
+                    itemEl.style.width = '140px';
+                }
+                
+                itemEl.innerText = text;
+                const xPos = i * 300 + Math.random() * 50;
+                
+                container.appendChild(itemEl);
+                lane.items.push({
+                    el: itemEl,
+                    x: xPos,
+                    width: lane.type === 'river' ? 120 : 140
+                });
+            }
+        });
+    }
+
+    function resetPlayer() {
+        playerPos = { x: 285, y: 460 };
+        updatePlayerDOM();
+    }
+
+    function updatePlayerDOM() {
+        const p = document.getElementById('player');
+        p.style.left = playerPos.x + 'px';
+        p.style.top = playerPos.y + 'px';
+    }
+
+    // Keyboard Controls
+    window.addEventListener('keydown', (e) => {
+        if (!isPlaying) return;
+
+        if (e.key === 'ArrowUp' && playerPos.y > 10) playerPos.y -= GRID_SIZE;
+        if (e.key === 'ArrowDown' && playerPos.y < 450) playerPos.y += GRID_SIZE;
+        if (e.key === 'ArrowLeft' && playerPos.x > 10) playerPos.x -= GRID_SIZE;
+        if (e.key === 'ArrowRight' && playerPos.x < GAME_WIDTH - 40) playerPos.x += GRID_SIZE;
+
+        updatePlayerDOM();
+    });
+
+    // Game Loop
+    function gameLoop() {
+        if (!isPlaying) return;
+
+        // Move items in lanes
+        lanes.forEach(lane => {
+            lane.items.forEach(item => {
+                item.x += lane.speed;
+                // Wrap around edges
+                if (lane.speed > 0 && item.x > GAME_WIDTH) item.x = -item.width;
+                if (lane.speed < 0 && item.x < -item.width) item.x = GAME_WIDTH;
+
+                item.el.style.left = item.x + 'px';
+            });
+        });
+
+        // Check Interactions based on Player Row (y coordinate)
+        const playerCenter = playerPos.x + 15;
+
+        // 1. Safety Zone Check (Top Row: y = 10)
+        if (playerPos.y === 10) {
+            checkTopSafetyZone(playerCenter);
+        }
+        // 2. River Check (y = 60, 110, 160)
+        else if (playerPos.y >= 60 && playerPos.y <= 160) {
+            const laneIndex = (playerPos.y - 60) / 50;
+            const currentLane = lanes[laneIndex];
+            let onLog = false;
+
+            currentLane.items.forEach(item => {
+                if (playerCenter >= item.x && playerCenter <= item.x + item.width) {
+                    onLog = true;
+                    // Ride log moving speed
+                    playerPos.x += currentLane.speed;
+                }
+            });
+
+            // Keep within horizontal bounds while riding
+            if (playerPos.x < 0 || playerPos.x > GAME_WIDTH - 30) {
+                resetPlayer(); // Fell out of bounds
+            }
+
+            if (!onLog) {
+                // Fell in river!
+                resetPlayer();
+            } else {
+                updatePlayerDOM();
+            }
+        }
+        // 3. Road Check (y = 260, 310, 360, 410)
+        else if (playerPos.y >= 260 && playerPos.y <= 410) {
+            const laneIndex = (playerPos.y - 60) / 50;
+            const currentLane = lanes[laneIndex];
+
+            currentLane.items.forEach(item => {
+                if (playerCenter >= item.x && playerCenter <= item.x + item.width) {
+                    // Hit by car!
+                    resetPlayer();
+                }
+            });
+        }
+
+        requestAnimationFrame(gameLoop);
+    }
+
+    function checkTopSafetyZone(playerX) {
+        const slots = [
+            { id: 'slot-0', minX: 35, maxX: 115 },
+            { id: 'slot-1', minX: 185, maxX: 265 },
+            { id: 'slot-2', minX: 335, maxX: 415 },
+            { id: 'slot-3', minX: 485, maxX: 565 }
+        ];
+
+        let landedSlot = slots.find(s => playerX >= s.minX && playerX <= s.maxX);
+
+        if (landedSlot) {
+            const slotEl = document.getElementById(landedSlot.id);
+            if (slotEl.dataset.word === currentTargetWord) {
+                score += 100;
+                document.getElementById('score').innerText = score;
+                setupRound(); // Reset round with next definition puzzle
+            } else {
+                resetPlayer(); // Wrong safety slot
+            }
+        } else {
+            resetPlayer(); // Missed slots completely
+        }
+    }
+
+    function gameOver(reason) {
+        isPlaying = false;
+        clearInterval(timerInterval);
+        document.getElementById('overlay-title').innerText = "Game Over!";
+        document.getElementById('overlay-desc').innerHTML = `${reason}<br>Final Score: <b>${score}</b>`;
+        document.getElementById('start-btn').innerText = "Try Again";
+        document.getElementById('overlay').style.display = 'flex';
+    }
+</script>
+
+</body>
+</html>

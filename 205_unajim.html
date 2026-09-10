@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Vocab Pinball Arcade</title>
+  <style>
+    body {
+      background-color: #111;
+      color: #fff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 0;
+      padding: 10px;
+    }
+    #game-container {
+      position: relative;
+      width: 500px;
+      margin-top: 10px;
+    }
+    #hud {
+      width: 500px;
+      background: #222;
+      border: 3px solid #ff007f;
+      border-radius: 10px 10px 0 0;
+      box-sizing: border-box;
+      padding: 10px;
+      text-align: center;
+    }
+    #display-board {
+      background: #000;
+      border: 2px solid #00f3ff;
+      border-radius: 5px;
+      padding: 10px;
+      color: #00f3ff;
+      font-size: 16px;
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 10px #00f3ff;
+    }
+    .stats {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 8px;
+      font-size: 18px;
+      font-weight: bold;
+      color: #ff007f;
+    }
+    canvas {
+      background: #181825;
+      border: 3px solid #ff007f;
+      border-top: none;
+      border-radius: 0 0 10px 10px;
+      box-shadow: 0 0 20px rgba(255, 0, 127, 0.4);
+      display: block;
+    }
+    #instructions {
+      margin-top: 10px;
+      text-align: center;
+      font-size: 14px;
+      color: #aaa;
+    }
+    kbd {
+      background: #333;
+      border: 1px solid #666;
+      border-radius: 3px;
+      padding: 2px 6px;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="game-container">
+    <div id="hud">
+      <div id="display-board">Press SPACEBAR to Launch Ball!</div>
+      <div class="stats">
+        <span>SCORE: <span id="score">0</span></span>
+        <span>BALLS: <span id="balls">3</span></span>
+      </div>
+    </div>
+    <canvas id="pinball" width="500" height="650"></canvas>
+  </div>
+
+  <div id="instructions">
+    <p><strong>Controls:</strong> <kbd>SPACE</kbd> (Hold & Release) to Launch | <kbd>Left Shift</kbd> Left Flipper | <kbd>Right Shift</kbd> Right Flipper</p>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('pinball');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const ballsEl = document.getElementById('balls');
+    const displayBoard = document.getElementById('display-board');
+
+    // Vocab Dataset
+    const vocabList = [
+      { word: "SOLO", def: "Done by one person alone; unaccompanied." },
+      { word: "FLEXIBILITY", def: "The ability to bend easily or adapt to new situations." },
+      { word: "COMPROMISE", def: "An agreement reached by each side making concessions." },
+      { word: "DESTINATION", def: "The place to which someone or something is going." },
+      { word: "SPLIT", def: "To divide or cause to divide into parts." },
+      { word: "ARISE", def: "To come into being, notice, or familiar existence." },
+      { word: "OCCASIONALLY", def: "At intervals; from time to time; now and then." },
+      { word: "OBSTACLE", def: "A thing that blocks one's way or prevents progress." },
+      { word: "ADAPT", def: "To make suitable to a new use or purpose; modify." },
+      { word: "STRATEGY", def: "A plan of action designed to achieve a long-term goal." }
+    ];
+
+    // Game Variables
+    let score = 0;
+    let ballsLeft = 3;
+    let gameOver = false;
+    let currentTarget = null;
+    let flipperShrinkTimer = 0;
+    let ballSaverTimer = 0;
+
+    // Physics Settings
+    const gravity = 0.15;
+    const bounceDamping = 0.75;
+
+    // Ball Object
+    const ball = {
+      x: 475,
+      y: 580,
+      vx: 0,
+      vy: 0,
+      radius: 10,
+      inPlunger: true
+    };
+
+    // Plunger Settings
+    let plungerPower = 0;
+    let isChargingPlunger = false;
+
+    // Bumpers Setup
+    const bumpers = [
+      { x: 130, y: 180, radius: 45, word: "", hitFlash: 0 },
+      { x: 250, y: 130, radius: 45, word: "", hitFlash: 0 },
+      { x: 370, y: 180, radius: 45, word: "", hitFlash: 0 }
+    ];
+
+    // Flippers Setup
+    const baseFlipperWidth = 80;
+    let currentFlipperWidth = baseFlipperWidth;
+
+    const leftFlipper = {
+      x: 130, y: 580, angle: 0.3, maxAngle: -0.4, minAngle: 0.3, isUp: false
+    };
+
+    const rightFlipper = {
+      x: 320, y: 580, angle: -0.3, maxAngle: 0.4, minAngle: -0.3, isUp: false
+    };
+
+    // Controls
+    const keys = {};
+
+    window.addEventListener('keydown', (e) => {
+      keys[e.code] = true;
+      if (e.code === 'Space' && ball.inPlunger) {
+        isChargingPlunger = true;
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      keys[e.code] = false;
+      if (e.code === 'Space' && isChargingPlunger) {
+        // Launch ball
+        ball.vy = -plungerPower;
+        ball.vx = (Math.random() - 0.5) * 2;
+        ball.inPlunger = false;
+        isChargingPlunger = false;
+        plungerPower = 0;
+      }
+    });
+
+    function setupNewRound() {
+      // Choose target word randomly
+      const targetIndex = Math.floor(Math.random() * vocabList.length);
+      currentTarget = vocabList[targetIndex];
+      displayBoard.innerText = `TARGET DEFINITION: "${currentTarget.def}"`;
+
+      // Assign target word to one random bumper, distractor words to others
+      const shuffledBumpers = [...bumpers].sort(() => 0.5 - Math.random());
+      shuffledBumpers[0].word = currentTarget.word;
+
+      const otherWords = vocabList.filter(v => v.word !== currentTarget.word);
+      const usedOthers = otherWords.sort(() => 0.5 - Math.random()).slice(0, 2);
+      
+      shuffledBumpers[1].word = usedOthers[0].word;
+      shuffledBumpers[2].word = usedOthers[1].word;
+    }
+
+    function resetBall() {
+      ball.x = 475;
+      ball.y = 580;
+      ball.vx = 0;
+      ball.vy = 0;
+      ball.inPlunger = true;
+    }
+
+    function handleBumperHit(bumper) {
+      bumper.hitFlash = 15; // Trigger flash animation
+
+      if (bumper.word === currentTarget.word) {
+        // Correct Hit!
+        score += 500;
+        scoreEl.innerText = score;
+        ballSaverTimer = 300; // ~5 seconds at 60fps
+        displayBoard.innerText = "EXCELLENT! +500 PTS & BALL SAVER ACTIVE!";
+        setupNewRound();
+      } else {
+        // Wrong Hit!
+        score = Math.max(0, score - 100);
+        scoreEl.innerText = score;
+        flipperShrinkTimer = 300; // Shrink flippers for 5 seconds
+        displayBoard.innerText = "WRONG WORD! -100 PTS & FLIPPERS SHRUNK!";
+      }
+    }
+
+    function updatePhysics() {
+      if (gameOver) return;
+
+      // Charge Plunger
+      if (isChargingPlunger) {
+        plungerPower = Math.min(plungerPower + 0.4, 18);
+      }
+
+      // Timers
+      if (flipperShrinkTimer > 0) {
+        flipperShrinkTimer--;
+        currentFlipperWidth = baseFlipperWidth * 0.65;
+      } else {
+        currentFlipperWidth = baseFlipperWidth;
+      }
+
+      if (ballSaverTimer > 0) ballSaverTimer--;
+
+      // Flipper Movement
+      leftFlipper.isUp = keys['ShiftLeft'];
+      rightFlipper.isUp = keys['ShiftRight'];
+
+      const flipperSpeed = 0.2;
+      leftFlipper.angle += leftFlipper.isUp ? -flipperSpeed : flipperSpeed;
+      leftFlipper.angle = Math.max(leftFlipper.maxAngle, Math.min(leftFlipper.minAngle, leftFlipper.angle));
+
+      rightFlipper.angle += rightFlipper.isUp ? flipperSpeed : -flipperSpeed;
+      rightFlipper.angle = Math.min(rightFlipper.maxAngle, Math.max(rightFlipper.minAngle, rightFlipper.angle));
+
+      // Ball Movement
+      if (!ball.inPlunger) {
+        ball.vy += gravity;
+        ball.x += ball.vx;
+        ball.y += ball.vy;
+
+        // Outer Boundary Physics
+        // Plunger Channel Wall
+        if (ball.x > 455 && ball.y > 200) {
+          if (ball.x + ball.radius > 490) {
+            ball.x = 490 - ball.radius;
+            ball.vx *= -bounceDamping;
+          }
+          if (ball.x - ball.radius < 455) {
+            ball.x = 455 + ball.radius;
+            ball.vx *= -bounceDamping;
+          }
+        } else {
+          // Main Table Boundary Collision
+          if (ball.x - ball.radius < 10) {
+            ball.x = 10 + ball.radius;
+            ball.vx *= -bounceDamping;
+          }
+          if (ball.x + ball.radius > 455) {
+            ball.x = 455 - ball.radius;
+            ball.vx *= -bounceDamping;
+          }
+        }
+
+        if (ball.y - ball.radius < 10) {
+          ball.y = 10 + ball.radius;
+          ball.vy *= -bounceDamping;
+        }
+
+        // Bumper Collisions
+        bumpers.forEach(b => {
+          const dx = ball.x - b.x;
+          const dy = ball.y - b.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist < ball.radius + b.radius) {
+            // Overlap resolution & Vector Bounce
+            const angle = Math.atan2(dy, dx);
+            const force = 8;
+            ball.vx = Math.cos(angle) * force;
+            ball.vy = Math.sin(angle) * force;
+
+            handleBumperHit(b);
+          }
+        });
+
+        // Flipper Collisions (Simplified Segment Bounce)
+        const checkFlipperCollision = (f, isLeft) => {
+          const endX = f.x + Math.cos(f.angle) * (isLeft ? currentFlipperWidth : -currentFlipperWidth);
+          const endY = f.y + Math.sin(f.angle) * currentFlipperWidth;
+
+          // Simple distance to pivot check
+          const dx = ball.x - f.x;
+          const dy = ball.y - f.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist < currentFlipperWidth && ball.y > f.y - 15 && ball.y < f.y + 20) {
+            ball.vy = -Math.abs(ball.vy) * 1.2 - (f.isUp ? 6 : 2);
+            ball.vx += isLeft ? 2 : -2;
+          }
+        };
+
+        checkFlipperCollision(leftFlipper, true);
+        checkFlipperCollision(rightFlipper, false);
+
+        // Ball Drain Bottom
+        if (ball.y > 650) {
+          if (ballSaverTimer > 0) {
+            // Ball Saver Active!
+            resetBall();
+            displayBoard.innerText = "BALL SAVED! Launch again!";
+          } else {
+            ballsLeft--;
+            ballsEl.innerText = ballsLeft;
+            if (ballsLeft <= 0) {
+              gameOver = true;
+              displayBoard.innerText = `GAME OVER! Final Score: ${score}. Refresh to replay!`;
+            } else {
+              resetBall();
+              displayBoard.innerText = "BALL LOST! Press SPACE to Launch Next Ball!";
+            }
+          }
+        }
+      }
+    }
+
+    function render() {
+      // Clear Canvas
+      ctx.fillStyle = '#181825';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw Walls / Plunger Lane
+      ctx.strokeStyle = '#ff007f';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(455, 650);
+      ctx.lineTo(455, 200);
+      ctx.stroke();
+
+      // Draw Ball Saver Gate Indicator
+      if (ballSaverTimer > 0) {
+        ctx.strokeStyle = '#00f3ff';
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.moveTo(130, 630);
+        ctx.lineTo(320, 630);
+        ctx.stroke();
+      }
+
+      // Draw Bumpers
+      bumpers.forEach(b => {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+
+        if (b.hitFlash > 0) {
+          ctx.fillStyle = '#ffffff';
+          b.hitFlash--;
+        } else {
+          ctx.fillStyle = '#2a2a40';
+        }
+
+        ctx.strokeStyle = b.word === currentTarget.word ? '#00f3ff' : '#ff007f';
+        ctx.lineWidth = 4;
+        ctx.fill();
+        ctx.stroke();
+
+        // Bumper Text
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(b.word, b.x, b.y);
+        ctx.restore();
+      });
+
+      // Draw Flippers
+      const drawFlipper = (f, isLeft) => {
+        ctx.save();
+        ctx.translate(f.x, f.y);
+        ctx.rotate(f.angle);
+        ctx.fillStyle = flipperShrinkTimer > 0 ? '#ff5555' : '#00f3ff';
+        ctx.fillRect(0, -6, isLeft ? currentFlipperWidth : -currentFlipperWidth, 12);
+        ctx.restore();
+      };
+
+      drawFlipper(leftFlipper, true);
+      drawFlipper(rightFlipper, false);
+
+      // Draw Plunger Spring Indicator
+      if (ball.inPlunger) {
+        ctx.fillStyle = '#ff007f';
+        ctx.fillRect(465, 620 + plungerPower, 20, 30 - plungerPower);
+      }
+
+      // Draw Ball
+      ctx.beginPath();
+      ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+      ctx.fillStyle = '#fff';
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = '#fff';
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Loop
+      updatePhysics();
+      requestAnimationFrame(render);
+    }
+
+    // Start Game
+    setupNewRound();
+    render();
+  </script>
+</body>
+</html>

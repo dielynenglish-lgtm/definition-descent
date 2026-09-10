@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Intergalactic Vocab-Defender</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void:#05070f;
+    --nebula-1:#171034;
+    --nebula-2:#0b1638;
+    --panel:#0e1330cc;
+    --cyan:#3fe8ff;
+    --magenta:#ff2f92;
+    --amber:#ffcf4d;
+    --red:#ff3b5c;
+    --green:#3cffb0;
+    --text:#eaf2ff;
+    --text-dim:#8fa0d6;
+    --border:#3a4a8a;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    min-height:100dvh;
+    background:
+      radial-gradient(1px 1px at 10% 20%, #ffffff88 0, transparent 100%),
+      radial-gradient(1px 1px at 80% 10%, #ffffff66 0, transparent 100%),
+      radial-gradient(1px 1px at 60% 70%, #ffffffaa 0, transparent 100%),
+      radial-gradient(1px 1px at 30% 85%, #ffffff77 0, transparent 100%),
+      radial-gradient(1px 1px at 90% 60%, #ffffff55 0, transparent 100%),
+      radial-gradient(1px 1px at 45% 40%, #ffffff99 0, transparent 100%),
+      radial-gradient(1px 1px at 15% 55%, #ffffff44 0, transparent 100%),
+      radial-gradient(1px 1px at 70% 90%, #ffffff88 0, transparent 100%),
+      radial-gradient(ellipse at 20% 0%, var(--nebula-1) 0%, transparent 55%),
+      radial-gradient(ellipse at 90% 20%, var(--nebula-2) 0%, transparent 50%),
+      var(--void);
+    font-family:'Rajdhani', sans-serif;
+    color:var(--text);
+    overflow:hidden;
+    touch-action:none;
+    user-select:none;
+  }
+  h1,h2,.display{font-family:'Orbitron', sans-serif;}
+
+  #app{position:relative; width:100%; height:100dvh; display:flex; flex-direction:column;}
+
+  /* ---------- SHARED OVERLAYS ---------- */
+  .overlay{
+    position:absolute; inset:0; z-index:50;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:24px; text-align:center; gap:16px;
+    background:radial-gradient(ellipse at 50% 30%, #101a44f0, #05070fee 75%);
+  }
+  .hidden{display:none !important;}
+
+  .title-glow{
+    font-size:clamp(22px,7vw,32px);
+    font-weight:800;
+    letter-spacing:1px;
+    line-height:1.25;
+    background:linear-gradient(90deg,var(--cyan),var(--magenta));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    text-shadow:0 0 30px #3fe8ff44;
+  }
+  .subtitle{color:var(--text-dim); font-size:clamp(13px,4vw,15px); max-width:320px; line-height:1.5; font-weight:500;}
+
+  .brief-card{
+    border:1px solid var(--border);
+    background:#0c1330aa;
+    border-radius:10px;
+    padding:14px 18px;
+    max-width:340px;
+    font-size:14px;
+    line-height:1.55;
+    color:var(--text-dim);
+    text-align:left;
+  }
+  .brief-card b{color:var(--cyan); font-weight:700;}
+
+  .btn{
+    font-family:'Orbitron', sans-serif;
+    font-weight:700;
+    font-size:14px;
+    letter-spacing:.5px;
+    color:var(--void);
+    background:linear-gradient(90deg,var(--cyan),#7de6ff);
+    border:none;
+    border-radius:8px;
+    padding:14px 30px;
+    cursor:pointer;
+    box-shadow:0 0 22px #3fe8ff66;
+  }
+  .btn:active{transform:scale(.97);}
+  .btn.secondary{
+    background:transparent;
+    border:1px solid var(--border);
+    color:var(--text);
+    box-shadow:none;
+  }
+
+  /* ---------- HUD ---------- */
+  #hud{
+    position:relative; z-index:20;
+    padding:10px 12px 8px;
+    display:flex; flex-direction:column; gap:8px;
+  }
+  #hud-row{display:flex; align-items:center; gap:10px;}
+  #score-badge{
+    flex-shrink:0;
+    font-family:'Orbitron';
+    font-size:clamp(13px,4vw,16px);
+    font-weight:700;
+    color:var(--green);
+    background:#0c1330;
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:6px 10px;
+    min-width:74px;
+    text-align:center;
+  }
+  #timer-wrap{flex:1;}
+  #timer-label{
+    font-size:11px; letter-spacing:1.5px; color:var(--text-dim); font-weight:600;
+    display:flex; justify-content:space-between; margin-bottom:3px;
+  }
+  #timer-track{
+    height:8px; border-radius:5px; background:#0c1330; border:1px solid var(--border); overflow:hidden;
+  }
+  #timer-fill{
+    height:100%; width:100%; border-radius:5px;
+    background:linear-gradient(90deg,var(--cyan),var(--green));
+    transition:width .12s linear, background .3s linear;
+  }
+
+  #brief-pulse{
+    border:1px solid #4a5bb0;
+    background:linear-gradient(180deg,#141c46,#0c1330);
+    border-radius:10px;
+    padding:10px 14px;
+    box-shadow:0 0 0 rgba(63,232,255,0);
+    animation:briefpulse 2.4s ease-in-out infinite;
+  }
+  @keyframes briefpulse{
+    0%,100%{box-shadow:0 0 6px #3fe8ff22;}
+    50%{box-shadow:0 0 22px #3fe8ff55;}
+  }
+  #brief-eyebrow{font-size:10px; letter-spacing:2px; color:var(--magenta); font-weight:700; margin-bottom:3px;}
+  #brief-text{font-size:clamp(13px,3.8vw,15px); font-weight:600; color:var(--text); line-height:1.4;}
+  #brief-pulse.flash{animation:briefflash .3s ease-out, briefpulse 2.4s ease-in-out infinite;}
+  @keyframes briefflash{0%{transform:scale(1.04);} 100%{transform:scale(1);}}
+
+  /* ---------- PLAYFIELD ---------- */
+  #playfield{
+    position:relative; flex:1; margin:4px 8px; overflow:hidden;
+    border-radius:12px;
+    border:1px solid #262f5f;
+    background:linear-gradient(180deg,#0a0f28,#050813);
+  }
+
+  .alien{
+    position:absolute; left:0; top:0;
+    transform:translate(-50%,-50%);
+    cursor:pointer;
+    z-index:3;
+  }
+  .alien-pod{
+    font-family:'Rajdhani';
+    font-weight:700;
+    font-size:clamp(12px,3.6vw,14px);
+    color:var(--text);
+    background:#111a3d;
+    border:2px solid var(--pod-color, var(--cyan));
+    border-radius:999px;
+    padding:7px 14px;
+    white-space:nowrap;
+    box-shadow:0 0 14px var(--pod-glow, #3fe8ff55);
+  }
+  .alien-pod::before{
+    content:"";
+    display:inline-block;
+    width:6px; height:6px; border-radius:50%;
+    background:var(--pod-color, var(--cyan));
+    margin-right:7px;
+    vertical-align:middle;
+    box-shadow:0 0 6px var(--pod-color, var(--cyan));
+  }
+  .alien.wrong-flash .alien-pod{
+    animation:wrongflash .35s ease-out;
+  }
+  @keyframes wrongflash{
+    0%{background:#4a0f1e; border-color:var(--red);}
+    100%{background:#111a3d;}
+  }
+
+  .laser-bolt{
+    position:absolute; width:4px; height:16px;
+    background:linear-gradient(180deg,#fff,var(--cyan));
+    border-radius:2px;
+    transform:translate(-50%,-50%);
+    box-shadow:0 0 10px var(--cyan);
+    transition:left .11s linear, top .11s linear;
+    z-index:6;
+    pointer-events:none;
+  }
+
+  .spark{
+    position:absolute; width:6px; height:6px; border-radius:50%;
+    background:var(--amber); pointer-events:none; z-index:7;
+    transform:translate(-50%,-50%);
+    animation:spark-burst .55s ease-out forwards;
+  }
+  @keyframes spark-burst{
+    0%{opacity:1; transform:translate(-50%,-50%) translate(0,0) scale(1);}
+    100%{opacity:0; transform:translate(-50%,-50%) translate(var(--dx),var(--dy)) scale(.3);}
+  }
+  .boom-ring{
+    position:absolute; width:14px; height:14px; border-radius:50%;
+    border:3px solid var(--amber);
+    transform:translate(-50%,-50%);
+    pointer-events:none; z-index:7;
+    animation:boom-ring .5s ease-out forwards;
+  }
+  @keyframes boom-ring{
+    0%{opacity:1; width:14px; height:14px; border-color:#fff;}
+    100%{opacity:0; width:90px; height:90px; border-color:var(--amber);}
+  }
+  .points-float{
+    position:absolute; z-index:8; pointer-events:none;
+    font-family:'Orbitron'; font-weight:700; font-size:15px;
+    transform:translate(-50%,-50%);
+    animation:points-float .7s ease-out forwards;
+  }
+  @keyframes points-float{
+    0%{opacity:1; transform:translate(-50%,-50%) translateY(0);}
+    100%{opacity:0; transform:translate(-50%,-50%) translateY(-38px);}
+  }
+
+  #shipwrap{
+    position:absolute; left:50%; bottom:6%;
+    transform:translate(-50%,50%);
+    transition:left .22s ease-out;
+    z-index:4;
+    pointer-events:none;
+  }
+  #ship{
+    width:0; height:0;
+    border-left:15px solid transparent;
+    border-right:15px solid transparent;
+    border-bottom:26px solid var(--cyan);
+    filter:drop-shadow(0 0 10px #3fe8ffaa);
+    transition:filter .2s;
+  }
+  #ship.stalled{border-bottom-color:var(--red); filter:drop-shadow(0 0 10px #ff3b5caa);}
+  #ship-flame{
+    width:8px; height:14px; margin:2px auto 0;
+    background:linear-gradient(180deg,var(--amber),transparent);
+    border-radius:0 0 6px 6px;
+    animation:flame .15s infinite alternate;
+  }
+  @keyframes flame{0%{opacity:.6; height:10px;} 100%{opacity:1; height:16px;}}
+
+  #cooldown-bar{
+    position:absolute; left:50%; bottom:1.5%; transform:translateX(-50%);
+    width:120px; height:5px; border-radius:3px; background:#0c1330; border:1px solid var(--border);
+    overflow:hidden; z-index:4; opacity:0; transition:opacity .2s;
+  }
+  #cooldown-bar.show{opacity:1;}
+  #cooldown-fill{height:100%; width:100%; background:var(--red);}
+  #cooldown-label{
+    position:absolute; left:50%; bottom:4.6%; transform:translateX(-50%);
+    font-size:10px; letter-spacing:1.5px; color:var(--red); font-weight:700; z-index:4;
+    opacity:0; transition:opacity .2s;
+  }
+  #cooldown-label.show{opacity:1;}
+
+  /* screen shake */
+  #app.shake{animation:shake .4s;}
+  @keyframes shake{
+    0%,100%{transform:translate(0,0);}
+    20%{transform:translate(-8px,4px);}
+    40%{transform:translate(7px,-5px);}
+    60%{transform:translate(-6px,-3px);}
+    80%{transform:translate(6px,4px);}
+  }
+
+  /* ---------- END SCREEN ---------- */
+  #leaderboard{
+    width:100%; max-width:340px; border:1px solid var(--border);
+    border-radius:10px; overflow:hidden; background:#0c1330aa;
+  }
+  .lb-row{
+    display:flex; align-items:center; gap:10px;
+    padding:8px 12px; font-size:13px; font-weight:600;
+    border-bottom:1px solid #1c2650;
+  }
+  .lb-row:last-child{border-bottom:none;}
+  .lb-rank{width:22px; color:var(--text-dim); font-family:'Orbitron'; font-size:11px;}
+  .lb-name{flex:1; text-align:left; color:var(--text);}
+  .lb-score{color:var(--green); font-family:'Orbitron'; font-size:13px;}
+  .lb-row.top{background:#1c1440;}
+  .lb-row.mine{outline:1px solid var(--cyan); outline-offset:-1px;}
+
+  #name-form{display:flex; gap:8px; width:100%; max-width:320px;}
+  #name-input{
+    flex:1; min-width:0;
+    background:#0c1330; border:1px solid var(--border); border-radius:8px;
+    color:var(--text); font-family:'Rajdhani'; font-weight:600; font-size:14px;
+    padding:12px; outline:none;
+  }
+  #name-input:focus{border-color:var(--cyan);}
+  .note{font-size:11px; color:var(--text-dim); max-width:300px; line-height:1.5;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- START SCREEN -->
+  <div id="start-screen" class="overlay">
+    <div class="title-glow">INTERGALACTIC<br>VOCAB-DEFENDER</div>
+    <p class="subtitle">A word-ship fleet is closing in on Earth. Read the Mission Briefing, then tap the alien carrying the matching word before Warp Drive hits zero.</p>
+    <div class="brief-card">
+      <div><b>Correct hit</b> — cosmic explosion, +100 points</div>
+      <div style="margin-top:6px"><b>Wrong hit</b> — ship glitches, screen shakes, −50 points, lasers stall 2s</div>
+      <div style="margin-top:6px"><b>Warp Drive</b> — 60 seconds on the clock. The fleet gets faster and trickier as time runs out.</div>
+    </div>
+    <button class="btn" id="start-btn">LAUNCH MISSION</button>
+    <p class="note">Your final score can be uploaded to the shared Galactic Ace leaderboard, visible to everyone who plays this game.</p>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div id="hud-row">
+      <div id="score-badge">0 PTS</div>
+      <div id="timer-wrap">
+        <div id="timer-label"><span>WARP DRIVE</span><span id="timer-num">60s</span></div>
+        <div id="timer-track"><div id="timer-fill"></div></div>
+      </div>
+    </div>
+    <div id="brief-pulse">
+      <div id="brief-eyebrow">MISSION BRIEFING</div>
+      <div id="brief-text">Get ready...</div>
+    </div>
+  </div>
+
+  <!-- PLAYFIELD -->
+  <div id="playfield">
+    <div id="cooldown-label">LASERS RECHARGING</div>
+    <div id="cooldown-bar"><div id="cooldown-fill"></div></div>
+    <div id="shipwrap"><div id="ship"></div><div id="ship-flame"></div></div>
+  </div>
+
+  <!-- END SCREEN -->
+  <div id="end-screen" class="overlay hidden">
+    <div class="title-glow" id="end-title">MISSION COMPLETE</div>
+    <div style="font-family:'Orbitron'; font-size:clamp(28px,10vw,40px); font-weight:800; color:var(--cyan); text-shadow:0 0 24px #3fe8ff66;" id="final-score">0</div>
+    <p class="subtitle" style="margin-top:-8px">final score</p>
+
+    <div id="submit-block" style="display:flex; flex-direction:column; align-items:center; gap:10px; width:100%;">
+      <form id="name-form">
+        <input id="name-input" maxlength="20" placeholder="Enter your callsign" autocomplete="off">
+        <button class="btn" id="submit-btn" type="submit">UPLOAD</button>
+      </form>
+    </div>
+
+    <div id="lb-status" class="note"></div>
+    <div id="leaderboard" class="hidden"></div>
+
+    <button class="btn secondary" id="again-btn">FLY AGAIN</button>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  const WORDS = [
+    {word:'reservation', def:"an arrangement you make ahead of time to keep a table, room, or seat for yourself"},
+    {word:'preference', def:"a stronger liking for one thing over another"},
+    {word:'secure', def:"safe, and not likely to fail, break, or be harmed"},
+    {word:'session', def:"a period of time spent doing one particular activity"},
+    {word:'massage', def:"the act of rubbing someone's muscles to help them relax or feel less pain"},
+    {word:'promptly', def:"immediately, without any delay"},
+    {word:'opening', def:"a job that is currently available for someone to apply for"},
+    {word:'participation', def:"the act of taking part in an activity or event"},
+    {word:'instructor', def:"a person whose job is to teach a practical skill"},
+    {word:'calculate', def:"to find a number or amount by using math"}
+  ];
+  const POD_COLORS = ['#3fe8ff','#ff2f92','#ffcf4d','#9d7bff','#3cffb0'];
+
+  const $ = id => document.getElementById(id);
+  const app = $('app'), startScreen = $('start-screen'), endScreen = $('end-screen'),
+        playfield = $('playfield'), shipwrap = $('shipwrap'), ship = $('ship'),
+        scoreBadge = $('score-badge'), timerFill = $('timer-fill'), timerNum = $('timer-num'),
+        briefText = $('brief-text'), briefPulse = $('brief-pulse'),
+        cooldownBar = $('cooldown-bar'), cooldownLabel = $('cooldown-label'), cooldownFill = $('cooldown-fill'),
+        finalScoreEl = $('final-score'), lbStatus = $('lb-status'), leaderboardEl = $('leaderboard'),
+        nameForm = $('name-form'), nameInput = $('name-input'), submitBtn = $('submit-btn'), submitBlock = $('submit-block');
+
+  let score = 0, running = false, locked = false, laserStalled = false;
+  let startTime = 0, duration = 60000, rafId = null, tickInterval = null;
+  let aliens = []; // {word, el, baseX, baseY, amp, freq, phase, descentSpeed, spawnTime}
+  let currentTarget = null;
+  let wordBag = [];
+
+  function shuffledWordBag(){
+    const arr = WORDS.map(w=>w.word);
+    for(let i=arr.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [arr[i],arr[j]] = [arr[j],arr[i]];
+    }
+    return arr;
+  }
+  function nextTargetWord(){
+    if(wordBag.length===0) wordBag = shuffledWordBag();
+    return wordBag.pop();
+  }
+  function defFor(word){ return WORDS.find(w=>w.word===word).def; }
+
+  function difficulty(){
+    const elapsed = (performance.now()-startTime)/1000;
+    return Math.min(Math.max(elapsed/60,0),1);
+  }
+
+  function clearAliens(){
+    aliens.forEach(a=> a.el.remove());
+    aliens = [];
+  }
+
+  function spawnWave(){
+    if(!running) return;
+    locked = false;
+    clearAliens();
+    const diff = difficulty();
+    const count = 5 + Math.floor(diff*3); // 5..8
+    currentTarget = nextTargetWord();
+
+    const others = WORDS.map(w=>w.word).filter(w=>w!==currentTarget);
+    for(let i=others.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [others[i],others[j]] = [others[j],others[i]];
+    }
+    const waveWords = [currentTarget, ...others.slice(0, count-1)];
+    for(let i=waveWords.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [waveWords[i],waveWords[j]] = [waveWords[j],waveWords[i]];
+    }
+
+    const rows = [12,24,36];
+    const now = performance.now();
+    waveWords.forEach((word,i)=>{
+      const el = document.createElement('div');
+      el.className = 'alien';
+      const pod = document.createElement('div');
+      pod.className = 'alien-pod';
+      pod.textContent = word;
+      const color = POD_COLORS[Math.floor(Math.random()*POD_COLORS.length)];
+      pod.style.setProperty('--pod-color', color);
+      pod.style.setProperty('--pod-glow', color+'88');
+      el.appendChild(pod);
+      playfield.appendChild(el);
+
+      const baseX = 12 + (i % Math.ceil(waveWords.length/2)) * (76/Math.max(1,Math.ceil(waveWords.length/2)-1||1));
+      const alien = {
+        word, el,
+        baseX: 10 + Math.random()*80,
+        baseY: rows[i % rows.length] + Math.random()*6,
+        amp: 8 + diff*7,
+        freq: 0.28 + diff*0.35 + Math.random()*0.1,
+        phase: Math.random()*Math.PI*2,
+        descentSpeed: 3.2 + diff*7,
+        spawnTime: now
+      };
+      aliens.push(alien);
+
+      const handler = (e)=>{ e.preventDefault(); e.stopPropagation(); onAlienHit(alien); };
+      el.addEventListener('pointerdown', handler);
+    });
+
+    briefText.textContent = defFor(currentTarget);
+    briefPulse.classList.remove('flash');
+    void briefPulse.offsetWidth;
+    briefPulse.classList.add('flash');
+  }
+
+  function renderLoop(){
+    if(!running) return;
+    const now = performance.now();
+    aliens.forEach(a=>{
+      const t = (now - startTime)/1000;
+      const x = a.baseX + a.amp*Math.sin(a.freq*t*2*Math.PI + a.phase);
+      const span = 80 - a.baseY;
+      const dy = ((now - a.spawnTime)*a.descentSpeed/1000) % span;
+      const y = a.baseY + dy;
+      const cx = Math.min(94, Math.max(6, x));
+      a.el.style.left = cx+'%';
+      a.el.style.top = y+'%';
+      a._cx = cx; a._cy = y;
+    });
+    rafId = requestAnimationFrame(renderLoop);
+  }
+
+  function fireLaser(toX, toY, color){
+    const shipX = parseFloat(shipwrap.style.left) || 50;
+    const bolt = document.createElement('div');
+    bolt.className = 'laser-bolt';
+    if(color) bolt.style.background = color;
+    bolt.style.left = shipX+'%';
+    bolt.style.top = '90%';
+    playfield.appendChild(bolt);
+    requestAnimationFrame(()=>{
+      bolt.style.left = toX+'%';
+      bolt.style.top = toY+'%';
+    });
+    setTimeout(()=> bolt.remove(), 160);
+  }
+
+  function explodeAt(x,y){
+    for(let i=0;i<10;i++){
+      const s = document.createElement('div');
+      s.className = 'spark';
+      const angle = Math.random()*Math.PI*2;
+      const dist = 24+Math.random()*30;
+      s.style.setProperty('--dx', Math.cos(angle)*dist+'px');
+      s.style.setProperty('--dy', Math.sin(angle)*dist+'px');
+      s.style.left = x+'%'; s.style.top = y+'%';
+      s.style.background = ['#fff','#ffcf4d','#3fe8ff','#ff2f92'][i%4];
+      playfield.appendChild(s);
+      setTimeout(()=> s.remove(), 600);
+    }
+    const ring = document.createElement('div');
+    ring.className = 'boom-ring';
+    ring.style.left = x+'%'; ring.style.top = y+'%';
+    playfield.appendChild(ring);
+    setTimeout(()=> ring.remove(), 550);
+
+    const pts = document.createElement('div');
+    pts.className = 'points-float';
+    pts.textContent = '+100';
+    pts.style.left = x+'%'; pts.style.top = y+'%';
+    pts.style.color = 'var(--green)';
+    playfield.appendChild(pts);
+    setTimeout(()=> pts.remove(), 720);
+  }
+
+  function floatMinus(x,y){
+    const pts = document.createElement('div');
+    pts.className = 'points-float';
+    pts.textContent = '-50';
+    pts.style.left = x+'%'; pts.style.top = y+'%';
+    pts.style.color = 'var(--red)';
+    playfield.appendChild(pts);
+    setTimeout(()=> pts.remove(), 720);
+  }
+
+  function triggerShake(){
+    app.classList.remove('shake');
+    void app.offsetWidth;
+    app.classList.add('shake');
+    setTimeout(()=> app.classList.remove('shake'), 400);
+  }
+
+  function setScore(v){
+    score = Math.max(0, v);
+    scoreBadge.textContent = score+' PTS';
+  }
+
+  function startCooldown(){
+    laserStalled = true;
+    ship.classList.add('stalled');
+    cooldownBar.classList.add('show');
+    cooldownLabel.classList.add('show');
+    cooldownFill.style.transition = 'none';
+    cooldownFill.style.width = '100%';
+    void cooldownFill.offsetWidth;
+    cooldownFill.style.transition = 'width 2s linear';
+    cooldownFill.style.width = '0%';
+    setTimeout(()=>{
+      laserStalled = false;
+      ship.classList.remove('stalled');
+      cooldownBar.classList.remove('show');
+      cooldownLabel.classList.remove('show');
+    }, 2000);
+  }
+
+  function onAlienHit(alien){
+    if(!running || locked || laserStalled) return;
+    const x = alien._cx ?? alien.baseX, y = alien._cy ?? alien.baseY;
+    shipwrap.style.left = x+'%';
+    fireLaser(x,y);
+
+    if(alien.word === currentTarget){
+      locked = true;
+      setScore(score+100);
+      explodeAt(x,y);
+      alien.el.style.transition = 'opacity .15s, transform .15s';
+      alien.el.style.opacity = '0';
+      alien.el.style.transform += ' scale(1.4)';
+      setTimeout(()=> spawnWave(), 420);
+    } else {
+      setScore(score-50);
+      floatMinus(x,y);
+      alien.el.classList.remove('wrong-flash');
+      void alien.el.offsetWidth;
+      alien.el.classList.add('wrong-flash');
+      triggerShake();
+      startCooldown();
+    }
+  }
+
+  function updateTimerVisual(){
+    const elapsed = performance.now()-startTime;
+    const remain = Math.max(0, duration-elapsed);
+    const ratio = remain/duration;
+    timerFill.style.width = (ratio*100)+'%';
+    const secs = Math.ceil(remain/1000);
+    timerNum.textContent = secs+'s';
+    if(ratio > 0.5){
+      timerFill.style.background = 'linear-gradient(90deg,var(--cyan),var(--green))';
+    } else if(ratio > 0.2){
+      timerFill.style.background = 'linear-gradient(90deg,var(--amber),var(--cyan))';
+    } else {
+      timerFill.style.background = 'linear-gradient(90deg,var(--red),var(--amber))';
+    }
+    if(remain<=0) endGame();
+  }
+
+  function startGame(){
+    setScore(0);
+    startScreen.classList.add('hidden');
+    endScreen.classList.add('hidden');
+    running = true;
+    locked = false;
+    laserStalled = false;
+    ship.classList.remove('stalled');
+    cooldownBar.classList.remove('show');
+    cooldownLabel.classList.remove('show');
+    wordBag = shuffledWordBag();
+    startTime = performance.now();
+    shipwrap.style.left = '50%';
+    spawnWave();
+    rafId = requestAnimationFrame(renderLoop);
+    tickInterval = setInterval(updateTimerVisual, 100);
+  }
+
+  function endGame(){
+    if(!running) return;
+    running = false;
+    clearInterval(tickInterval);
+    cancelAnimationFrame(rafId);
+    clearAliens();
+    finalScoreEl.textContent = score;
+    endScreen.classList.remove('hidden');
+    submitBlock.style.display = 'flex';
+    leaderboardEl.classList.add('hidden');
+    lbStatus.textContent = '';
+    nameInput.value = '';
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'UPLOAD';
+  }
+
+  async function loadLeaderboard(){
+    try{
+      const res = await window.storage.get('galactic-ace-leaderboard', true);
+      if(res && res.value) return JSON.parse(res.value);
+    }catch(e){}
+    return [];
+  }
+
+  async function submitScore(name){
+    let list = await loadLeaderboard();
+    list.push({name: name, score: score, ts: Date.now()});
+    list.sort((a,b)=> b.score-a.score);
+    list = list.slice(0,20);
+    try{
+      await window.storage.set('galactic-ace-leaderboard', JSON.stringify(list), true);
+    }catch(e){
+      lbStatus.textContent = 'Could not upload score — you can still see the board below.';
+    }
+    return list;
+  }
+
+  function renderLeaderboard(list, myName){
+    leaderboardEl.innerHTML = '';
+    leaderboardEl.classList.remove('hidden');
+    if(list.length===0){
+      leaderboardEl.innerHTML = '<div class="lb-row">No scores yet — be the first Defender!</div>';
+      return;
+    }
+    list.slice(0,10).forEach((entry,i)=>{
+      const row = document.createElement('div');
+      row.className = 'lb-row' + (i===0 ? ' top' : '') + (entry.name===myName && entry.score===score ? ' mine' : '');
+      row.innerHTML =
+        '<div class="lb-rank">'+(i===0?'👑':'#'+(i+1))+'</div>'+
+        '<div class="lb-name">'+escapeHtml(entry.name)+'</div>'+
+        '<div class="lb-score">'+entry.score+'</div>';
+      leaderboardEl.appendChild(row);
+    });
+  }
+
+  function escapeHtml(s){
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  $('start-btn').addEventListener('pointerdown', (e)=>{ e.preventDefault(); startGame(); });
+  $('again-btn').addEventListener('pointerdown', (e)=>{ e.preventDefault(); startScreen.classList.remove('hidden'); endScreen.classList.add('hidden'); });
+
+  nameForm.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    let name = nameInput.value.trim();
+    if(!name) name = 'Space Cadet';
+    name = name.slice(0,20);
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'UPLOADING...';
+    lbStatus.textContent = '';
+    const list = await submitScore(name);
+    submitBtn.textContent = 'UPLOADED ✓';
+    lbStatus.textContent = 'Galactic Ace Leaderboard — shared with everyone who plays';
+    renderLeaderboard(list, name);
+  });
+
+  // initial peek at leaderboard behind the start screen isn't needed; nothing else to init.
+})();
+</script>
+</body>
+</html>

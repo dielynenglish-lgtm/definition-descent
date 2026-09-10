@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Breakout Word-Wall Builder</title>
+  <style>
+    body {
+      background: #111;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 10px;
+    }
+    #gameContainer {
+      position: relative;
+      width: 800px;
+      margin: 0 auto;
+    }
+    canvas {
+      background: #222;
+      border: 3px solid #fff;
+      display: block;
+      margin: 0 auto;
+    }
+    .modal {
+      display: none;
+      position: absolute;
+      top: 150px;
+      left: 150px;
+      width: 500px;
+      background: rgba(0, 0, 0, 0.95);
+      border: 2px solid #55ff55;
+      padding: 20px;
+      box-shadow: 0 0 20px #55ff55;
+      z-index: 10;
+    }
+    .modal h2 {
+      margin-top: 0;
+      color: #55ff55;
+    }
+    .modal button {
+      display: block;
+      width: 100%;
+      margin: 10px 0;
+      padding: 10px;
+      font-size: 16px;
+      cursor: pointer;
+      background: #333;
+      color: #fff;
+      border: 1px solid #777;
+    }
+    .modal button:hover {
+      background: #555;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Breakout Word-Wall Builder</h1>
+  <div id="gameContainer">
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    
+    <div id="quizModal" class="modal">
+      <h2>Layer Broken! Identify the Word</h2>
+      <p id="quizDefinition"></p>
+      <div id="quizOptions"></div>
+    </div>
+  </div>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const modal = document.getElementById("quizModal");
+const quizDefinition = document.getElementById("quizDefinition");
+const quizOptions = document.getElementById("quizOptions");
+
+// 10 Vocabulary Words & Definitions
+const vocabList = [
+  { word: "beloved", def: "Dearly loved or cherished" },
+  { word: "highlight", def: "An outstanding or enjoyable part of something" },
+  { word: "performer", def: "A person who entertains an audience" },
+  { word: "compelling", def: "Evoking interest or attention in a powerfully irresistible way" },
+  { word: "luxury", def: "A state of great comfort or extravagant living" },
+  { word: "elaborately", def: "In a detailed and carefully arranged manner" },
+  { word: "surroundings", def: "The things and conditions around a person or place" },
+  { word: "intricate", def: "Very complicated or detailed" },
+  { word: "vivid", def: "Producing powerful or clear feelings and images in the mind" },
+  { word: "resilient", def: "Able to withstand or recover quickly from difficult conditions" }
+];
+
+// Game State Variables
+let score = 0;
+let blocksSmashed = 0;
+let lives = 3;
+let isPaused = false;
+let currentLayerWord = null;
+
+// Paddle Setup
+let paddleWidth = 120;
+let paddleHeight = 15;
+let paddleX = (canvas.width - paddleWidth) / 2;
+
+// Ball Setup
+let ballRadius = 8;
+let balls = [];
+
+function createBall() {
+  return {
+    x: canvas.width / 2,
+    y: canvas.height - 30,
+    dx: 4 * (Math.random() > 0.5 ? 1 : -1),
+    dy: -4
+  };
+}
+balls.push(createBall());
+
+// Bricks Setup (5 Rows = 5 Vocabulary Words)
+const brickRowCount = 5;
+const brickColumnCount = 8;
+const brickWidth = 90;
+const brickHeight = 25;
+const brickPadding = 8;
+const brickOffsetTop = 50;
+const brickOffsetLeft = 10;
+const colors = ["#FF4136", "#FF851B", "#FFDC00", "#2ECC40", "#0074D9"];
+
+let bricks = [];
+function initBricks() {
+  for (let r = 0; r < brickRowCount; r++) {
+    bricks[r] = [];
+    let wordData = vocabList[r]; // Row assigned to word
+    for (let c = 0; c < brickColumnCount; c++) {
+      bricks[r][c] = { x: 0, y: 0, status: 2, wordData: wordData }; // Status 2 = Cracked, 1 = Damaged, 0 = Broken
+    }
+  }
+}
+initBricks();
+
+// Controls
+document.addEventListener("mousemove", (e) => {
+  const relativeX = e.clientX - canvas.offsetLeft;
+  if (relativeX > 0 && relativeX < canvas.width) {
+    paddleX = relativeX - paddleWidth / 2;
+  }
+});
+
+// Vector Reflection & Collision Mechanics
+function collisionDetection() {
+  for (let r = 0; r < brickRowCount; r++) {
+    for (let c = 0; c < brickColumnCount; c++) {
+      let b = bricks[r][c];
+      if (b.status > 0) {
+        balls.forEach(ball => {
+          if (
+            ball.x > b.x &&
+            ball.x < b.x + brickWidth &&
+            ball.y > b.y &&
+            ball.y < b.y + brickHeight
+          ) {
+            ball.dy = -ball.dy; // Vector reflection
+            b.status--;
+            score += 10;
+
+            if (b.status === 0) {
+              blocksSmashed++;
+              checkRowClear(r);
+            }
+          }
+        });
+      }
+    }
+  }
+}
+
+function checkRowClear(r) {
+  let rowCleared = bricks[r].every(b => b.status === 0);
+  if (rowCleared && !bricks[r].cleared) {
+    bricks[r].cleared = true;
+    triggerPopUp(vocabList[r]);
+  }
+}
+
+// 3-Choice Quiz Pop-up Mechanism
+function triggerPopUp(wordObj) {
+  isPaused = true;
+  currentLayerWord = wordObj;
+  quizDefinition.textContent = `Definition: "${wordObj.def}"`;
+  
+  // Pick 2 random wrong choices
+  let choices = [wordObj.word];
+  while (choices.length < 3) {
+    let randWord = vocabList[Math.floor(Math.random() * vocabList.length)].word;
+    if (!choices.includes(randWord)) choices.push(randWord);
+  }
+  choices.sort(() => Math.random() - 0.5); // Shuffle
+
+  quizOptions.innerHTML = "";
+  choices.forEach(choice => {
+    let btn = document.createElement("button");
+    btn.textContent = choice;
+    btn.onclick = () => evaluateChoice(choice);
+    quizOptions.appendChild(btn);
+  });
+
+  modal.style.display = "block";
+}
+
+function evaluateChoice(selected) {
+  modal.style.display = "none";
+  if (selected === currentLayerWord.word) {
+    // Correct Choice: Multiball Power-up
+    balls.push(createBall());
+    paddleWidth = Math.max(80, paddleWidth - 5); // Shrink paddle penalty avoided, granted extra ball
+  } else {
+    // Incorrect Choice: Shrink Paddle Penalty
+    paddleWidth = Math.max(50, paddleWidth - 25);
+  }
+  isPaused = false;
+  draw();
+}
+
+// Drawing Functions
+function drawBall(ball) {
+  ctx.beginPath();
+  ctx.arc(ball.x, ball.y, ballRadius, 0, Math.PI * 2);
+  ctx.fillStyle = "#FFF";
+  ctx.fill();
+  ctx.closePath();
+}
+
+function drawPaddle() {
+  ctx.beginPath();
+  ctx.rect(paddleX, canvas.height - paddleHeight, paddleWidth, paddleHeight);
+  ctx.fillStyle = "#001f3f";
+  ctx.strokeStyle = "#0074D9";
+  ctx.fill();
+  ctx.stroke();
+  ctx.closePath();
+}
+
+function drawBricks() {
+  for (let r = 0; r < brickRowCount; r++) {
+    for (let c = 0; c < brickColumnCount; c++) {
+      let b = bricks[r][c];
+      if (b.status > 0) {
+        let brickX = c * (brickWidth + brickPadding) + brickOffsetLeft;
+        let brickY = r * (brickHeight + brickPadding) + brickOffsetTop;
+        b.x = brickX;
+        b.y = brickY;
+
+        ctx.beginPath();
+        ctx.rect(brickX, brickY, brickWidth, brickHeight);
+        ctx.fillStyle = colors[r];
+        ctx.globalAlpha = b.status === 2 ? 1.0 : 0.5; // Visual crack/damage state
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+
+        // Briefly show hint/letter
+        ctx.fillStyle = "#000";
+        ctx.font = "12px Arial";
+        ctx.fillText(b.wordData.word[0].toUpperCase(), brickX + 10, brickY + 17);
+        ctx.closePath();
+      }
+    }
+  }
+}
+
+function drawScoreboard() {
+  ctx.font = "16px Arial";
+  ctx.fillStyle = "#FFF";
+  ctx.fillText(`Score: ${score}`, 15, 30);
+  ctx.fillText(`Blocks Smashed: ${blocksSmashed}`, 160, 30);
+  ctx.fillText(`Lives: ${lives}`, 380, 30);
+}
+
+// Main Game Loop
+function draw() {
+  if (isPaused) return;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawBricks();
+  drawPaddle();
+  drawScoreboard();
+  collisionDetection();
+
+  // Ball Movement & Collision
+  balls.forEach((ball, index) => {
+    drawBall(ball);
+
+    if (ball.x + ball.dx > canvas.width - ballRadius || ball.x + ball.dx < ballRadius) {
+      ball.dx = -ball.dx;
+    }
+    if (ball.y + ball.dy < ballRadius) {
+      ball.dy = -ball.dy;
+    } else if (ball.y + ball.dy > canvas.height - ballRadius) {
+      if (ball.x > paddleX && ball.x < paddleX + paddleWidth) {
+        ball.dy = -ball.dy;
+      } else {
+        // Remove lost ball
+        balls.splice(index, 1);
+        if (balls.length === 0) {
+          lives--;
+          if (!lives) {
+            alert("GAME OVER! Try again.");
+            document.location.reload();
+          } else {
+            balls.push(createBall());
+            paddleX = (canvas.width - paddleWidth) / 2;
+          }
+        }
+      }
+    }
+
+    ball.x += ball.dx;
+    ball.y += ball.dy;
+  });
+
+  requestAnimationFrame(draw);
+}
+
+draw();
+</script>
+</body>
+</html>x
