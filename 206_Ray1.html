@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Breakout Word-Wall Builder (Easy Mode)</title>
+  <style>
+    body {
+      background-color: #1a1a1a;
+      color: #ffffff;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 15px;
+    }
+    h1 {
+      margin: 5px 0 10px 0;
+      color: #f1c40f;
+    }
+    /* Vocabulary Reference Display Panel */
+    #vocab-card {
+      width: 800px;
+      background: #2c3e50;
+      border: 2px solid #3498db;
+      border-radius: 8px;
+      padding: 10px;
+      margin: 0 auto 12px auto;
+      box-sizing: border-box;
+      max-height: 130px;
+      overflow-y: auto;
+      text-align: left;
+    }
+    #vocab-card h3 {
+      margin: 0 0 6px 0;
+      color: #f1c40f;
+      text-align: center;
+      font-size: 14px;
+      text-transform: uppercase;
+    }
+    .vocab-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      font-size: 12px;
+    }
+    .vocab-item {
+      background: rgba(255, 255, 255, 0.08);
+      padding: 4px 6px;
+      border-radius: 4px;
+    }
+    .vocab-item strong {
+      color: #2ecc71;
+    }
+
+    #game-container {
+      position: relative;
+      width: 800px;
+      margin: 0 auto;
+    }
+    canvas {
+      background: #111;
+      border: 3px solid #fff;
+      border-radius: 8px;
+      display: block;
+      margin: 0 auto;
+    }
+    #stats-board {
+      display: flex;
+      justify-content: space-around;
+      width: 800px;
+      margin: 8px auto;
+      font-size: 18px;
+      font-weight: bold;
+    }
+    #controls-hint {
+      margin-bottom: 8px;
+      font-size: 14px;
+      color: #f1c40f;
+    }
+    /* Popup Modal Styles */
+    #popup-modal {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #2c3e50;
+      border: 3px solid #f1c40f;
+      border-radius: 10px;
+      padding: 20px;
+      width: 420px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.8);
+      z-index: 10;
+    }
+    #popup-modal h3 {
+      margin-top: 0;
+      color: #f1c40f;
+    }
+    .choice-btn {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0;
+      background: #3498db;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .choice-btn:hover {
+      background: #2980b9;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Breakout Word-Wall Builder (Easy Practice)</h1>
+
+  <!-- Vocabulary Reference Panel -->
+  <div id="vocab-card">
+    <h3>Vocabulary Reference Sheet</h3>
+    <div class="vocab-grid" id="vocab-list-container"></div>
+  </div>
+
+  <div id="controls-hint">Controls: Press <strong>A / Left Arrow</strong> (Move Left) and <strong>D / Right Arrow</strong> (Move Right)</div>
+  
+  <div id="stats-board">
+    <div>Practice Mode: Infinite Lives</div>
+    <div>Bricks Smashed: <span id="score-display">0</span></div>
+  </div>
+
+  <div id="game-container">
+    <canvas id="gameCanvas" width="800" height="480"></canvas>
+    
+    <!-- Vocabulary Pop-up Modal -->
+    <div id="popup-modal">
+      <h3 id="modal-title">Layer Shattered!</h3>
+      <p id="modal-definition" style="font-size: 15px; color: #ecf0f1; margin-bottom: 15px;">Definition goes here...</p>
+      <div id="choices-container"></div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const vocabListContainer = document.getElementById("vocab-list-container");
+
+    // Vocabulary Dataset
+    const vocabularyList = [
+      { word: "MIRACULOUS", def: "Remarkable, extraordinary, or like a miracle." },
+      { word: "MASSIVE", def: "Large, heavy, and solid; exceptionally immense in size." },
+      { word: "VOMIT", def: "Eject matter from the stomach through the mouth." },
+      { word: "PHYSICIAN", def: "A person qualified to practice medicine; a medical doctor." },
+      { word: "DOSE", def: "A quantity of a medicine or drug taken at one time." },
+      { word: "ESTABLISHED", def: "Having existed for a long time; recognized and accepted." },
+      { word: "UNDERGO", def: "Experience or be subjected to something (e.g. medical procedure)." }
+    ];
+
+    // Populate Reference Board
+    vocabularyList.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'vocab-item';
+      div.innerHTML = `<strong>${item.word}:</strong> ${item.def}`;
+      vocabListContainer.appendChild(div);
+    });
+
+    // Game Variables
+    let score = 0;
+    let isPaused = false;
+
+    // Keyboard Input State
+    let rightPressed = false;
+    let leftPressed = false;
+
+    // Enlarged Paddle Parameters
+    let paddleWidth = 180;
+    const paddleHeight = 14;
+    let paddleX = (canvas.width - paddleWidth) / 2;
+    const paddleSpeed = 8;
+
+    // Slower Ball Array
+    let balls = [
+      { x: canvas.width / 2, y: canvas.height - 30, dx: 3, dy: -3, radius: 9 }
+    ];
+
+    // Brick Layout Config
+    const rowCount = vocabularyList.length; 
+    const colCount = 8;
+    const brickWidth = 90;
+    const brickHeight = 22;
+    const brickPadding = 6;
+    const brickOffsetTop = 25;
+    const brickOffsetLeft = 18;
+    const colors = ["#e74c3c", "#e67e22", "#f1c40f", "#2ecc71", "#1abc9c", "#3498db", "#9b59b6"];
+
+    // Initialize Bricks Array (Single-hit destruction)
+    let bricks = [];
+    for (let r = 0; r < rowCount; r++) {
+      bricks[r] = [];
+      const wordObj = vocabularyList[r];
+      for (let c = 0; c < colCount; c++) {
+        const letter = wordObj.word[c % wordObj.word.length];
+        bricks[r][c] = { x: 0, y: 0, status: 1, letter: letter };
+      }
+    }
+
+    // Controls
+    document.addEventListener("keydown", keyDownHandler, false);
+    document.addEventListener("keyup", keyUpHandler, false);
+
+    function keyDownHandler(e) {
+      if (e.key === "d" || e.key === "D" || e.key === "Right" || e.key === "ArrowRight") {
+        rightPressed = true;
+      } else if (e.key === "a" || e.key === "A" || e.key === "Left" || e.key === "ArrowLeft") {
+        leftPressed = true;
+      }
+    }
+
+    function keyUpHandler(e) {
+      if (e.key === "d" || e.key === "D" || e.key === "Right" || e.key === "ArrowRight") {
+        rightPressed = false;
+      } else if (e.key === "a" || e.key === "A" || e.key === "Left" || e.key === "ArrowLeft") {
+        leftPressed = false;
+      }
+    }
+
+    function updatePaddle() {
+      if (rightPressed && paddleX < canvas.width - paddleWidth) {
+        paddleX += paddleSpeed;
+      } else if (leftPressed && paddleX > 0) {
+        paddleX -= paddleSpeed;
+      }
+    }
+
+    function moveBalls() {
+      balls.forEach((ball, bIndex) => {
+        ball.x += ball.dx;
+        ball.y += ball.dy;
+
+        // Wall collisions
+        if (ball.x + ball.dx > canvas.width - ball.radius || ball.x + ball.dx < ball.radius) {
+          ball.dx = -ball.dx;
+        }
+
+        if (ball.y + ball.dy < ball.radius) {
+          ball.dy = -ball.dy;
+        } 
+        // Paddle Bounce
+        else if (ball.y + ball.dy > canvas.height - ball.radius - paddleHeight) {
+          if (ball.x > paddleX && ball.x < paddleX + paddleWidth) {
+            let hitPoint = (ball.x - (paddleX + paddleWidth / 2)) / (paddleWidth / 2);
+            let speed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
+            let angle = hitPoint * (Math.PI / 3);
+            
+            ball.dx = speed * Math.sin(angle);
+            ball.dy = -speed * Math.cos(angle);
+          } else if (ball.y + ball.dy > canvas.height - ball.radius) {
+            balls.splice(bIndex, 1);
+            if (balls.length === 0) {
+              resetBallAndPaddle(); // Automatic Respawn, No Game Over!
+            }
+          }
+        }
+      });
+    }
+
+    function resetBallAndPaddle() {
+      paddleWidth = 180;
+      balls = [{ x: canvas.width / 2, y: canvas.height - 30, dx: 3, dy: -3, radius: 9 }];
+      paddleX = (canvas.width - paddleWidth) / 2;
+    }
+
+    function collisionDetection() {
+      for (let r = 0; r < rowCount; r++) {
+        for (let c = 0; c < colCount; c++) {
+          let b = bricks[r][c];
+          if (b.status > 0) {
+            balls.forEach(ball => {
+              if (
+                ball.x > b.x &&
+                ball.x < b.x + brickWidth &&
+                ball.y > b.y &&
+                ball.y < b.y + brickHeight
+              ) {
+                ball.dy = -ball.dy;
+                b.status--;
+                
+                score++;
+                document.getElementById("score-display").textContent = score;
+                checkRowCompletion(r);
+              }
+            });
+          }
+        }
+      }
+    }
+
+    function checkRowCompletion(row) {
+      let cleared = bricks[row].every(b => b.status === 0);
+      if (cleared) {
+        isPaused = true;
+        rightPressed = false;
+        leftPressed = false;
+        triggerVocabularyQuiz(row);
+      }
+    }
+
+    function triggerVocabularyQuiz(row) {
+      const modal = document.getElementById("popup-modal");
+      const title = document.getElementById("modal-title");
+      const defEl = document.getElementById("modal-definition");
+      const choicesContainer = document.getElementById("choices-container");
+
+      const correctWordObj = vocabularyList[row];
+      title.textContent = `Layer ${row + 1} Cleared!`;
+      defEl.textContent = `Which word matches: "${correctWordObj.def}"?`;
+      choicesContainer.innerHTML = "";
+
+      let choices = [correctWordObj.word];
+      while (choices.length < 3) {
+        let randomWord = vocabularyList[Math.floor(Math.random() * vocabularyList.length)].word;
+        if (!choices.includes(randomWord)) {
+          choices.push(randomWord);
+        }
+      }
+      choices.sort(() => Math.random() - 0.5);
+
+      choices.forEach(choice => {
+        const btn = document.createElement("button");
+        btn.className = "choice-btn";
+        btn.textContent = choice;
+        btn.onclick = () => handleQuizAnswer(choice, correctWordObj.word);
+        choicesContainer.appendChild(btn);
+      });
+
+      modal.style.display = "block";
+    }
+
+    function handleQuizAnswer(selected, correct) {
+      const modal = document.getElementById("popup-modal");
+      modal.style.display = "none";
+
+      if (selected === correct) {
+        alert("Awesome! Multiball Granted!");
+        let mainBall = balls[0] || { x: canvas.width / 2, y: canvas.height - 30 };
+        balls.push({ x: mainBall.x, y: mainBall.y, dx: -3, dy: -3, radius: 9 });
+      } else {
+        alert(`Good try! The correct word was "${correct}". Keep going!`);
+      }
+
+      isPaused = false;
+      requestAnimationFrame(draw);
+    }
+
+    function drawPaddle() {
+      ctx.beginPath();
+      ctx.rect(paddleX, canvas.height - paddleHeight, paddleWidth, paddleHeight);
+      ctx.fillStyle = "#00f3ff";
+      ctx.fill();
+      ctx.closePath();
+    }
+
+    function drawBalls() {
+      balls.forEach(ball => {
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+        ctx.fillStyle = "#f1c40f";
+        ctx.fill();
+        ctx.closePath();
+      });
+    }
+
+    function drawBricks() {
+      for (let r = 0; r < rowCount; r++) {
+        for (let c = 0; c < colCount; c++) {
+          if (bricks[r][c].status > 0) {
+            let brickX = c * (brickWidth + brickPadding) + brickOffsetLeft;
+            let brickY = r * (brickHeight + brickPadding) + brickOffsetTop;
+            bricks[r][c].x = brickX;
+            bricks[r][c].y = brickY;
+
+            ctx.beginPath();
+            ctx.rect(brickX, brickY, brickWidth, brickHeight);
+            
+            ctx.fillStyle = colors[r];
+            ctx.fill();
+            ctx.strokeStyle = "#ffffff";
+            ctx.stroke();
+            ctx.closePath();
+
+            // Display Word Letters Clearly on Bricks
+            ctx.font = "bold 13px Arial";
+            ctx.fillStyle = "#ffffff";
+            ctx.textAlign = "center";
+            ctx.fillText(bricks[r][c].letter, brickX + brickWidth / 2, brickY + 16);
+          }
+        }
+      }
+    }
+
+    function draw() {
+      if (isPaused) return;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      drawBricks();
+      drawBalls();
+      drawPaddle();
+      updatePaddle();
+      collisionDetection();
+      moveBalls();
+
+      requestAnimationFrame(draw);
+    }
+
+    draw();
+  </script>
+</body>
+</html>
