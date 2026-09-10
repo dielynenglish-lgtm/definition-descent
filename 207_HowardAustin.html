@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocab Pac-Maze</title>
+    <style>
+        body {
+            background-color: #111;
+            color: #fff;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 20px;
+        }
+
+        #game-container {
+            text-align: center;
+        }
+
+        #definition-box {
+            background: #222;
+            border: 2px solid #ffb852;
+            border-radius: 8px;
+            padding: 15px;
+            width: 500px;
+            margin-bottom: 15px;
+            box-shadow: 0 0 10px rgba(255, 184, 82, 0.3);
+        }
+
+        #definition-text {
+            font-size: 1.1rem;
+            color: #ffb852;
+            font-weight: bold;
+        }
+
+        #stats {
+            display: flex;
+            justify-content: space-between;
+            width: 530px;
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+        }
+
+        canvas {
+            border: 4px solid #333dff;
+            box-shadow: 0 0 20px rgba(51, 61, 255, 0.5);
+            background-color: #000;
+        }
+
+        #status-msg {
+            height: 25px;
+            margin-top: 10px;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="definition-box">
+        <strong>TARGET DEFINITION:</strong>
+        <div id="definition-text">Loading...</div>
+    </div>
+
+    <div id="stats">
+        <span>SCORE: <span id="score">0</span></span>
+        <span>STATUS: <span id="mode-text" style="color: #00ff00;">NORMAL</span></span>
+    </div>
+
+    <canvas id="canvas" width="520" height="520"></canvas>
+
+    <div id="status-msg">Use Arrow Keys to Navigate!</div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+const GRID_SIZE = 13;
+const TILE_SIZE = 40;
+
+// 1 = Wall, 0 = Dot, 2 = Empty Path
+const map = [
+    [1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,1,0,0,0,0,0,1],
+    [1,0,1,1,0,1,1,1,0,1,1,0,1],
+    [1,0,1,0,0,0,0,0,0,0,1,0,1],
+    [1,0,0,0,1,1,2,1,1,0,0,0,1],
+    [1,0,1,0,1,2,2,2,1,0,1,0,1],
+    [1,0,1,0,1,2,2,2,1,0,1,0,1],
+    [1,0,1,0,1,1,1,1,1,0,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,0,1,1,1,0,1,1,0,1],
+    [1,0,0,1,0,0,1,0,0,1,0,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1]
+];
+
+const vocabulary = [
+    { word: "beloved", def: "Dearly loved; dearly prized." },
+    { word: "highlight", def: "An outstanding part of an event or experience." },
+    { word: "performer", def: "A person who entertains an audience." },
+    { word: "compelling", def: "Evoking interest or attention in a powerfully irresistible way." },
+    { word: "luxury", def: "A state of great comfort or elegance, especially at great expense." },
+    { word: "elaborately", def: "In a detailed and carefully arranged manner." },
+    { word: "surrounding", def: "All around a particular place or thing." }
+];
+
+let dots = [];
+for(let r=0; r<GRID_SIZE; r++){
+    for(let c=0; c<GRID_SIZE; c++){
+        if(map[r][c] === 0) dots.push({r, c});
+    }
+}
+
+let score = 0;
+let currentTarget = null;
+let activePellets = [];
+
+// Ghost State Variables
+let ghostState = "NORMAL"; // NORMAL, VULNERABLE, SPEED
+let stateTimer = null;
+let ghostSpeed = 250; // ms per step
+
+let player = { x: 1, y: 1, dirX: 0, dirY: 0, nextDirX: 0, nextDirY: 0 };
+let ghosts = [
+    { x: 6, y: 5, color: 'red' },
+    { x: 6, y: 6, color: 'pink' }
+];
+
+// Locations for the 3 Power Pellets
+const pelletLocations = [
+    {r: 1, c: 1},
+    {r: 1, c: 11},
+    {r: 11, c: 1}
+];
+
+function selectNewTarget() {
+    // Select random word
+    const randVocab = vocabulary[Math.floor(Math.random() * vocabulary.length)];
+    currentTarget = randVocab;
+    document.getElementById('definition-text').innerText = `"${randVocab.def}"`;
+
+    // Pick 2 wrong words
+    let wrongWords = vocabulary.filter(v => v.word !== randVocab.word);
+    wrongWords = wrongWords.sort(() => 0.5 - Math.random()).slice(0, 2);
+
+    let choices = [randVocab.word, wrongWords[0].word, wrongWords[1].word];
+    choices = choices.sort(() => 0.5 - Math.random());
+
+    activePellets = pelletLocations.map((loc, idx) => ({
+        r: loc.r,
+        c: loc.c,
+        word: choices[idx]
+    }));
+}
+
+function setGhostState(newState, duration) {
+    ghostState = newState;
+    const modeText = document.getElementById('mode-text');
+    const statusMsg = document.getElementById('status-msg');
+
+    if (stateTimer) clearTimeout(stateTimer);
+
+    if (newState === "VULNERABLE") {
+        ghostSpeed = 400; // Slower
+        modeText.innerText = "BLUE (HUNT THEM!)";
+        modeText.style.color = "#00ffff";
+        statusMsg.innerText = "Correct! Ghosts are vulnerable for 8s!";
+    } else if (newState === "SPEED") {
+        ghostSpeed = 180; // 25% faster
+        modeText.innerText = "FAST (BEWARE!)";
+        modeText.style.color = "#ff0000";
+        statusMsg.innerText = "Wrong word! Ghosts speed up for 5s!";
+    } else {
+        ghostSpeed = 250;
+        modeText.innerText = "NORMAL";
+        modeText.style.color = "#00ff00";
+        statusMsg.innerText = "Find the pellet matching the definition!";
+    }
+
+    if (duration > 0) {
+        stateTimer = setTimeout(() => {
+            setGhostState("NORMAL", 0);
+        }, duration);
+    }
+}
+
+// Controls
+window.addEventListener('keydown', e => {
+    switch(e.key) {
+        case 'ArrowUp':    player.nextDirX = 0;  player.nextDirY = -1; break;
+        case 'ArrowDown':  player.nextDirX = 0;  player.nextDirY = 1;  break;
+        case 'ArrowLeft':  player.nextDirX = -1; player.nextDirY = 0;  break;
+        case 'ArrowRight': player.nextDirX = 1;  player.nextDirY = 0;  break;
+    }
+});
+
+function movePlayer() {
+    // Try moving in next desired direction
+    if (canMove(player.x + player.nextDirX, player.y + player.nextDirY)) {
+        player.dirX = player.nextDirX;
+        player.dirY = player.nextDirY;
+    }
+
+    if (canMove(player.x + player.dirX, player.y + player.dirY)) {
+        player.x += player.dirX;
+        player.y += player.dirY;
+    }
+
+    // Collect Dots
+    dots = dots.filter(d => !(d.r === player.y && d.c === player.x));
+
+    // Check Pellet Collision
+    const pelletIndex = activePellets.findIndex(p => p.r === player.y && p.c === player.x);
+    if (pelletIndex !== -1) {
+        const eaten = activePellets[pelletIndex];
+        if (eaten.word === currentTarget.word) {
+            score += 50;
+            setGhostState("VULNERABLE", 8000);
+        } else {
+            setGhostState("SPEED", 5000);
+        }
+        document.getElementById('score').innerText = score;
+        selectNewTarget();
+    }
+}
+
+function canMove(x, y) {
+    if (x < 0 || x >= GRID_SIZE || y < 0 || y >= GRID_SIZE) return false;
+    return map[y][x] !== 1;
+}
+
+function moveGhosts() {
+    ghosts.forEach(g => {
+        let validMoves = [];
+        const dirs = [{x: 0, y: -1}, {x: 0, y: 1}, {x: -1, y: 0}, {x: 1, y: 0}];
+
+        dirs.forEach(d => {
+            if (canMove(g.x + d.x, g.y + d.y)) {
+                validMoves.push(d);
+            }
+        });
+
+        if (validMoves.length > 0) {
+            const move = validMoves[Math.floor(Math.random() * validMoves.length)];
+            g.x += move.x;
+            g.y += move.y;
+        }
+
+        // Check Collision with Player
+        if (g.x === player.x && g.y === player.y) {
+            if (ghostState === "VULNERABLE") {
+                score += 200;
+                document.getElementById('score').innerText = score;
+                // Respawn Ghost
+                g.x = 6; g.y = 5;
+            } else {
+                alert("Game Over! Final Score: " + score);
+                resetGame();
+            }
+        }
+    });
+}
+
+function resetGame() {
+    player = { x: 1, y: 1, dirX: 0, dirY: 0, nextDirX: 0, nextDirY: 0 };
+    ghosts = [{ x: 6, y: 5, color: 'red' }, { x: 6, y: 6, color: 'pink' }];
+    score = 0;
+    document.getElementById('score').innerText = score;
+    setGhostState("NORMAL", 0);
+    selectNewTarget();
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw Map
+    for(let r=0; r<GRID_SIZE; r++){
+        for(let c=0; c<GRID_SIZE; c++){
+            if(map[r][c] === 1) {
+                ctx.fillStyle = '#1919a6';
+                ctx.fillRect(c*TILE_SIZE, r*TILE_SIZE, TILE_SIZE, TILE_SIZE);
+            }
+        }
+    }
+
+    // Draw Dots
+    ctx.fillStyle = '#ffb833';
+    dots.forEach(d => {
+        ctx.beginPath();
+        ctx.arc(d.c*TILE_SIZE + TILE_SIZE/2, d.r*TILE_SIZE + TILE_SIZE/2, 3, 0, Math.PI*2);
+        ctx.fill();
+    });
+
+    // Draw Power Pellets with Vocabulary Words
+    activePellets.forEach(p => {
+        ctx.fillStyle = '#ffb852';
+        ctx.beginPath();
+        ctx.arc(p.c*TILE_SIZE + TILE_SIZE/2, p.r*TILE_SIZE + TILE_SIZE/2, 12, 0, Math.PI*2);
+        ctx.fill();
+
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 11px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(p.word, p.c*TILE_SIZE + TILE_SIZE/2, p.r*TILE_SIZE - 5);
+    });
+
+    // Draw Player (Pac-Man)
+    ctx.fillStyle = '#ffff00';
+    ctx.beginPath();
+    ctx.arc(player.x*TILE_SIZE + TILE_SIZE/2, player.y*TILE_SIZE + TILE_SIZE/2, 14, 0, Math.PI*2);
+    ctx.fill();
+
+    // Draw Ghosts
+    ghosts.forEach(g => {
+        ctx.fillStyle = (ghostState === "VULNERABLE") ? '#0000ff' : g.color;
+        ctx.beginPath();
+        ctx.arc(g.x*TILE_SIZE + TILE_SIZE/2, g.y*TILE_SIZE + TILE_SIZE/2, 14, 0, Math.PI*2);
+        ctx.fill();
+    });
+}
+
+// Game Loop Loops
+setInterval(() => {
+    movePlayer();
+    draw();
+}, 150);
+
+let ghostInterval = setInterval(runGhostLoop, ghostSpeed);
+
+function runGhostLoop() {
+    moveGhosts();
+    clearInterval(ghostInterval);
+    ghostInterval = setInterval(runGhostLoop, ghostSpeed);
+}
+
+selectNewTarget();
+</script>
+</body>
+</html>

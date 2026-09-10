@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kjell Lindgren: Space Vocabulary Game</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body {
+            background: linear-gradient(135deg, #0b0c10, #1f2833, #0b0c10);
+            color: #c5c6c7;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .game-card {
+            background-color: #151d2a;
+            border: 2px solid #66fcf1;
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(102, 252, 241, 0.2);
+            width: 100%;
+            max-width: 650px;
+            padding: 30px;
+            text-align: center;
+        }
+        h1 {
+            color: #66fcf1;
+            font-size: 1.8rem;
+            margin-bottom: 8px;
+        }
+        p.subtitle {
+            font-size: 0.95rem;
+            color: #45a29e;
+            margin-bottom: 20px;
+        }
+        .stats-bar {
+            display: flex;
+            justify-content: space-between;
+            background: #0b0c10;
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            font-weight: bold;
+            color: #66fcf1;
+        }
+        .question-box {
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            color: #ffffff;
+            line-height: 1.5;
+            min-height: 60px;
+        }
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .btn-option {
+            background-color: #1f2833;
+            color: #ffffff;
+            border: 1px solid #45a29e;
+            padding: 14px 20px;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: left;
+        }
+        .btn-option:hover {
+            background-color: #45a29e;
+            color: #0b0c10;
+        }
+        .feedback {
+            font-size: 1.1rem;
+            font-weight: bold;
+            min-height: 30px;
+            margin-bottom: 15px;
+        }
+        .correct { color: #66fcf1; }
+        .incorrect { color: #ff4c4c; }
+        .btn-next {
+            background-color: #66fcf1;
+            color: #0b0c10;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            display: none;
+            margin: 0 auto;
+        }
+        .btn-next:hover {
+            background-color: #45a29e;
+        }
+    </style>
+</head>
+<body>
+
+<div class="game-card">
+    <h1>🚀 Mission: Reach the Stars</h1>
+    <p class="subtitle">Vocabulary Challenge — Kjell Lindgren's Story</p>
+
+    <div class="stats-bar">
+        <span>Score: <span id="score">0</span></span>
+        <span>Question: <span id="current-q">1</span>/10</span>
+    </div>
+
+    <div id="game-container">
+        <div class="question-box" id="question">Loading question...</div>
+        <div class="options-grid" id="options"></div>
+        <div class="feedback" id="feedback"></div>
+        <button class="btn-next" id="next-btn" onclick="nextQuestion()">Next Question ➔</button>
+    </div>
+</div>
+
+<script>
+    const quizData = [
+        {
+            question: "Before becoming an astronaut, Dr. Lindgren worked as a flight ________, caring for the health of astronauts.",
+            options: ["surgeon", "applicant", "commander", "candidate"],
+            answer: 0
+        },
+        {
+            question: "To ________ means to alter, edit, or adjust a plan or text to improve it.",
+            options: ["conduct", "disqualify", "revise", "commander"],
+            answer: 2
+        },
+        {
+            question: "Medical issues like asthma initially threatened to ________ him from military pilot training.",
+            options: ["conduct", "disqualify", "revise", "candidate"],
+            answer: 1
+        },
+        {
+            question: "A person who formalizes a request for a job, position, or program is an ________.",
+            options: ["applicant", "commander", "surgeon", "candidate"],
+            answer: 0
+        },
+        {
+            question: "Out of thousands of hopefuls, Dr. Lindgren was selected as a NASA astronaut ________ in 2009.",
+            options: ["candidate", "surgeon", "commander", "applicant"],
+            answer: 0
+        },
+        {
+            question: "During his missions on the Space Station, the crew would ________ over 100 scientific experiments.",
+            options: ["disqualify", "conduct", "revise", "applicant"],
+            answer: 1
+        },
+        {
+            question: "In 2022, Dr. Lindgren served as the mission ________ for SpaceX Crew-4.",
+            options: ["applicant", "candidate", "commander", "surgeon"],
+            answer: 2
+        },
+        {
+            question: "The weightless environment in Earth orbit is referred to as ________.",
+            options: ["microgravity", "atmosphere", "altitude", "aerospace"],
+            answer: 0
+        },
+        {
+            question: "Dr. Lindgren's journey from Taipei to space demonstrates remarkable ________ through obstacles.",
+            options: ["perseverance", "disqualification", "revision", "hesitation"],
+            answer: 0
+        },
+        {
+            question: "The branch of technology and industry concerned with aviation and spaceflight is ________.",
+            options: ["aerospace", "physiology", "astronomy", "geology"],
+            answer: 0
+        }
+    ];
+
+    let currentQuestionIndex = 0;
+    let score = 0;
+
+    function loadQuestion() {
+        const q = quizData[currentQuestionIndex];
+        document.getElementById('question').textContent = q.question;
+        document.getElementById('current-q').textContent = currentQuestionIndex + 1;
+        document.getElementById('feedback').textContent = '';
+        document.getElementById('next-btn').style.display = 'none';
+
+        const optionsContainer = document.getElementById('options');
+        optionsContainer.innerHTML = '';
+
+        q.options.forEach((opt, idx) => {
+            const btn = document.createElement('button');
+            btn.className = 'btn-option';
+            btn.textContent = `${String.fromCharCode(65 + idx)}. ${opt}`;
+            btn.onclick = () => selectAnswer(idx);
+            optionsContainer.appendChild(btn);
+        });
+    }
+
+    function selectAnswer(selectedIdx) {
+        const q = quizData[currentQuestionIndex];
+        const buttons = document.querySelectorAll('.btn-option');
+        
+        buttons.forEach(btn => btn.disabled = true);
+
+        if (selectedIdx === q.answer) {
+            score += 10;
+            document.getElementById('score').textContent = score;
+            document.getElementById('feedback').textContent = "✨ Correct! Mission control approves.";
+            document.getElementById('feedback').className = "feedback correct";
+        } else {
+            document.getElementById('feedback').textContent = `❌ Incorrect. The correct answer was: ${q.options[q.answer]}`;
+            document.getElementById('feedback').className = "feedback incorrect";
+        }
+
+        document.getElementById('next-btn').style.display = 'block';
+    }
+
+    function nextQuestion() {
+        currentQuestionIndex++;
+        if (currentQuestionIndex < quizData.length) {
+            loadQuestion();
+        } else {
+            showResults();
+        }
+    }
+
+    function showResults() {
+        const container = document.getElementById('game-container');
+        container.innerHTML = `
+            <div style="padding: 20px 0;">
+                <h2>Mission Complete! 🌟</h2>
+                <p style="margin: 15px 0; font-size: 1.2rem;">Your Final Score: <strong>${score} / 100</strong></p>
+                <button class="btn-next" style="display:inline-block;" onclick="location.reload()">Play Again</button>
+            </div>
+        `;
+    }
+
+    loadQuestion();
+</script>
+
+</body>
+</html>

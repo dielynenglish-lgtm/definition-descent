@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Whack-A-Word Arcade</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    body {
+      background-color: #1a1a2e;
+      color: #ffffff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      max-width: 650px;
+      width: 100%;
+      text-align: center;
+    }
+    h1 {
+      font-size: 2.5rem;
+      color: #f39c12;
+      margin-bottom: 12px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.6);
+    }
+    .stats-panel {
+      display: flex;
+      justify-content: space-around;
+      background: #16213e;
+      padding: 12px;
+      border-radius: 10px;
+      margin-bottom: 15px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      border: 1px solid #0f3460;
+    }
+    .stat-box span {
+      color: #f39c12;
+    }
+    .definition-box {
+      background: #0f3460;
+      border: 2px solid #f39c12;
+      border-radius: 10px;
+      padding: 15px;
+      margin-bottom: 20px;
+      min-height: 80px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    }
+    .definition-box h3 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #e94560;
+      margin-bottom: 5px;
+    }
+    .definition-text {
+      font-size: 1.15rem;
+      color: #ffffff;
+      font-weight: 600;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    .hole {
+      position: relative;
+      height: 110px;
+      background: #3e2723;
+      border-radius: 50% / 30%;
+      border: 4px solid #1b0000;
+      overflow: hidden;
+      box-shadow: inset 0 10px 10px rgba(0,0,0,0.7);
+    }
+    .mole {
+      position: absolute;
+      bottom: -100%;
+      left: 5%;
+      width: 90%;
+      height: 85%;
+      background: #8d6e63;
+      border-radius: 20px 20px 8px 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px;
+      font-weight: bold;
+      font-size: 0.95rem;
+      color: #ffffff;
+      cursor: pointer;
+      transition: bottom 0.2s ease-in-out, background-color 0.1s;
+      border: 2px solid #4e342e;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.4);
+      user-select: none;
+      word-break: break-word;
+    }
+    .mole.up {
+      bottom: 5%;
+    }
+    .mole.correct {
+      background-color: #2e7d32 !important;
+    }
+    .mole.wrong {
+      background-color: #c62828 !important;
+    }
+    .btn {
+      background: #f39c12;
+      color: #1a1a2e;
+      border: none;
+      padding: 12px 28px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      border-radius: 25px;
+      cursor: pointer;
+      transition: transform 0.1s, background 0.2s;
+    }
+    .btn:hover {
+      background: #f1c40f;
+      transform: scale(1.05);
+    }
+    .overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+    .overlay.hidden {
+      display: none;
+    }
+    .overlay h2 {
+      font-size: 2.5rem;
+      color: #f39c12;
+      margin-bottom: 15px;
+    }
+    .overlay p {
+      font-size: 1.3rem;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>Whack-A-Word!</h1>
+    
+    <div class="stats-panel">
+      <div class="stat-box">Score: <span id="score">0</span></div>
+      <div class="stat-box">Time Left: <span id="timer">60</span>s</div>
+    </div>
+
+    <div class="definition-box">
+      <h3>Target Definition</h3>
+      <div class="definition-text" id="target-def">Click 'Start Game' to Begin!</div>
+    </div>
+
+    <div class="grid">
+      <div class="hole"><div class="mole" id="mole-0"></div></div>
+      <div class="hole"><div class="mole" id="mole-1"></div></div>
+      <div class="hole"><div class="mole" id="mole-2"></div></div>
+      <div class="hole"><div class="mole" id="mole-3"></div></div>
+      <div class="hole"><div class="mole" id="mole-4"></div></div>
+      <div class="hole"><div class="mole" id="mole-5"></div></div>
+    </div>
+
+    <button class="btn" id="start-btn" onclick="startGame()">Start Game</button>
+  </div>
+
+  <div class="overlay hidden" id="game-over-modal">
+    <h2>Time's Up!</h2>
+    <p>Your Final Score: <span id="final-score">0</span></p>
+    <button class="btn" onclick="startGame()">Play Again</button>
+  </div>
+
+  <script>
+    const vocabList = [
+      { word: "participant", def: "A person who takes part in an activity or event." },
+      { word: "implication", def: "A likely consequence or a suggestion not directly stated." },
+      { word: "motivation", def: "The reason or desire that drives someone to do something." },
+      { word: "polished", def: "Refined, highly developed, or smooth and shiny." },
+      { word: "outfit", def: "A set of clothes worn together for a particular occasion." },
+      { word: "reinforce", def: "To strengthen, support, or make something stronger." },
+      { word: "accessible", def: "Easy to reach, enter, use, or understand." }
+    ];
+
+    let score = 0;
+    let timeLeft = 60;
+    let timerInterval = null;
+    let moleInterval = null;
+    let currentTarget = null;
+    let isGameRunning = false;
+    let activeMoles = Array(6).fill(null);
+
+    const scoreEl = document.getElementById("score");
+    const timerEl = document.getElementById("timer");
+    const targetDefEl = document.getElementById("target-def");
+    const gameOverModal = document.getElementById("game-over-modal");
+    const finalScoreEl = document.getElementById("final-score");
+    const startBtn = document.getElementById("start-btn");
+
+    function setNextTarget() {
+      const randomIndex = Math.floor(Math.random() * vocabList.length);
+      currentTarget = vocabList[randomIndex];
+      targetDefEl.textContent = `"${currentTarget.def}"`;
+    }
+
+    function popMole() {
+      if (!isGameRunning) return;
+
+      const emptyHoles = [];
+      for (let i = 0; i < 6; i++) {
+        if (!activeMoles[i]) emptyHoles.push(i);
+      }
+
+      if (emptyHoles.length === 0) return;
+
+      const holeIdx = emptyHoles[Math.floor(Math.random() * emptyHoles.length)];
+      const moleEl = document.getElementById(`mole-${holeIdx}`);
+
+      // High probability (60%) for target word so it appears more frequently
+      let selectedWord = "";
+      if (Math.random() < 0.6) {
+        selectedWord = currentTarget.word;
+      } else {
+        const wrongWords = vocabList.filter(v => v.word !== currentTarget.word);
+        selectedWord = wrongWords[Math.floor(Math.random() * wrongWords.length)].word;
+      }
+
+      moleEl.textContent = selectedWord;
+      moleEl.classList.add("up");
+      moleEl.dataset.word = selectedWord;
+
+      const popTimeout = setTimeout(() => {
+        retractMole(holeIdx);
+      }, 1700);
+
+      activeMoles[holeIdx] = popTimeout;
+    }
+
+    function retractMole(index) {
+      const moleEl = document.getElementById(`mole-${index}`);
+      moleEl.classList.remove("up", "correct", "wrong");
+      if (activeMoles[index]) {
+        clearTimeout(activeMoles[index]);
+        activeMoles[index] = null;
+      }
+    }
+
+    document.querySelectorAll('.mole').forEach((mole, idx) => {
+      mole.addEventListener('click', () => {
+        if (!isGameRunning || !mole.classList.contains('up')) return;
+
+        const clickedWord = mole.dataset.word;
+        if (clickedWord === currentTarget.word) {
+          score += 10;
+          mole.classList.add("correct");
+          scoreEl.textContent = score;
+          setTimeout(() => {
+            retractMole(idx);
+            setNextTarget();
+          }, 200);
+        } else {
+          score = Math.max(0, score - 5);
+          mole.classList.add("wrong");
+          scoreEl.textContent = score;
+          setTimeout(() => {
+            retractMole(idx);
+          }, 200);
+        }
+      });
+    });
+
+    function startGame() {
+      score = 0;
+      timeLeft = 60;
+      isGameRunning = true;
+      scoreEl.textContent = score;
+      timerEl.textContent = timeLeft;
+      gameOverModal.classList.add("hidden");
+      startBtn.style.display = "none";
+
+      for (let i = 0; i < 6; i++) retractMole(i);
+
+      setNextTarget();
+
+      clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        timerEl.textContent = timeLeft;
+        if (timeLeft <= 0) {
+          endGame();
+        }
+      }, 1000);
+
+      clearInterval(moleInterval);
+      moleInterval = setInterval(popMole, 850);
+    }
+
+    function endGame() {
+      isGameRunning = false;
+      clearInterval(timerInterval);
+      clearInterval(moleInterval);
+      for (let i = 0; i < 6; i++) retractMole(i);
+
+      finalScoreEl.textContent = score;
+      gameOverModal.classList.remove("hidden");
+      startBtn.style.display = "inline-block";
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Cyberpunk Snake: Definition Hunt</title>
+<style>
+    body {
+        background-color: #0d0d1a;
+        color: #00ffcc;
+        font-family: 'Courier New', Courier, monospace;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin: 0;
+        padding: 20px;
+    }
+    h1 {
+        text-shadow: 0 0 10px #00ffcc;
+        margin-bottom: 5px;
+    }
+    #ui-container {
+        background: #1a1a33;
+        border: 2px solid #ff00ff;
+        padding: 15px;
+        width: 600px;
+        text-align: center;
+        margin-bottom: 15px;
+        box-shadow: 0 0 15px #ff00ff;
+    }
+    #definition-display {
+        font-size: 18px;
+        font-weight: bold;
+        color: #ffff00;
+        margin: 10px 0;
+    }
+    canvas {
+        background-color: #000;
+        border: 2px solid #00ffcc;
+        box-shadow: 0 0 20px #00ffcc;
+    }
+    #game-over {
+        display: none;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.9);
+        border: 2px solid #ff00ff;
+        padding: 30px;
+        text-align: center;
+        color: #ff00ff;
+        box-shadow: 0 0 30px #ff00ff;
+    }
+    button {
+        background: #00ffcc;
+        color: #000;
+        border: none;
+        padding: 10px 20px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        margin-top: 15px;
+    }
+    button:hover {
+        background: #ff00ff;
+        color: #fff;
+    }
+</style>
+</head>
+<body>
+
+<h1>CYBER-SNAKE v1.0</h1>
+<div id="ui-container">
+    <div>SCORE: <span id="score">0</span></div>
+    <div id="definition-display">Loading target data...</div>
+</div>
+
+<canvas id="gameCanvas" width="600" height="600"></canvas>
+
+<div id="game-over">
+    <h2>SYSTEM FAILURE</h2>
+    <p>Final Score: <span id="final-score">0</span></p>
+    <button onclick="resetGame()">REBOOT SYSTEM</button>
+</div>
+
+<script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const gridSize = 30;
+    const tileCount = canvas.width / gridSize;
+
+    // Vocabulary from image_700604.jpg
+    const vocabList = [
+        { word: "presentation", def: "報告, 簡報; 授予; 呈現" },
+        { word: "boost", def: "提升, 增加; 推動, 促進" },
+        { word: "accomplish", def: "完成; 達成, 實現" },
+        { word: "purchase", def: "購買之物, 購買行為" },
+        { word: "trigger", def: "引發, 觸發; 誘因" },
+        { word: "psychology", def: "心理學" },
+        { word: "stability", def: "穩定(性); 穩固" }
+    ];
+
+    let snake = [{x: 10, y: 10}];
+    let dx = 0;
+    let dy = -1;
+    let score = 0;
+    let currentTarget = null;
+    let pellets = [];
+    let gameLoop;
+    let isLocked = false;
+
+    function initSpawns() {
+        const targetIndex = Math.floor(Math.random() * vocabList.length);
+        currentTarget = vocabList[targetIndex];
+        document.getElementById("definition-display").innerText = `TARGET DEFINITION: ${currentTarget.def}`;
+
+        pellets = [];
+        let usedIndices = [targetIndex];
+        
+        // Spawn 1 correct pellet
+        pellets.push({
+            x: Math.floor(Math.random() * tileCount),
+            y: Math.floor(Math.random() * tileCount),
+            word: currentTarget.word,
+            isCorrect: true
+        });
+
+        // Spawn 2 distractors
+        while (pellets.length < 3) {
+            let randIdx = Math.floor(Math.random() * vocabList.length);
+            if (!usedIndices.includes(randIdx)) {
+                usedIndices.push(randIdx);
+                pellets.push({
+                    x: Math.floor(Math.random() * tileCount),
+                    y: Math.floor(Math.random() * tileCount),
+                    word: vocabList[randIdx].word,
+                    isCorrect: false
+                });
+            }
+        }
+    }
+
+    function drawGame() {
+        clearScreen();
+        drawPellets();
+        moveSnake();
+        checkCollisions();
+        drawSnake();
+    }
+
+    function clearScreen() {
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = "#111";
+        for(let i = 0; i < tileCount; i++) {
+            ctx.beginPath();
+            ctx.moveTo(i * gridSize, 0);
+            ctx.lineTo(i * gridSize, canvas.height);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(0, i * gridSize);
+            ctx.lineTo(canvas.width, i * gridSize);
+            ctx.stroke();
+        }
+    }
+
+    function drawSnake() {
+        ctx.fillStyle = "#00ffcc";
+        snake.forEach((segment, index) => {
+            if (index === 0) ctx.fillStyle = "#ffffff"; // Head
+            else ctx.fillStyle = "#00ffcc";
+            ctx.fillRect(segment.x * gridSize, segment.y * gridSize, gridSize - 2, gridSize - 2);
+        });
+    }
+
+    function moveSnake() {
+        if (isLocked) return;
+        const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+        snake.unshift(head);
+
+        let atePellet = false;
+        pellets = pellets.filter(p => {
+            if (head.x === p.x && head.y === p.y) {
+                atePellet = true;
+                handleEat(p);
+                return false; 
+            }
+            return true;
+        });
+
+        if (!atePellet) {
+            snake.pop();
+        }
+    }
+
+    function handleEat(pellet) {
+        if (pellet.isCorrect) {
+            score += 10;
+            document.getElementById("score").innerText = score;
+            initSpawns(); // Generate 3 brand new words
+        } else {
+            // Poison logic: cut 2 tail segments (minimum size 1), lock for 1.5s
+            if (snake.length > 2) snake.length -= 2;
+            else snake.length = 1;
+            
+            isLocked = true;
+            document.body.style.backgroundColor = "#330000";
+            setTimeout(() => {
+                isLocked = false;
+                document.body.style.backgroundColor = "#0d0d1a";
+                pellets.push(pellet); // Respawn the eaten incorrect pellet to keep 3
+            }, 1500);
+        }
+    }
+
+    function checkCollisions() {
+        const head = snake[0];
+        // Wall collision
+        if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) {
+            gameOver();
+        }
+        // Self collision
+        for (let i = 1; i < snake.length; i++) {
+            if (head.x === snake[i].x && head.y === snake[i].y) {
+                gameOver();
+            }
+        }
+    }
+
+    function drawPellets() {
+        ctx.font = "12px Courier New";
+        ctx.textAlign = "center";
+        pellets.forEach(p => {
+            ctx.fillStyle = p.isCorrect ? "#ff00ff" : "#ff5500";
+            ctx.fillRect(p.x * gridSize, p.y * gridSize, gridSize - 2, gridSize - 2);
+            ctx.fillStyle = "#fff";
+            ctx.fillText(p.word.substring(0,4), p.x * gridSize + gridSize/2, p.y * gridSize + gridSize/2 + 4);
+        });
+    }
+
+    function gameOver() {
+        clearInterval(gameLoop);
+        document.getElementById("game-over").style.display = "block";
+        document.getElementById("final-score").innerText = score;
+    }
+
+    function resetGame() {
+        snake = [{x: 10, y: 10}];
+        dx = 0;
+        dy = -1;
+        score = 0;
+        isLocked = false;
+        document.getElementById("score").innerText = score;
+        document.getElementById("game-over").style.display = "none";
+        initSpawns();
+        gameLoop = setInterval(drawGame, 150);
+    }
+
+    document.addEventListener("keydown", event => {
+        if (isLocked) return;
+        if (event.key === "ArrowUp" && dy !== 1) { dx = 0; dy = -1; }
+        if (event.key === "ArrowDown" && dy !== -1) { dx = 0; dy = 1; }
+        if (event.key === "ArrowLeft" && dx !== 1) { dx = -1; dy = 0; }
+        if (event.key === "ArrowRight" && dx !== -1) { dx = 1; dy = 0; }
+    });
+
+    initSpawns();
+    gameLoop = setInterval(drawGame, 150);
+</script>
+</body>
+</html>

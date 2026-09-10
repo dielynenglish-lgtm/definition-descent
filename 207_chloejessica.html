@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vocabulary Master: Word Scramble</title>
+  <style>
+    :root {
+      --bg-color: #0f172a;
+      --card-bg: #1e293b;
+      --accent-color: #38bdf8;
+      --success-color: #22c55e;
+      --error-color: #ef4444;
+      --text-color: #f8fafc;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .game-card {
+      background-color: var(--card-bg);
+      border-radius: 16px;
+      padding: 30px;
+      max-width: 500px;
+      width: 100%;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      text-align: center;
+    }
+
+    h1 {
+      color: var(--accent-color);
+      margin-bottom: 8px;
+    }
+
+    .score-board {
+      font-size: 1.1rem;
+      color: #94a3b8;
+      margin-bottom: 20px;
+    }
+
+    .scrambled-word {
+      font-size: 2.5rem;
+      letter-spacing: 6px;
+      font-weight: bold;
+      color: #f59e0b;
+      margin: 20px 0;
+      text-transform: uppercase;
+      word-break: break-all;
+    }
+
+    .hint-box {
+      background-color: rgba(255, 255, 255, 0.05);
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-style: italic;
+      color: #cbd5e1;
+      border-left: 4px solid var(--accent-color);
+      text-align: left;
+    }
+
+    .input-group {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      padding: 12px;
+      border-radius: 8px;
+      border: 2px solid #334155;
+      background-color: #0f172a;
+      color: #fff;
+      font-size: 1.1rem;
+      outline: none;
+    }
+
+    input[type="text"]:focus {
+      border-color: var(--accent-color);
+    }
+
+    button {
+      padding: 12px 20px;
+      border-radius: 8px;
+      border: none;
+      background-color: var(--accent-color);
+      color: #0f172a;
+      font-weight: bold;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    button:hover {
+      background-color: #0284c7;
+      color: #fff;
+    }
+
+    .message {
+      min-height: 24px;
+      font-size: 1.1rem;
+      font-weight: bold;
+    }
+
+    .message.correct {
+      color: var(--success-color);
+    }
+
+    .message.incorrect {
+      color: var(--error-color);
+    }
+
+    .restart-btn {
+      display: none;
+      width: 100%;
+      margin-top: 15px;
+      background-color: var(--success-color);
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="game-card">
+    <h1>Word Scramble</h1>
+    <div class="score-board">Score: <span id="score">0</span> / 7</div>
+    
+    <div id="game-area">
+      <div id="scrambled-word" class="scrambled-word">------</div>
+      <div id="hint-box" class="hint-box">Hint will appear here...</div>
+      
+      <div class="input-group">
+        <input type="text" id="user-input" placeholder="Type your answer..." autocomplete="off">
+        <button id="submit-btn">Submit</button>
+      </div>
+      
+      <div id="message" class="message"></div>
+    </div>
+
+    <button id="restart-btn" class="restart-btn">Play Again</button>
+  </div>
+
+  <script>
+    const vocabulary = [
+      { word: "recipe", hint: "A set of instructions for preparing a dish, including ingredients." },
+      { word: "pasta", hint: "A dish originally from Italy consisting of dough made from wheat and water." },
+      { word: "variation", hint: "A change or slight difference in condition, amount, or level." },
+      { word: "combination", hint: "A joining or merging of different parts or qualities." },
+      { word: "ultimately", hint: "Finally, in the end, or at the most basic level." },
+      { word: "generation", hint: "All of the people born and living at about the same time." },
+      { word: "deserve", hint: "To earn or be worthy of something due to actions or qualities." }
+    ];
+
+    let currentQuestions = [];
+    let currentIndex = 0;
+    let score = 0;
+
+    const scrambledWordEl = document.getElementById("scrambled-word");
+    const hintBoxEl = document.getElementById("hint-box");
+    const userInputEl = document.getElementById("user-input");
+    const submitBtn = document.getElementById("submit-btn");
+    const messageEl = document.getElementById("message");
+    const scoreEl = document.getElementById("score");
+    const restartBtn = document.getElementById("restart-btn");
+
+    function scramble(word) {
+      let arr = word.split('');
+      for (let i = arr.length - 1; i > 0; i--) {
+        let j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      let scrambled = arr.join('');
+      return scrambled === word ? scramble(word) : scrambled;
+    }
+
+    function initGame() {
+      currentQuestions = [...vocabulary].sort(() => Math.random() - 0.5);
+      currentIndex = 0;
+      score = 0;
+      scoreEl.textContent = score;
+      messageEl.textContent = "";
+      messageEl.className = "message";
+      restartBtn.style.display = "none";
+      submitBtn.disabled = false;
+      userInputEl.disabled = false;
+      loadWord();
+    }
+
+    function loadWord() {
+      if (currentIndex >= currentQuestions.length) {
+        endGame();
+        return;
+      }
+      const item = currentQuestions[currentIndex];
+      scrambledWordEl.textContent = scramble(item.word);
+      hintBoxEl.textContent = "Hint: " + item.hint;
+      userInputEl.value = "";
+      userInputEl.focus();
+    }
+
+    function checkAnswer() {
+      const userGuess = userInputEl.value.trim().toLowerCase();
+      const currentWord = currentQuestions[currentIndex].word;
+
+      if (userGuess === currentWord) {
+        score++;
+        scoreEl.textContent = score;
+        messageEl.textContent = "✨ Correct!";
+        messageEl.className = "message correct";
+        currentIndex++;
+        setTimeout(() => {
+          messageEl.textContent = "";
+          loadWord();
+        }, 1000);
+      } else {
+        messageEl.textContent = "❌ Try again!";
+        messageEl.className = "message incorrect";
+      }
+    }
+
+    function endGame() {
+      scrambledWordEl.textContent = "🎉 Done!";
+      hintBoxEl.textContent = `Great job! You completed all words with a score of ${score}/7.`;
+      userInputEl.disabled = true;
+      submitBtn.disabled = true;
+      restartBtn.style.display = "block";
+    }
+
+    submitBtn.addEventListener("click", checkAnswer);
+    userInputEl.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") checkAnswer();
+    });
+    restartBtn.addEventListener("click", initGame);
+
+    initGame();
+  </script>
+</body>
+</html>

@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Balloon Pop Vocabulary Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(to bottom, #1e3c72, #2a5298);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            color: #fff;
+        }
+
+        /* Screen Shake Effect */
+        .shake {
+            animation: shake 0.4s;
+        }
+
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-3px, -2px) rotate(-1deg); }
+            20% { transform: translate(-5px, 0px) rotate(1deg); }
+            30% { transform: translate(5px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+
+        /* Command Center */
+        #command-center {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            max-width: 600px;
+            background: rgba(0, 0, 0, 0.65);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            backdrop-filter: blur(8px);
+            z-index: 100;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        #target-definition {
+            font-size: 1.1rem;
+            line-height: 1.4;
+            color: #ffeaa7;
+            min-height: 50px;
+        }
+
+        /* Balloons */
+        .balloon {
+            position: absolute;
+            bottom: -100px;
+            width: 85px;
+            height: 100px;
+            border-radius: 50% 50% 50% 50% / 40% 40% 60% 60%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            font-weight: bold;
+            font-size: 0.85rem;
+            color: #ffffff;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            cursor: pointer;
+            user-select: none;
+            padding: 5px;
+            box-sizing: border-box;
+            transition: transform 0.1s;
+        }
+
+        .balloon::after {
+            content: "";
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-bottom: 10px solid inherit;
+        }
+
+        /* Modal Overlay */
+        #game-over-modal {
+            display: flex;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 200;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 1.2rem;
+            background-color: #00b894;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background-color: #55efc4;
+            color: #2d3436;
+        }
+    </style>
+</head>
+<body id="game-body">
+
+    <!-- Command Center Box -->
+    <div id="command-center">
+        <div class="stats">
+            <div>Score: <span id="score">0</span></div>
+            <div>Time Left: <span id="timer">90</span>s</div>
+        </div>
+        <hr style="border-color: rgba(255,255,255,0.2);">
+        <div><strong>Find the word for:</strong></div>
+        <div id="target-definition">Click 'Start Game' to Begin!</div>
+    </div>
+
+    <!-- Start / Game Over Modal -->
+    <div id="game-over-modal">
+        <h1 id="modal-title">Balloon Pop Vocabulary</h1>
+        <p id="final-score"></p>
+        <button id="start-btn" onclick="startGame()">Start Game</button>
+    </div>
+
+    <script>
+        const vocabulary = [
+            { word: "coincidence", def: "A remarkable concurrence of events or circumstances without apparent causal connection." },
+            { word: "invade", def: "To enter a place, site, or territory in large numbers to occupy or endanger it." },
+            { word: "overthrow", def: "To remove forcibly from power or rule." },
+            { word: "rigid", def: "Unable to bend or be forced out of shape; not flexible." },
+            { word: "labor", def: "Hard physical work, especially manual work." },
+            { word: "peasant", def: "A poor farmer of low social status who owns or rents a small piece of land." },
+            { word: "noble", def: "Belonging to a high social class with a title, or having high moral principles." },
+            { word: "monarch", def: "A sovereign head of state, especially a king, queen, or emperor." },
+            { word: "alliance", def: "A union or association formed for mutual benefit, especially between countries." },
+            { word: "rebel", def: "A person who rises in opposition or armed resistance against an established government." }
+        ];
+
+        const colors = ['#e74c3c', '#e67e22', '#f1c40f', '#2ecc71', '#3498db', '#9b59b6', '#1abc9c', '#fd79a8'];
+
+        let score = 0;
+        let timeLeft = 90;
+        let gameTimer = null;
+        let spawnInterval = null;
+        let currentTarget = null;
+        let activeBalloons = [];
+
+        function startGame() {
+            score = 0;
+            timeLeft = 90;
+            document.getElementById('score').innerText = score;
+            document.getElementById('timer').innerText = timeLeft;
+            document.getElementById('game-over-modal').style.display = 'none';
+
+            // Clear existing balloons
+            activeBalloons.forEach(b => b.remove());
+            activeBalloons = [];
+
+            nextTarget();
+
+            // Start Timers
+            gameTimer = setInterval(updateTimer, 1000);
+            spawnInterval = setInterval(spawnBalloon, 1000);
+        }
+
+        function updateTimer() {
+            timeLeft--;
+            document.getElementById('timer').innerText = timeLeft;
+            if (timeLeft <= 0) {
+                endGame();
+            }
+        }
+
+        function nextTarget() {
+            currentTarget = vocabulary[Math.floor(Math.random() * vocabulary.length)];
+            document.getElementById('target-definition').innerText = `"${currentTarget.def}"`;
+        }
+
+        function spawnBalloon() {
+            // Keep screen populated around 15-20 balloons max
+            if (activeBalloons.length >= 20) return;
+
+            const balloon = document.createElement('div');
+            balloon.className = 'balloon';
+
+            // Pick word (mix of target and random items)
+            const randomItem = vocabulary[Math.floor(Math.random() * vocabulary.length)];
+            balloon.innerText = randomItem.word;
+            balloon.dataset.word = randomItem.word;
+
+            // Random Styling & Positioning
+            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+            balloon.style.backgroundColor = randomColor;
+            balloon.style.left = Math.random() * (window.innerWidth - 90) + 'px';
+
+            const speed = 2 + Math.random() * 2; // Float speed
+
+            document.body.appendChild(balloon);
+            activeBalloons.push(balloon);
+
+            // Animate floating upwards
+            let bottomPos = -100;
+            const floatAnim = setInterval(() => {
+                bottomPos += speed;
+                balloon.style.bottom = bottomPos + 'px';
+
+                if (bottomPos > window.innerHeight) {
+                    clearInterval(floatAnim);
+                    balloon.remove();
+                    activeBalloons = activeBalloons.filter(b => b !== balloon);
+                }
+            }, 20);
+
+            // Click Handler
+            balloon.onclick = () => {
+                clearInterval(floatAnim);
+                popBalloon(balloon);
+            };
+        }
+
+        function popBalloon(balloon) {
+            const selectedWord = balloon.dataset.word;
+            
+            if (selectedWord === currentTarget.word) {
+                // Correct Match: +10 Points
+                score += 10;
+                document.getElementById('score').innerText = score;
+                balloon.remove();
+                activeBalloons = activeBalloons.filter(b => b !== balloon);
+                nextTarget();
+            } else {
+                // Incorrect Match: -5 Points and Violent Screen Shake
+                score -= 5;
+                document.getElementById('score').innerText = score;
+                balloon.remove();
+                activeBalloons = activeBalloons.filter(b => b !== balloon);
+
+                const body = document.getElementById('game-body');
+                body.classList.add('shake');
+                setTimeout(() => body.classList.remove('shake'), 400);
+            }
+        }
+
+        function endGame() {
+            clearInterval(gameTimer);
+            clearInterval(spawnInterval);
+            document.getElementById('modal-title').innerText = "Game Over!";
+            document.getElementById('final-score').innerText = `Final Score: ${score} points`;
+            document.getElementById('start-btn').innerText = "Play Again";
+            document.getElementById('game-over-modal').style.display = 'flex';
+        }
+    </script>
+</body>
+</html>

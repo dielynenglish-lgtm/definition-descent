@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vocabulary Scramble Game</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #1e3c72, #2a5298);
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+    }
+    .game-card {
+      background: #ffffff;
+      color: #333;
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+    }
+    h1 { margin-top: 0; color: #1e3c72; font-size: 24px; }
+    .scrambled-word {
+      font-size: 32px;
+      font-weight: bold;
+      letter-spacing: 6px;
+      color: #e67e22;
+      margin: 20px 0;
+      word-break: break-all;
+    }
+    .hint {
+      font-style: italic;
+      color: #666;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+    input[type="text"] {
+      width: 80%;
+      padding: 12px;
+      font-size: 18px;
+      border: 2px solid #ccc;
+      border-radius: 8px;
+      text-align: center;
+      outline: none;
+      transition: border-color 0.3s;
+    }
+    input[type="text"]:focus { border-color: #1e3c72; }
+    .btn-container {
+      margin-top: 20px;
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+    button {
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+    button:active { transform: scale(0.98); }
+    .btn-submit { background: #27ae60; color: #fff; }
+    .btn-submit:hover { background: #219150; }
+    .btn-skip { background: #e74c3c; color: #fff; }
+    .btn-skip:hover { background: #c0392b; }
+    .feedback {
+      margin-top: 20px;
+      font-size: 18px;
+      font-weight: bold;
+      min-height: 27px;
+    }
+    .score-board {
+      margin-top: 20px;
+      font-size: 16px;
+      color: #555;
+      display: flex;
+      justify-content: space-around;
+      border-top: 1px solid #eee;
+      padding-top: 15px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="game-card">
+    <h1>Vocabulary Scramble</h1>
+    <p>Unscramble the vocabulary word below!</p>
+    
+    <div id="scrambled" class="scrambled-word">------</div>
+    <div id="hint" class="hint">Definition hint goes here</div>
+    
+    <input type="text" id="user-input" placeholder="Type your answer..." autocomplete="off">
+    
+    <div class="btn-container">
+      <button class="btn-submit" onclick="checkAnswer()">Submit</button>
+      <button class="btn-skip" onclick="nextWord()">Skip</button>
+    </div>
+    
+    <div id="feedback" class="feedback"></div>
+    
+    <div class="score-board">
+      <span>Score: <strong id="score">0</strong></span>
+      <span>Remaining: <strong id="remaining">0</strong></span>
+    </div>
+  </div>
+
+  <script>
+    const vocabulary = [
+      { word: "LUXURIOUS", hint: "Extremely comfortable, elegant, or enjoyable, especially in a way that involves great expense." },
+      { word: "INNOVATION", hint: "A new method, idea, product, or featuring dramatic changes." },
+      { word: "SURGERY", hint: "Medical treatment involving an operation on a patient." },
+      { word: "TERRIFYING", hint: "Causing extreme terror or fear." },
+      { word: "PHYSICALLY", hint: "In a manner relating to the body rather than the mind." },
+      { word: "PROCEDURE", hint: "An established or official way of doing something." },
+      { word: "AGONY", hint: "Extreme physical or mental suffering." }
+    ];
+
+    let currentList = [];
+    let currentItem = null;
+    let score = 0;
+
+    function scrambleWord(word) {
+      let array = word.split('');
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      let scrambled = array.join('');
+      return scrambled === word ? scrambleWord(word) : scrambled;
+    }
+
+    function initGame() {
+      currentList = [...vocabulary];
+      score = 0;
+      updateScore();
+      nextWord();
+    }
+
+    function nextWord() {
+      const feedback = document.getElementById("feedback");
+      const input = document.getElementById("user-input");
+      input.value = "";
+      feedback.textContent = "";
+
+      if (currentList.length === 0) {
+        document.getElementById("scrambled").textContent = "GAME OVER!";
+        document.getElementById("hint").textContent = "Great job finishing all the words!";
+        input.style.display = "none";
+        document.querySelector(".btn-container").style.display = "none";
+        return;
+      }
+
+      const index = Math.floor(Math.random() * currentList.length);
+      currentItem = currentList[index];
+      currentList.splice(index, 1);
+
+      document.getElementById("scrambled").textContent = scrambleWord(currentItem.word);
+      document.getElementById("hint").textContent = "Hint: " + currentItem.hint;
+      document.getElementById("remaining").textContent = currentList.length + 1;
+    }
+
+    function checkAnswer() {
+      const input = document.getElementById("user-input").value.trim().toUpperCase();
+      const feedback = document.getElementById("feedback");
+
+      if (input === currentItem.word) {
+        score += 10;
+        feedback.style.color = "#27ae60";
+        feedback.textContent = "Correct! +10 Points";
+        updateScore();
+        setTimeout(nextWord, 1200);
+      } else {
+        feedback.style.color = "#e74c3c";
+        feedback.textContent = "Try again!";
+      }
+    }
+
+    function updateScore() {
+      document.getElementById("score").textContent = score;
+    }
+
+    document.getElementById("user-input").addEventListener("keypress", function(event) {
+      if (event.key === "Enter") {
+        checkAnswer();
+      }
+    });
+
+    initGame();
+  </script>
+</body>
+</html>

@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flashcard Memory Matrix - Independent Travel</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .game-container {
+            background-color: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            padding: 25px;
+            width: 100%;
+            max-width: 650px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #1e3c72;
+            margin-bottom: 5px;
+            font-size: 1.8rem;
+        }
+
+        p.subtitle {
+            color: #666;
+            margin-bottom: 15px;
+            font-size: 0.95rem;
+        }
+
+        .stats-bar {
+            display: flex;
+            justify-content: space-around;
+            background-color: #f1f5f9;
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-weight: bold;
+            color: #334155;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: #64748b;
+        }
+
+        .stat-value {
+            font-size: 1.2rem;
+            color: #1e3c72;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            perspective: 1000px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            height: 110px;
+            background-color: transparent;
+            cursor: pointer;
+            perspective: 1000px;
+        }
+
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .card.flipped .card-inner {
+            transform: rotateY(180deg);
+        }
+
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+            font-size: 0.85rem;
+            line-height: 1.2;
+            user-select: none;
+        }
+
+        .card-front {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+            font-weight: bold;
+            font-size: 1.5rem;
+            border: 2px solid #2563eb;
+        }
+
+        .card-front::after {
+            content: "?";
+        }
+
+        .card-back {
+            background-color: #f8fafc;
+            color: #1e293b;
+            transform: rotateY(180deg);
+            border: 2px solid #cbd5e1;
+            overflow-y: auto;
+        }
+
+        .card.matched .card-back {
+            background-color: #dcfce7;
+            border-color: #22c55e;
+            color: #15803d;
+        }
+
+        .card.matched {
+            cursor: default;
+        }
+
+        .word-type {
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 1rem;
+            color: #1d4ed8;
+        }
+
+        .card.matched .word-type {
+            color: #15803d;
+        }
+
+        /* Modal / Overlay */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .modal-content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        .modal-content h2 {
+            margin-bottom: 15px;
+            color: #1e3c72;
+        }
+
+        .modal-content p {
+            margin-bottom: 10px;
+            color: #475569;
+        }
+
+        .rating {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #f59e0b;
+            margin: 15px 0;
+        }
+
+        button.btn {
+            background-color: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin-top: 10px;
+        }
+
+        button.btn:hover {
+            background-color: #1d4ed8;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <h1>Flashcard Memory Matrix</h1>
+        <p class="subtitle">Topic: Independent Travel (High School Vocabulary)</p>
+
+        <div class="stats-bar">
+            <div class="stat-item">
+                <span class="stat-label">Timer</span>
+                <span id="timer" class="stat-value">90s</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Moves</span>
+                <span id="moves" class="stat-value">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Matches</span>
+                <span id="matches" class="stat-value">0 / 8</span>
+            </div>
+        </div>
+
+        <div class="grid" id="grid"></div>
+        <button class="btn" onclick="resetGame()">Restart Game</button>
+    </div>
+
+    <!-- Victory / Game Over Modal -->
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <h2 id="modal-title">Game Over!</h2>
+            <p id="modal-msg">Summary details here...</p>
+            <div id="modal-rating" class="rating"></div>
+            <button class="btn" onclick="resetGame()">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        const vocabulary = [
+            { id: 1, word: "Solo", def: "Done or undertaken by one person alone without companions." },
+            { id: 2, word: "Flexibility", def: "The willingness to change or compromise schedules easily." },
+            { id: 3, word: "Compromise", def: "An agreement reached by each side making concessions." },
+            { id: 4, word: "Destination", def: "The place to which someone or something is going or being sent." },
+            { id: 5, word: "Split", def: "To divide or share costs, tasks, or routes among travelers." },
+            { id: 6, word: "Arise", def: "To emerge or become apparent, especially unexpected problems." },
+            { id: 7, word: "Occasionally", def: "At irregular intervals or from time to time." },
+            { id: 8, word: "Itinerary", def: "A detailed plan or route of a journey or trip." }
+        ];
+
+        let cardsArray = [];
+        let flippedCards = [];
+        let matchedPairs = 0;
+        let moveCount = 0;
+        let timeLeft = 90;
+        let timerInterval = null;
+        let lockBoard = false;
+
+        const gridElement = document.getElementById("grid");
+        const movesElement = document.getElementById("moves");
+        const matchesElement = document.getElementById("matches");
+        const timerElement = document.getElementById("timer");
+        const modal = document.getElementById("modal");
+
+        function initializeCards() {
+            cardsArray = [];
+            vocabulary.forEach(item => {
+                // Word Card
+                cardsArray.push({
+                    id: item.id,
+                    type: "word",
+                    text: item.word
+                });
+                // Definition Card
+                cardsArray.push({
+                    id: item.id,
+                    type: "def",
+                    text: item.def
+                });
+            });
+            // Shuffle
+            cardsArray.sort(() => 0.5 - Math.random());
+        }
+
+        function createBoard() {
+            gridElement.innerHTML = "";
+            cardsArray.forEach((data, index) => {
+                const card = document.createElement("div");
+                card.classList.add("card");
+                card.dataset.index = index;
+
+                const contentHTML = data.type === "word" 
+                    ? `<span class="word-type">${data.text}</span>` 
+                    : `<span>${data.text}</span>`;
+
+                card.innerHTML = `
+                    <div class="card-inner">
+                        <div class="card-front"></div>
+                        <div class="card-back">${contentHTML}</div>
+                    </div>
+                `;
+
+                card.addEventListener("click", flipCard);
+                gridElement.appendChild(card);
+            });
+        }
+
+        function startTimer() {
+            clearInterval(timerInterval);
+            timeLeft = 90;
+            timerElement.textContent = timeLeft + "s";
+            
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timerElement.textContent = timeLeft + "s";
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    endGame(false);
+                }
+            }, 1000);
+        }
+
+        function flipCard() {
+            if (lockBoard) return;
+            const selectedCard = this;
+
+            // Prevent double clicking same card or matched card
+            if (selectedCard.classList.contains("flipped") || selectedCard.classList.contains("matched")) {
+                return;
+            }
+
+            selectedCard.classList.add("flipped");
+            flippedCards.push(selectedCard);
+
+            if (flippedCards.length === 2) {
+                moveCount++;
+                movesElement.textContent = moveCount;
+                checkMatch();
+            }
+        }
+
+        function checkMatch() {
+            lockBoard = true;
+            const [card1, card2] = flippedCards;
+            const data1 = cardsArray[card1.dataset.index];
+            const data2 = cardsArray[card2.dataset.index];
+
+            // Match if same vocabulary ID but different card types (word vs def)
+            const isMatch = (data1.id === data2.id) && (data1.type !== data2.type);
+
+            if (isMatch) {
+                card1.classList.add("matched");
+                card2.classList.add("matched");
+                matchedPairs++;
+                matchesElement.textContent = `${matchedPairs} / 8`;
+                flippedCards = [];
+                lockBoard = false;
+
+                if (matchedPairs === 8) {
+                    clearInterval(timerInterval);
+                    setTimeout(() => endGame(true), 500);
+                }
+            } else {
+                // 1-second delay before flipping back
+                setTimeout(() => {
+                    card1.classList.remove("flipped");
+                    card2.classList.remove("flipped");
+                    flippedCards = [];
+                    lockBoard = false;
+                }, 1000);
+            }
+        }
+
+        function endGame(won) {
+            modal.style.display = "flex";
+            const modalTitle = document.getElementById("modal-title");
+            const modalMsg = document.getElementById("modal-msg");
+            const modalRating = document.getElementById("modal-rating");
+
+            if (won) {
+                modalTitle.textContent = "Congratulations! 🎉";
+                modalMsg.textContent = `You completed all matches in ${moveCount} moves with ${timeLeft} seconds remaining!`;
+                
+                // Efficiency Rating Calculation
+                let rating = "⭐⭐⭐ Perfect Explorer!";
+                if (moveCount > 12 && moveCount <= 18) {
+                    rating = "⭐⭐ Seasoned Traveler!";
+                } else if (moveCount > 18) {
+                    rating = "⭐ Tourist Trainee!";
+                }
+                modalRating.textContent = `Efficiency Rating: ${rating}`;
+            } else {
+                modalTitle.textContent = "Time's Up! ⏰";
+                modalMsg.textContent = `You ran out of time. You found ${matchedPairs} out of 8 matches.`;
+                modalRating.textContent = "Try again to improve your speed!";
+            }
+        }
+
+        function resetGame() {
+            modal.style.display = "none";
+            matchedPairs = 0;
+            moveCount = 0;
+            flippedCards = [];
+            lockBoard = false;
+            
+            movesElement.textContent = "0";
+            matchesElement.textContent = "0 / 8";
+
+            initializeCards();
+            createBoard();
+            startTimer();
+        }
+
+        // Initialize on load
+        resetGame();
+    </script>
+</body>
+</html>

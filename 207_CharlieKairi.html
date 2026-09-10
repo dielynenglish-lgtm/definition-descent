@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vocabulary Challenge: Medical & Science</title>
+  <style>
+    :root {
+      --bg-color: #f0f4f8;
+      --card-bg: #ffffff;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --success: #22c55e;
+      --error: #ef4444;
+      --text: #1e293b;
+      --text-light: #64748b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .game-container {
+      background-color: var(--card-bg);
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+      max-width: 600px;
+      width: 100%;
+      padding: 32px;
+      text-align: center;
+    }
+
+    header {
+      margin-bottom: 24px;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+      color: var(--primary);
+      margin-bottom: 8px;
+    }
+
+    .hud {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      font-weight: 600;
+      color: var(--text-light);
+    }
+
+    .scramble-box {
+      font-size: 2.2rem;
+      letter-spacing: 6px;
+      font-weight: 700;
+      color: var(--primary);
+      background-color: #eff6ff;
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+    }
+
+    .hint {
+      font-style: italic;
+      color: var(--text-light);
+      margin-bottom: 24px;
+      min-height: 48px;
+    }
+
+    .input-group {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      padding: 12px 16px;
+      font-size: 1rem;
+      border: 2px solid #cbd5e1;
+      border-radius: 8px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus {
+      border-color: var(--primary);
+    }
+
+    button {
+      padding: 12px 24px;
+      font-size: 1rem;
+      font-weight: 600;
+      color: white;
+      background-color: var(--primary);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    button:hover {
+      background-color: var(--primary-hover);
+    }
+
+    .feedback {
+      font-weight: 600;
+      min-height: 24px;
+      margin-bottom: 16px;
+    }
+
+    .feedback.correct {
+      color: var(--success);
+    }
+
+    .feedback.wrong {
+      color: var(--error);
+    }
+
+    .restart-btn {
+      display: none;
+      width: 100%;
+      margin-top: 10px;
+      background-color: var(--success);
+    }
+
+    .restart-btn:hover {
+      background-color: #16a34a;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="game-container">
+    <header>
+      <h1>Word Unscramble Master</h1>
+      <p style="color: var(--text-light);">Unscramble the medical & general vocabulary words!</p>
+    </header>
+
+    <div class="hud">
+      <span id="progress">Word: 1 / 7</span>
+      <span id="score">Score: 0</span>
+    </div>
+
+    <div id="game-body">
+      <div class="scramble-box" id="scrambled-word">------</div>
+      <div class="hint" id="hint-text">Definition hint will appear here.</div>
+
+      <div class="input-group">
+        <input type="text" id="user-input" placeholder="Type your answer..." autocomplete="off" />
+        <button id="submit-btn">Submit</button>
+      </div>
+
+      <div class="feedback" id="feedback"></div>
+    </div>
+
+    <button id="restart-btn" class="restart-btn">Play Again</button>
+  </div>
+
+  <script>
+    const vocabulary = [
+      { word: "miraculous", hint: "Remarkable, unexpected, or bringing welcome reassurance like a miracle." },
+      { word: "massive", hint: "Large and heavy or solid; exceptionally large." },
+      { word: "vomit", hint: "Eject matter from the stomach through the mouth." },
+      { word: "physician", hint: "A person qualified to practice medicine; a doctor." },
+      { word: "dose", hint: "A quantity of a medicine or drug taken or recommended to be taken at one time." },
+      { word: "established", hint: "Having existed or been done for a long time and therefore recognized and accepted." },
+      { word: "undergo", hint: "Experience or be subjected to something (typically a change or treatment)." }
+    ];
+
+    let currentIndex = 0;
+    let score = 0;
+    let currentScrambled = "";
+
+    const scrambledWordEl = document.getElementById("scrambled-word");
+    const hintTextEl = document.getElementById("hint-text");
+    const userInput = document.getElementById("user-input");
+    const submitBtn = document.getElementById("submit-btn");
+    const feedbackEl = document.getElementById("feedback");
+    const progressEl = document.getElementById("progress");
+    const scoreEl = document.getElementById("score");
+    const restartBtn = document.getElementById("restart-btn");
+    const gameBody = document.getElementById("game-body");
+
+    function scramble(word) {
+      const arr = word.split('');
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      const scrambled = arr.join('');
+      return scrambled === word ? scramble(word) : scrambled;
+    }
+
+    function loadQuestion() {
+      if (currentIndex >= vocabulary.length) {
+        endGame();
+        return;
+      }
+
+      const currentObj = vocabulary[currentIndex];
+      currentScrambled = scramble(currentObj.word);
+      
+      scrambledWordEl.textContent = currentScrambled;
+      hintTextEl.textContent = `Hint: ${currentObj.hint}`;
+      progressEl.textContent = `Word: ${currentIndex + 1} / ${vocabulary.length}`;
+      userInput.value = "";
+      feedbackEl.textContent = "";
+      feedbackEl.className = "feedback";
+      userInput.focus();
+    }
+
+    function checkAnswer() {
+      const answer = userInput.value.trim().toLowerCase();
+      const correctAnswer = vocabulary[currentIndex].word;
+
+      if (!answer) return;
+
+      if (answer === correctAnswer) {
+        score += 10;
+        scoreEl.textContent = `Score: ${score}`;
+        feedbackEl.textContent = "Correct! Great job!";
+        feedbackEl.className = "feedback correct";
+        
+        currentIndex++;
+        setTimeout(loadQuestion, 1200);
+      } else {
+        feedbackEl.textContent = "Not quite! Try again.";
+        feedbackEl.className = "feedback wrong";
+      }
+    }
+
+    function endGame() {
+      scrambledWordEl.textContent = "🎉";
+      hintTextEl.textContent = `Game Over! You completed all words with a final score of ${score} points!`;
+      document.querySelector(".input-group").style.display = "none";
+      feedbackEl.textContent = "";
+      restartBtn.style.display = "block";
+    }
+
+    function resetGame() {
+      currentIndex = 0;
+      score = 0;
+      scoreEl.textContent = `Score: ${score}`;
+      document.querySelector(".input-group").style.display = "flex";
+      restartBtn.style.display = "none";
+      loadQuestion();
+    }
+
+    submitBtn.addEventListener("click", checkAnswer);
+    userInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") checkAnswer();
+    });
+    restartBtn.addEventListener("click", resetGame);
+
+    // Initialize game on load
+    loadQuestion();
+  </script>
+</body>
+</html>
