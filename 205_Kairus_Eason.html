@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Defend the Castle - Vocabulary Spellcaster</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      background: #1a1a2e;
+      color: #fff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      overflow: hidden;
+    }
+    #game-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      background: linear-gradient(to bottom, #0f0c29, #302b63, #24243e);
+      overflow: hidden;
+    }
+    /* UI Overlay */
+    #ui-header {
+      position: absolute;
+      top: 15px;
+      left: 20px;
+      right: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10;
+    }
+    .stat-box {
+      background: rgba(0, 0, 0, 0.7);
+      padding: 12px 24px;
+      border-radius: 8px;
+      border: 2px solid #4a4e69;
+      font-size: 22px;
+      font-weight: bold;
+    }
+
+    /* Definition Display */
+    #definition-box {
+      position: absolute;
+      top: 15px;
+      right: 220px;
+      width: 480px;
+      background: rgba(22, 33, 62, 0.95);
+      border: 3px solid #e94560;
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      box-shadow: 0 0 20px rgba(233, 69, 96, 0.5);
+      z-index: 10;
+    }
+    #definition-box h3 {
+      margin: 0 0 8px 0;
+      font-size: 18px;
+      color: #e94560;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    #definition-text {
+      font-size: 20px;
+      font-weight: bold;
+      line-height: 1.4;
+      color: #ffd700;
+    }
+
+    /* On-Screen Word Bank for Students */
+    #word-bank-box {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 80%;
+      max-width: 900px;
+      background: rgba(15, 52, 96, 0.95);
+      border: 3px solid #00fff5;
+      border-radius: 12px;
+      padding: 15px;
+      text-align: center;
+      z-index: 10;
+      box-shadow: 0 0 15px rgba(0, 255, 245, 0.4);
+    }
+    #word-bank-box h3 {
+      margin: 0 0 10px 0;
+      font-size: 18px;
+      color: #00fff5;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    #word-bank-list {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 12px;
+    }
+    .word-chip {
+      background: #1a1a2e;
+      border: 2px solid #ffd700;
+      color: #ffffff;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 20px;
+      font-weight: bold;
+      letter-spacing: 1px;
+    }
+
+    /* Castle */
+    #castle {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      width: 180px;
+      height: 85%;
+      background: #4a4e69;
+      border-left: 6px solid #22223b;
+      box-shadow: -5px 0 20px rgba(0,0,0,0.5);
+      z-index: 2;
+    }
+    #castle-battlement {
+      position: absolute;
+      top: -20px;
+      left: -10px;
+      width: 190px;
+      height: 20px;
+      background: #22223b;
+    }
+    #health-bar-container {
+      width: 180px;
+      height: 24px;
+      background: #333;
+      border: 2px solid #fff;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    #health-bar {
+      width: 100%;
+      height: 100%;
+      background: #4eacc5;
+      transition: width 0.3s ease;
+    }
+
+    /* Enemies */
+    .enemy {
+      position: absolute;
+      width: 80px;
+      height: 80px;
+      background: #e94560;
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      box-shadow: 0 0 15px #e94560;
+      z-index: 4;
+      transition: transform 0.1s;
+    }
+    .enemy:hover {
+      transform: scale(1.1);
+    }
+    .enemy-label {
+      font-size: 22px;
+      font-weight: bold;
+      color: #fff;
+      pointer-events: none;
+    }
+
+    /* Enemy Input Popup */
+    .input-popup {
+      position: absolute;
+      bottom: 90px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.95);
+      padding: 12px;
+      border-radius: 8px;
+      border: 2px solid #00fff5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      z-index: 5;
+      white-space: nowrap;
+      box-shadow: 0 0 15px rgba(0, 255, 245, 0.6);
+    }
+    .input-popup input {
+      width: 180px;
+      background: #111;
+      border: 2px solid #00fff5;
+      color: #fff;
+      padding: 8px 10px;
+      border-radius: 6px;
+      text-align: center;
+      outline: none;
+      font-size: 20px;
+      font-weight: bold;
+    }
+    .target-word-hint {
+      font-size: 16px;
+      color: #00fff5;
+      letter-spacing: 1px;
+      font-weight: bold;
+    }
+
+    /* Effects & Animations */
+    .spell-particle {
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      background: #00fff5;
+      border-radius: 50%;
+      box-shadow: 0 0 16px #00fff5;
+      pointer-events: none;
+      z-index: 6;
+      transition: all 0.3s linear;
+    }
+    .aoe-explosion {
+      position: absolute;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,215,0,0.8) 0%, rgba(255,69,0,0) 70%);
+      pointer-events: none;
+      z-index: 7;
+      animation: explode 0.5s ease-out forwards;
+    }
+    @keyframes explode {
+      0% { width: 0px; height: 0px; opacity: 1; }
+      100% { width: 300px; height: 300px; opacity: 0; }
+    }
+    .floating-text {
+      position: absolute;
+      font-weight: bold;
+      font-size: 28px;
+      pointer-events: none;
+      z-index: 8;
+      animation: floatUp 1s ease-out forwards;
+    }
+    @keyframes floatUp {
+      0% { opacity: 1; transform: translateY(0); }
+      100% { opacity: 0; transform: translateY(-40px); }
+    }
+
+    /* Ground */
+    #ground {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      height: 120px;
+      background: #16213e;
+      border-top: 4px solid #0f3460;
+      z-index: 1;
+    }
+
+    /* Game Over Overlay */
+    #game-over-screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.85);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 20;
+    }
+    #game-over-screen h1 {
+      font-size: 56px;
+      color: #e94560;
+      margin-bottom: 10px;
+    }
+    #restart-btn {
+      padding: 14px 28px;
+      font-size: 22px;
+      background: #e94560;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-top: 15px;
+    }
+    #restart-btn:hover {
+      background: #ff6b6b;
+    }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<div id="game-container">
+  <div id="ui-header">
+    <div class="stat-box">Wave: <span id="wave-num">1</span></div>
+    <div class="stat-box" style="display: flex; align-items: center; gap: 12px;">
+      <span>Castle Health:</span>
+      <div id="health-bar-container">
+        <div id="health-bar"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="definition-box">
+    <h3>AoE Spell Target Definition</h3>
+    <div id="definition-text">Click a monster to inspect and target!</div>
+  </div>
+
+  <!-- Visible Word Bank for Students to Choose From -->
+  <div id="word-bank-box">
+    <h3>Choose Your Answer From The Word Bank:</h3>
+    <div id="word-bank-list"></div>
+  </div>
+
+  <div id="castle">
+    <div id="castle-battlement"></div>
+  </div>
+  <div id="ground"></div>
+
+  <div id="game-over-screen" class="hidden">
+    <h1 id="over-title">CASTLE FALLEN</h1>
+    <p id="over-desc" style="font-size: 22px;">The monsters overran your defenses.</p>
+    <button id="restart-btn" onclick="restartGame()">Play Again</button>
+  </div>
+</div>
+
+<script>
+  const vocabList = [
+    { word: "participant", def: "A person who takes part in something." },
+    { word: "implication", def: "A likely consequence or indirect suggestion." },
+    { word: "motivation", def: "The reason or desire behind acting or behaving." },
+    { word: "polished", def: "Refined, sophisticated, or shiny from polishing." },
+    { word: "outfit", def: "A set of clothes worn together for an occasion." },
+    { word: "reinforce", def: "To strengthen or support with extra material/help." },
+    { word: "accessible", def: "Easy to approach, enter, use, or understand." }
+  ];
+
+  let castleHealth = 100;
+  let currentWave = 1;
+  let enemies = [];
+  let activeDefinition = null;
+  let gameInterval = null;
+  let spawnInterval = null;
+  let isGameOver = false;
+
+  const container = document.getElementById('game-container');
+  const healthBar = document.getElementById('health-bar');
+  const waveDisplay = document.getElementById('wave-num');
+  const defDisplay = document.getElementById('definition-text');
+  const wordBankList = document.getElementById('word-bank-list');
+  const gameOverScreen = document.getElementById('game-over-screen');
+
+  function initGame() {
+    castleHealth = 100;
+    currentWave = 1;
+    isGameOver = false;
+    enemies.forEach(e => e.element.remove());
+    enemies = [];
+    updateHealthBar();
+    waveDisplay.textContent = currentWave;
+    gameOverScreen.classList.add('hidden');
+    
+    renderWordBank();
+    selectNewAoEDefinition();
+    
+    if(gameInterval) clearInterval(gameInterval);
+    if(spawnInterval) clearInterval(spawnInterval);
+
+    gameInterval = setInterval(updateGame, 50);
+    spawnInterval = setInterval(spawnEnemy, 4000);
+    spawnEnemy();
+  }
+
+  function renderWordBank() {
+    wordBankList.innerHTML = '';
+    vocabList.forEach(item => {
+      const chip = document.createElement('div');
+      chip.className = 'word-chip';
+      chip.textContent = item.word;
+      wordBankList.appendChild(chip);
+    });
+  }
+
+  function selectNewAoEDefinition() {
+    const randomItem = vocabList[Math.floor(Math.random() * vocabList.length)];
+    activeDefinition = randomItem;
+    defDisplay.textContent = `"${randomItem.def}"`;
+  }
+
+  function spawnEnemy() {
+    if (isGameOver) return;
+
+    const vocabObj = vocabList[Math.floor(Math.random() * vocabList.length)];
+    const enemyEl = document.createElement('div');
+    enemyEl.className = 'enemy';
+    
+    const minY = 100;
+    const maxY = window.innerHeight - 260;
+    const startY = Math.floor(Math.random() * (maxY - minY)) + minY;
+    
+    enemyEl.style.left = '0px';
+    enemyEl.style.top = `${startY}px`;
+
+    const label = document.createElement('span');
+    label.className = 'enemy-label';
+    label.textContent = '???';
+    enemyEl.appendChild(label);
+
+    const enemyData = {
+      element: enemyEl,
+      word: vocabObj.word,
+      x: 0,
+      y: startY,
+      speed: 0.6 + (currentWave * 0.1),
+      hasInput: false,
+      inputEl: null
+    };
+
+    enemyEl.onclick = (e) => {
+      e.stopPropagation();
+      openEnemyInput(enemyData);
+    };
+
+    container.appendChild(enemyEl);
+    enemies.push(enemyData);
+  }
+
+  function openEnemyInput(enemy) {
+    if (enemy.hasInput) return;
+
+    enemies.forEach(e => {
+      if (e.inputEl) {
+        e.inputEl.remove();
+        e.hasInput = false;
+      }
+    });
+
+    const popup = document.createElement('div');
+    popup.className = 'input-popup';
+    
+    const wordHint = document.createElement('div');
+    wordHint.className = 'target-word-hint';
+    wordHint.textContent = "Type word answer:";
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'Type here...';
+
+    popup.appendChild(wordHint);
+    popup.appendChild(input);
+    enemy.element.appendChild(popup);
+    
+    enemy.hasInput = true;
+    enemy.inputEl = popup;
+
+    setTimeout(() => input.focus(), 10);
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        checkWordMatch(enemy, input.value.trim().toLowerCase());
+      }
+    });
+  }
+
+  function checkWordMatch(enemy, typedValue) {
+    if (typedValue === enemy.word.toLowerCase()) {
+      const isAoE = (enemy.word.toLowerCase() === activeDefinition.word.toLowerCase());
+      castSpell(enemy, isAoE);
+    } else {
+      showFloatingText(enemy.x, enemy.y, "Try Again!", "#ff4d4d");
+      if (enemy.inputEl) {
+        enemy.inputEl.remove();
+        enemy.hasInput = false;
+      }
+    }
+  }
+
+  function castSpell(targetEnemy, isAoE) {
+    const castleRect = document.getElementById('castle').getBoundingClientRect();
+    const startX = castleRect.left;
+    const startY = castleRect.top + 100;
+
+    const particle = document.createElement('div');
+    particle.className = 'spell-particle';
+    particle.style.left = `${startX}px`;
+    particle.style.top = `${startY}px`;
+    container.appendChild(particle);
+
+    setTimeout(() => {
+      particle.style.left = `${targetEnemy.x + 40}px`;
+      particle.style.top = `${targetEnemy.y + 40}px`;
+    }, 20);
+
+    setTimeout(() => {
+      particle.remove();
+      destroyEnemy(targetEnemy, isAoE);
+    }, 320);
+  }
+
+  function destroyEnemy(targetEnemy, isAoE) {
+    if (isAoE) {
+      showFloatingText(targetEnemy.x, targetEnemy.y, "AoE Blast!", "#ffd700");
+      
+      const explosion = document.createElement('div');
+      explosion.className = 'aoe-explosion';
+      explosion.style.left = `${targetEnemy.x - 110}px`;
+      explosion.style.top = `${targetEnemy.y - 110}px`;
+      container.appendChild(explosion);
+      setTimeout(() => explosion.remove(), 500);
+
+      const radius = 250;
+      enemies = enemies.filter(e => {
+        const dist = Math.hypot(e.x - targetEnemy.x, e.y - targetEnemy.y);
+        if (dist <= radius) {
+          e.element.remove();
+          return false;
+        }
+        return true;
+      });
+
+      selectNewAoEDefinition();
+    } else {
+      showFloatingText(targetEnemy.x, targetEnemy.y, "Correct!", "#00fff5");
+      targetEnemy.element.remove();
+      enemies = enemies.filter(e => e !== targetEnemy);
+    }
+
+    if (enemies.length === 0) {
+      currentWave++;
+      waveDisplay.textContent = currentWave;
+      showFloatingText(window.innerWidth / 2 - 80, 150, `Wave ${currentWave}!`, "#ffffff");
+    }
+  }
+
+  function updateGame() {
+    if (isGameOver) return;
+
+    const castleX = window.innerWidth - 180;
+
+    enemies.forEach((enemy) => {
+      enemy.x += enemy.speed;
+      enemy.element.style.left = `${enemy.x}px`;
+
+      if (enemy.x >= castleX - 60) {
+        takeDamage(15);
+        showFloatingText(enemy.x, enemy.y, "Hit!", "#ff4d4d");
+        enemy.element.remove();
+        enemies = enemies.filter(e => e !== enemy);
+      }
+    });
+  }
+
+  function takeDamage(amount) {
+    castleHealth = Math.max(0, castleHealth - amount);
+    updateHealthBar();
+
+    if (castleHealth <= 0) {
+      endGame();
+    }
+  }
+
+  function updateHealthBar() {
+    healthBar.style.width = `${castleHealth}%`;
+    if (castleHealth < 30) {
+      healthBar.style.background = "#ff4d4d";
+    } else if (castleHealth < 60) {
+      healthBar.style.background = "#ffa500";
+    } else {
+      healthBar.style.background = "#4eacc5";
+    }
+  }
+
+  function showFloatingText(x, y, text, color) {
+    const el = document.createElement('div');
+    el.className = 'floating-text';
+    el.textContent = text;
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+    el.style.color = color;
+    container.appendChild(el);
+    setTimeout(() => el.remove(), 1000);
+  }
+
+  function endGame() {
+    isGameOver = true;
+    clearInterval(gameInterval);
+    clearInterval(spawnInterval);
+    gameOverScreen.classList.remove('hidden');
+  }
+
+  function restartGame() {
+    initGame();
+  }
+
+  window.onload = initGame;
+</script>
+</body>
+</html>
