@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Cyberpunk Snake: Definition Hunt (Easy Mode)</title>
+<style>
+    body {
+        background-color: #0d0d1a;
+        color: #00ffcc;
+        font-family: 'Courier New', Courier, monospace;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin: 0;
+        padding: 15px;
+    }
+    h1 {
+        text-shadow: 0 0 10px #00ffcc;
+        margin: 0 0 10px 0;
+    }
+
+    /* Vocabulary Reference Sheet */
+    #vocab-reference {
+        background: #111126;
+        border: 2px solid #00ffcc;
+        border-radius: 8px;
+        padding: 10px;
+        width: 620px;
+        margin-bottom: 12px;
+        box-shadow: 0 0 10px rgba(0, 255, 204, 0.3);
+    }
+    #vocab-reference h3 {
+        margin: 0 0 8px 0;
+        color: #ffff00;
+        text-align: center;
+        font-size: 15px;
+        text-transform: uppercase;
+    }
+    .vocab-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+        font-size: 13px;
+    }
+    .vocab-item {
+        background: rgba(255, 255, 255, 0.05);
+        padding: 4px 8px;
+        border-radius: 4px;
+    }
+    .vocab-item strong {
+        color: #ff00ff;
+    }
+
+    #ui-container {
+        background: #1a1a33;
+        border: 2px solid #ff00ff;
+        padding: 12px;
+        width: 620px;
+        text-align: center;
+        margin-bottom: 12px;
+        box-shadow: 0 0 15px #ff00ff;
+        border-radius: 8px;
+    }
+    #score-board {
+        font-size: 18px;
+        font-weight: bold;
+    }
+    #definition-display {
+        font-size: 20px;
+        font-weight: bold;
+        color: #ffff00;
+        margin-top: 6px;
+    }
+
+    canvas {
+        background-color: #000;
+        border: 2px solid #00ffcc;
+        box-shadow: 0 0 20px #00ffcc;
+        border-radius: 4px;
+    }
+
+    #game-over {
+        display: none;
+        position: absolute;
+        top: 55%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.92);
+        border: 3px solid #ff00ff;
+        padding: 30px;
+        text-align: center;
+        color: #ff00ff;
+        box-shadow: 0 0 30px #ff00ff;
+        border-radius: 10px;
+    }
+    button {
+        background: #00ffcc;
+        color: #000;
+        border: none;
+        padding: 10px 20px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        margin-top: 15px;
+    }
+    button:hover {
+        background: #ff00ff;
+        color: #fff;
+    }
+</style>
+</head>
+<body>
+
+<h1>CYBER-SNAKE v1.0 (EASY MODE)</h1>
+
+<!-- Vocabulary Reference List -->
+<div id="vocab-reference">
+    <h3>Vocabulary List Reference</h3>
+    <div class="vocab-grid" id="vocab-grid-list"></div>
+</div>
+
+<div id="ui-container">
+    <div id="score-board">SCORE: <span id="score">0</span></div>
+    <div id="definition-display">Loading target data...</div>
+</div>
+
+<canvas id="gameCanvas" width="600" height="600"></canvas>
+
+<div id="game-over">
+    <h2>SYSTEM FAILURE</h2>
+    <p style="font-size: 18px; color: #fff;">Final Score: <span id="final-score">0</span></p>
+    <button onclick="resetGame()">REBOOT SYSTEM</button>
+</div>
+
+<script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const gridSize = 30;
+    const tileCount = canvas.width / gridSize;
+
+    // Vocabulary Dataset
+    const vocabList = [
+        { word: "presentation", def: "報告, 簡報; 呈現" },
+        { word: "boost", def: "提升, 增加; 促進" },
+        { word: "accomplish", def: "完成; 達成, 實現" },
+        { word: "purchase", def: "購買之物, 購買行為" },
+        { word: "trigger", def: "引發, 觸發; 誘因" },
+        { word: "psychology", def: "心理學" },
+        { word: "stability", def: "穩定(性); 穩固" }
+    ];
+
+    // Populate Reference List
+    const vocabGrid = document.getElementById("vocab-grid-list");
+    vocabList.forEach(item => {
+        const div = document.createElement("div");
+        div.className = "vocab-item";
+        div.innerHTML = `<strong>${item.word}:</strong> ${item.def}`;
+        vocabGrid.appendChild(div);
+    });
+
+    let snake = [{x: 10, y: 10}];
+    let dx = 0;
+    let dy = -1;
+    let score = 0;
+    let currentTarget = null;
+    let pellets = [];
+    let gameLoop;
+
+    function initSpawns() {
+        const targetIndex = Math.floor(Math.random() * vocabList.length);
+        currentTarget = vocabList[targetIndex];
+        document.getElementById("definition-display").innerText = `TARGET DEFINITION: "${currentTarget.def}"`;
+
+        pellets = [];
+        let usedIndices = [targetIndex];
+        
+        // Spawn 1 correct pellet
+        pellets.push({
+            x: Math.floor(Math.random() * tileCount),
+            y: Math.floor(Math.random() * tileCount),
+            word: currentTarget.word,
+            isCorrect: true
+        });
+
+        // Spawn 2 distractor pellets
+        while (pellets.length < 3) {
+            let randIdx = Math.floor(Math.random() * vocabList.length);
+            if (!usedIndices.includes(randIdx)) {
+                usedIndices.push(randIdx);
+                pellets.push({
+                    x: Math.floor(Math.random() * tileCount),
+                    y: Math.floor(Math.random() * tileCount),
+                    word: vocabList[randIdx].word,
+                    isCorrect: false
+                });
+            }
+        }
+    }
+
+    function drawGame() {
+        clearScreen();
+        drawPellets();
+        moveSnake();
+        checkSelfCollision();
+        drawSnake();
+    }
+
+    function clearScreen() {
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = "#111";
+        for(let i = 0; i < tileCount; i++) {
+            ctx.beginPath();
+            ctx.moveTo(i * gridSize, 0);
+            ctx.lineTo(i * gridSize, canvas.height);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(0, i * gridSize);
+            ctx.lineTo(canvas.width, i * gridSize);
+            ctx.stroke();
+        }
+    }
+
+    function drawSnake() {
+        snake.forEach((segment, index) => {
+            if (index === 0) ctx.fillStyle = "#ffffff"; // Head
+            else ctx.fillStyle = "#00ffcc";
+            ctx.fillRect(segment.x * gridSize, segment.y * gridSize, gridSize - 2, gridSize - 2);
+        });
+    }
+
+    function moveSnake() {
+        let headX = snake[0].x + dx;
+        let headY = snake[0].y + dy;
+
+        // Wall Wraparound (Easier gameplay)
+        if (headX < 0) headX = tileCount - 1;
+        if (headX >= tileCount) headX = 0;
+        if (headY < 0) headY = tileCount - 1;
+        if (headY >= tileCount) headY = 0;
+
+        const head = { x: headX, y: headY };
+        snake.unshift(head);
+
+        let atePellet = false;
+        pellets = pellets.filter(p => {
+            if (head.x === p.x && head.y === p.y) {
+                atePellet = true;
+                handleEat(p);
+                return false; 
+            }
+            return true;
+        });
+
+        if (!atePellet) {
+            snake.pop();
+        }
+    }
+
+    function handleEat(pellet) {
+        if (pellet.isCorrect) {
+            score += 10;
+            document.getElementById("score").innerText = score;
+            initSpawns();
+        } else {
+            // Friendly penalty on incorrect pick
+            score = Math.max(0, score - 5);
+            document.getElementById("score").innerText = score;
+            initSpawns();
+        }
+    }
+
+    function checkSelfCollision() {
+        const head = snake[0];
+        for (let i = 1; i < snake.length; i++) {
+            if (head.x === snake[i].x && head.y === snake[i].y) {
+                gameOver();
+            }
+        }
+    }
+
+    function drawPellets() {
+        pellets.forEach(p => {
+            ctx.fillStyle = p.isCorrect ? "#ff00ff" : "#ff5500";
+            ctx.fillRect(p.x * gridSize, p.y * gridSize, gridSize - 2, gridSize - 2);
+            
+            // Draw complete word on top of pellet
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 11px Courier New";
+            ctx.textAlign = "center";
+            ctx.fillText(p.word, p.x * gridSize + gridSize/2, p.y * gridSize + gridSize/2 + 4);
+        });
+    }
+
+    function gameOver() {
+        clearInterval(gameLoop);
+        document.getElementById("game-over").style.display = "block";
+        document.getElementById("final-score").innerText = score;
+    }
+
+    function resetGame() {
+        snake = [{x: 10, y: 10}];
+        dx = 0;
+        dy = -1;
+        score = 0;
+        document.getElementById("score").innerText = score;
+        document.getElementById("game-over").style.display = "none";
+        initSpawns();
+        gameLoop = setInterval(drawGame, 220); // Slower speed
+    }
+
+    document.addEventListener("keydown", event => {
+        if (event.key === "ArrowUp" && dy !== 1) { dx = 0; dy = -1; }
+        if (event.key === "ArrowDown" && dy !== -1) { dx = 0; dy = 1; }
+        if (event.key === "ArrowLeft" && dx !== 1) { dx = -1; dy = 0; }
+        if (event.key === "ArrowRight" && dx !== -1) { dx = 1; dy = 0; }
+    });
+
+    initSpawns();
+    gameLoop = setInterval(drawGame, 220); // Slower speed
+</script>
+</body>
+</html>
