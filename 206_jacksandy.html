@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vocabulary Quiz Show</title>
+  <style>
+    :root {
+      --bg-color: #030b1e;
+      --panel-bg: #0a1931;
+      --gold: #ffd700;
+      --gold-hover: #ffae00;
+      --white: #ffffff;
+      --wrong: #ff4d4d;
+      --correct: #28a745;
+    }
+
+    body {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--white);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    .game-container {
+      width: 90%;
+      max-width: 900px;
+      background-color: var(--panel-bg);
+      border: 3px solid var(--gold);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid var(--gold);
+      padding-bottom: 10px;
+    }
+
+    .title {
+      font-size: 1.8rem;
+      color: var(--gold);
+      text-transform: uppercase;
+      margin: 0;
+      letter-spacing: 2px;
+    }
+
+    .timer-box {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: var(--gold);
+      background: rgba(0, 0, 0, 0.4);
+      padding: 5px 15px;
+      border: 1px solid var(--gold);
+      border-radius: 5px;
+    }
+
+    .main-content {
+      display: flex;
+      gap: 20px;
+    }
+
+    @media (max-width: 700px) {
+      .main-content {
+        flex-direction: column-reverse;
+      }
+    }
+
+    .quiz-area {
+      flex: 2;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .question-box {
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px solid var(--gold);
+      border-radius: 8px;
+      padding: 20px;
+      font-size: 1.2rem;
+      min-height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    @media (max-width: 500px) {
+      .options-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .option-btn {
+      background: #152d54;
+      border: 2px solid #2a4878;
+      color: var(--white);
+      padding: 12px;
+      font-size: 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: left;
+    }
+
+    .option-btn:hover {
+      background: var(--gold);
+      color: #000;
+      border-color: var(--gold);
+      font-weight: bold;
+    }
+
+    .ladder-area {
+      flex: 1;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid #2a4878;
+      border-radius: 8px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 5px;
+    }
+
+    .ladder-step {
+      padding: 6px 12px;
+      background: #112240;
+      border-radius: 4px;
+      display: flex;
+      justify-content: space-between;
+      font-weight: bold;
+      font-size: 0.9rem;
+      color: #8892b0;
+    }
+
+    .ladder-step.active {
+      background: var(--gold);
+      color: #000;
+      box-shadow: 0 0 10px var(--gold);
+    }
+
+    .ladder-step.completed {
+      color: var(--gold);
+    }
+
+    .overlay {
+      text-align: center;
+      padding: 30px;
+    }
+
+    .overlay h2 {
+      font-size: 2rem;
+      color: var(--gold);
+      margin-bottom: 10px;
+    }
+
+    .action-btn {
+      background: var(--gold);
+      color: #000;
+      border: none;
+      padding: 12px 25px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 15px;
+    }
+
+    .action-btn:hover {
+      background: var(--gold-hover);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+
+<div class="game-container">
+  <div class="header">
+    <h1 class="title">Vocab Showdown</h1>
+    <div class="timer-box" id="timer">Time: 60</div>
+  </div>
+
+  <div id="game-screen" class="main-content">
+    <div class="quiz-area">
+      <div class="question-box" id="question">Select the correct definition for the word.</div>
+      <div class="options-grid" id="options"></div>
+    </div>
+    <div class="ladder-area" id="ladder"></div>
+  </div>
+
+  <div id="end-screen" class="overlay hidden">
+    <h2 id="end-title">Game Over</h2>
+    <p id="end-message"></p>
+    <button class="action-btn" onclick="startGame()">Play Again</button>
+  </div>
+</div>
+
+<script>
+  const vocabularyData = [
+    { word: "Presentation", correct: "A speech or talk in which a new idea or product is shown and explained.", distractors: ["A secret hidden deep underground", "A physical movement made to exercise", "A tool used for measuring distance"] },
+    { word: "Booster", correct: "Something that improves, increases, or encourages growth or performance.", distractors: ["A device used to slow down vehicles", "A person who complains constantly", "A small box used for storing liquids"] },
+    { word: "Accomplish", correct: "To achieve or complete a goal successfully.", distractors: ["To abandon a project halfway through", "To confuse someone intentionally", "To break something into small pieces"] },
+    { word: "Purchase", correct: "To acquire something by paying money for it.", distractors: ["To lend an item to a friend", "To destroy property intentionally", "To search for lost items"] },
+    { word: "Trigger", correct: "An event or action that causes something else to happen.", distractors: ["A shield used for defense", "A quiet whisper in a crowd", "A state of complete rest"] },
+    { word: "Psychology", correct: "The scientific study of the human mind and its functions.", distractors: ["The study of ancient rock formations", "The practice of growing rare plants", "The design and construction of buildings"] },
+    { word: "Stability", correct: "The state of being stable, steady, and not likely to change or fail.", distractors: ["A chaotic and unpredictable event", "A sudden loss of control", "A type of fast-paced dance"] },
+    { word: "Participant", correct: "A person who takes part in an activity or event.", distractors: ["An observer who watches from afar", "A leader who gives orders only", "A machine used for automatic recording"] },
+    { word: "Implication", correct: "A conclusion that can be drawn from something although it is not explicitly stated.", distractors: ["A direct command given clearly", "A physical barrier preventing entry", "A type of financial receipt"] },
+    { word: "Polished", correct: "Refined, sophisticated, or highly developed.", distractors: ["Rough and unfinished in texture", "Messy and disorganized", "Old and falling apart"] }
+  ];
+
+  const prizeMoney = [
+    "$100", "$200", "$300", "$500", "$1,000", 
+    "$2,000", "$4,000", "$8,000", "$16,000", "$32,000"
+  ];
+
+  let currentQuestions = [];
+  let currentLevel = 0;
+  let timeLeft = 60;
+  let timerInterval = null;
+
+  function shuffleArray(array) {
+    const arr = [...array];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  function startGame() {
+    currentQuestions = shuffleArray(vocabularyData);
+    currentLevel = 0;
+    timeLeft = 60;
+    
+    document.getElementById("end-screen").classList.add("hidden");
+    document.getElementById("game-screen").classList.remove("hidden");
+    
+    renderLadder();
+    startTimer();
+    loadQuestion();
+  }
+
+  function startTimer() {
+    clearInterval(timerInterval);
+    document.getElementById("timer").textContent = `Time: ${timeLeft}`;
+    
+    timerInterval = setInterval(() => {
+      timeLeft--;
+      document.getElementById("timer").textContent = `Time: ${timeLeft}`;
+      if (timeLeft <= 0) {
+        clearInterval(timerInterval);
+        endGame(false, "Time ran out!");
+      }
+    }, 1000);
+  }
+
+  function renderLadder() {
+    const ladderEl = document.getElementById("ladder");
+    ladderEl.innerHTML = "";
+    prizeMoney.forEach((amount, index) => {
+      const step = document.createElement("div");
+      step.className = "ladder-step";
+      step.id = `step-${index}`;
+      step.innerHTML = `<span>Q${index + 1}</span><span>${amount}</span>`;
+      ladderEl.appendChild(step);
+    });
+    updateLadderUI();
+  }
+
+  function updateLadderUI() {
+    prizeMoney.forEach((_, index) => {
+      const step = document.getElementById(`step-${index}`);
+      step.classList.remove("active", "completed");
+      if (index === currentLevel) {
+        step.classList.add("active");
+      } else if (index < currentLevel) {
+        step.classList.add("completed");
+      }
+    });
+  }
+
+  function loadQuestion() {
+    updateLadderUI();
+    const qData = currentQuestions[currentLevel];
+    document.getElementById("question").innerHTML = `What is the meaning of <strong>&nbsp;${qData.word}&nbsp;</strong>?`;
+
+    const options = shuffleArray([qData.correct, ...qData.distractors]);
+    const optionsEl = document.getElementById("options");
+    optionsEl.innerHTML = "";
+
+    options.forEach(option => {
+      const btn = document.createElement("button");
+      btn.className = "option-btn";
+      btn.textContent = option;
+      btn.onclick = () => handleAnswer(option === qData.correct);
+      optionsEl.appendChild(btn);
+    });
+  }
+
+  function handleAnswer(isCorrect) {
+    if (!isCorrect) {
+      clearInterval(timerInterval);
+      endGame(false, `Incorrect answer! You made it to ${currentLevel > 0 ? prizeMoney[currentLevel - 1] : '$0'}.`);
+      return;
+    }
+
+    currentLevel++;
+    if (currentLevel >= currentQuestions.length) {
+      clearInterval(timerInterval);
+      endGame(true, "Congratulations! You completed the ladder and won $32,000!");
+    } else {
+      loadQuestion();
+    }
+  }
+
+  function endGame(isWin, message) {
+    document.getElementById("game-screen").classList.add("hidden");
+    document.getElementById("end-screen").classList.remove("hidden");
+    document.getElementById("end-title").textContent = isWin ? "VICTORY!" : "GAME OVER";
+    document.getElementById("end-message").textContent = message;
+  }
+
+  startGame();
+</script>
+</body>
+</html>

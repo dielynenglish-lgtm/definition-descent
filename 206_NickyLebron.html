@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocab Pac-Maze</title>
+    <style>
+        body {
+            background-color: #111;
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 20px;
+        }
+
+        #game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.8);
+            border: 2px solid #333;
+        }
+
+        #ui-panel {
+            width: 570px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        #definition-box {
+            background-color: #222;
+            border: 2px solid #ffd700;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 1.1rem;
+            min-height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 0 8px rgba(255, 215, 0, 0.2);
+        }
+
+        #stats-bar {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        #status-message {
+            height: 24px;
+            margin-top: 5px;
+            font-weight: bold;
+        }
+
+        canvas {
+            border: 4px solid #1e3a8a;
+            border-radius: 4px;
+            background-color: #000;
+        }
+
+        .instructions {
+            margin-top: 15px;
+            font-size: 0.9rem;
+            color: #aaa;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="ui-panel">
+        <div id="definition-box">Target Definition Loading...</div>
+        <div id="stats-bar">
+            <span>Score: <span id="score-val" style="color:#00ffcc;">0</span></span>
+            <span>Target: <span id="target-word" style="color:#ffd700;">-</span></span>
+            <span>Lives: <span id="lives-val" style="color:#ff4d4d;">3</span></span>
+        </div>
+        <div id="status-message"></div>
+    </div>
+    <canvas id="gameCanvas" width="570" height="570"></canvas>
+    <div class="instructions">Use Arrow Keys to Navigate. Collect dots and choose the correct Power Pellet!</div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+const TILE_SIZE = 30;
+const ROWS = 19;
+const COLS = 19;
+
+// Vocabulary list
+const vocabList = [
+    { word: "GRIP", def: "To hold tightly or firmly with hands" },
+    { word: "ADJUSTMENT", def: "A small change made to improve something" },
+    { word: "STRAIN", def: "To push to the limit or injure by overuse" },
+    { word: "FLEXIBLE", def: "Capable of bending easily without breaking" },
+    { word: "LOOSEN", def: "To make or become less tight" },
+    { word: "SLIGHTLY", def: "To a small degree or extent" },
+    { word: "DEMONSTRATE", def: "To show clearly or explain with examples" },
+    { word: "ADAPT", def: "To adjust to new conditions or environment" },
+    { word: "CAPABLE", def: "Having the ability or power to do something" },
+    { word: "RESILIENT", def: "Able to withstand or recover quickly from difficulty" }
+];
+
+// 19x19 Grid Layout
+// 1 = Wall, 0 = Dot, 2 = Empty Path, 3 = Power Pellet Location
+const mazeMap = [
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,3,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,3,1],
+    [1,0,1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,0,1],
+    [1,0,1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,0,1,0,1,1,1,1,1,0,1,0,1,1,0,1],
+    [1,0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,1],
+    [1,1,1,1,0,1,1,1,2,1,2,1,1,1,0,1,1,1,1],
+    [1,2,2,1,0,1,2,2,2,2,2,2,2,1,0,1,2,2,1],
+    [1,1,1,1,0,1,2,1,1,2,1,1,2,1,0,1,1,1,1],
+    [1,2,2,2,0,2,2,1,2,2,2,1,2,2,0,2,2,2,1],
+    [1,1,1,1,0,1,2,1,1,1,1,1,2,1,0,1,1,1,1],
+    [1,2,2,1,0,1,2,2,2,2,2,2,2,1,0,1,2,2,1],
+    [1,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,1,1,1],
+    [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,0,1],
+    [1,0,0,1,0,0,0,0,0,2,0,0,0,0,0,1,0,0,1],
+    [1,3,0,1,0,1,0,1,1,1,1,1,0,1,0,1,0,3,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+];
+
+// Pellet locations matching the 3s in mazeMap
+const pelletPositions = [
+    { r: 1, c: 1 },
+    { r: 1, c: 17 },
+    { r: 17, c: 1 },
+    { r: 17, c: 17 }
+];
+
+let dotsGrid = [];
+let score = 0;
+let lives = 3;
+let activeTarget = null;
+let activePellets = []; // Holds 3 pellets mapped to locations
+let powerTimer = 0;
+let speedTimer = 0;
+let gameInterval;
+
+const player = {
+    x: 9 * TILE_SIZE + TILE_SIZE / 2,
+    y: 16 * TILE_SIZE + TILE_SIZE / 2,
+    radius: TILE_SIZE / 2 - 3,
+    speed: 3,
+    dirX: 0,
+    dirY: 0,
+    nextDirX: 0,
+    nextDirY: 0
+};
+
+const ghosts = [
+    { x: 9 * TILE_SIZE + TILE_SIZE / 2, y: 8 * TILE_SIZE + TILE_SIZE / 2, dirX: 1, dirY: 0, baseSpeed: 2, color: 'red' },
+    { x: 9 * TILE_SIZE + TILE_SIZE / 2, y: 10 * TILE_SIZE + TILE_SIZE / 2, dirX: -1, dirY: 0, baseSpeed: 2, color: 'pink' }
+];
+
+function initGame() {
+    // Clone dots map
+    dotsGrid = mazeMap.map(row => [...row]);
+    score = 0;
+    lives = 3;
+    updateScoreUI();
+    resetPositions();
+    setupTargetAndPellets();
+    
+    document.removeEventListener('keydown', handleKeyDown);
+    document.addEventListener('keydown', handleKeyDown);
+
+    if (gameInterval) clearInterval(gameInterval);
+    gameInterval = setInterval(gameLoop, 1000 / 60);
+}
+
+function resetPositions() {
+    player.x = 9 * TILE_SIZE + TILE_SIZE / 2;
+    player.y = 16 * TILE_SIZE + TILE_SIZE / 2;
+    player.dirX = 0;
+    player.dirY = 0;
+    player.nextDirX = 0;
+    player.nextDirY = 0;
+
+    ghosts[0].x = 9 * TILE_SIZE + TILE_SIZE / 2;
+    ghosts[0].y = 8 * TILE_SIZE + TILE_SIZE / 2;
+    ghosts[1].x = 9 * TILE_SIZE + TILE_SIZE / 2;
+    ghosts[1].y = 10 * TILE_SIZE + TILE_SIZE / 2;
+}
+
+function setupTargetAndPellets() {
+    // Pick random target
+    activeTarget = vocabList[Math.floor(Math.random() * vocabList.length)];
+    document.getElementById('definition-box').innerText = `Target: "${activeTarget.def}"`;
+    document.getElementById('target-word').innerText = activeTarget.word;
+
+    // Pick 2 wrong words
+    let choices = [activeTarget];
+    while (choices.length < 3) {
+        let randWord = vocabList[Math.floor(Math.random() * vocabList.length)];
+        if (!choices.includes(randWord)) {
+            choices.push(randWord);
+        }
+    }
+
+    // Shuffle choices
+    choices.sort(() => Math.random() - 0.5);
+
+    // Pick 3 random corners out of 4 positions
+    let availableLocations = [...pelletPositions];
+    availableLocations.sort(() => Math.random() - 0.5);
+
+    activePellets = choices.map((vocab, index) => {
+        return {
+            word: vocab.word,
+            isCorrect: vocab.word === activeTarget.word,
+            r: availableLocations[index].r,
+            c: availableLocations[index].c
+        };
+    });
+}
+
+function handleKeyDown(e) {
+    if (e.key === 'ArrowUp') { player.nextDirX = 0; player.nextDirY = -1; }
+    if (e.key === 'ArrowDown') { player.nextDirX = 0; player.nextDirY = 1; }
+    if (e.key === 'ArrowLeft') { player.nextDirX = -1; player.nextDirY = 0; }
+    if (e.key === 'ArrowRight') { player.nextDirX = 1; player.nextDirY = 0; }
+}
+
+function canMoveTo(x, y) {
+    let r = Math.floor(y / TILE_SIZE);
+    let c = Math.floor(x / TILE_SIZE);
+    if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return false;
+    return mazeMap[r][c] !== 1;
+}
+
+function movePlayer() {
+    // Check next direction alignment
+    if (player.nextDirX !== 0 || player.nextDirY !== 0) {
+        let testX = player.x + player.nextDirX * player.speed;
+        let testY = player.y + player.nextDirY * player.speed;
+        
+        let centerCheckX = Math.floor(player.x / TILE_SIZE) * TILE_SIZE + TILE_SIZE/2;
+        let centerCheckY = Math.floor(player.y / TILE_SIZE) * TILE_SIZE + TILE_SIZE/2;
+
+        if (Math.abs(player.x - centerCheckX) < 3 && Math.abs(player.y - centerCheckY) < 3) {
+            if (canMoveTo(centerCheckX + player.nextDirX * TILE_SIZE, centerCheckY + player.nextDirY * TILE_SIZE)) {
+                player.dirX = player.nextDirX;
+                player.dirY = player.nextDirY;
+                player.x = centerCheckX;
+                player.y = centerCheckY;
+            }
+        }
+    }
+
+    let nextX = player.x + player.dirX * player.speed;
+    let nextY = player.y + player.dirY * player.speed;
+
+    // Edge-checking collisions
+    let radius = player.radius;
+    let checkMargin = radius - 2;
+    if (
+        canMoveTo(nextX + Math.sign(player.dirX)*checkMargin, nextY + Math.sign(player.dirY)*checkMargin)
+    ) {
+        player.x = nextX;
+        player.y = nextY;
+    }
+
+    // Dot collection
+    let curR = Math.floor(player.y / TILE_SIZE);
+    let curC = Math.floor(player.x / TILE_SIZE);
+    if (dotsGrid[curR][curC] === 0) {
+        dotsGrid[curR][curC] = 2;
+        score += 10;
+        updateScoreUI();
+    }
+
+    // Pellet collection check
+    activePellets.forEach((pellet, index) => {
+        if (pellet && curR === pellet.r && curC === pellet.c) {
+            if (pellet.isCorrect) {
+                powerTimer = 8 * 60; // 8 seconds at 60fps
+                setStatusMessage("CORRECT! Ghosts are vulnerable!", "#00ff00");
+                score += 100;
+            } else {
+                speedTimer = 5 * 60; // 5 seconds speed up
+                setStatusMessage("INCORRECT! Ghosts powered up (+25% speed)!", "#ff3333");
+            }
+            updateScoreUI();
+            setupTargetAndPellets();
+        }
+    });
+}
+
+function moveGhosts() {
+    let ghostSpeedMultiplier = 1;
+    if (speedTimer > 0) {
+        ghostSpeedMultiplier = 1.25;
+        speedTimer--;
+    }
+    if (powerTimer > 0) {
+        ghostSpeedMultiplier = 0.6; // Slow slightly when vulnerable
+        powerTimer--;
+    }
+
+    ghosts.forEach(ghost => {
+        let moveDist = ghost.baseSpeed * ghostSpeedMultiplier;
+        let nextX = ghost.x + ghost.dirX * moveDist;
+        let nextY = ghost.y + ghost.dirY * moveDist;
+
+        let centerCheckX = Math.floor(ghost.x / TILE_SIZE) * TILE_SIZE + TILE_SIZE/2;
+        let centerCheckY = Math.floor(ghost.y / TILE_SIZE) * TILE_SIZE + TILE_SIZE/2;
+
+        if (Math.abs(ghost.x - centerCheckX) < moveDist && Math.abs(ghost.y - centerCheckY) < moveDist) {
+            // Pick available directions at intersections
+            let directions = [
+                {x: 0, y: -1}, {x: 0, y: 1},
+                {x: -1, y: 0}, {x: 1, y: 0}
+            ];
+
+            let validDirections = directions.filter(d => {
+                // Prevent 180 flip instantly unless forced
+                if (d.x === -ghost.dirX && d.y === -ghost.dirY) return false;
+                let r = Math.floor((centerCheckY + d.y * TILE_SIZE) / TILE_SIZE);
+                let c = Math.floor((centerCheckX + d.x * TILE_SIZE) / TILE_SIZE);
+                return mazeMap[r] && mazeMap[r][c] !== 1;
+            });
+
+            if (validDirections.length === 0) {
+                ghost.dirX = -ghost.dirX;
+                ghost.dirY = -ghost.dirY;
+            } else {
+                let chosen = validDirections[Math.floor(Math.random() * validDirections.length)];
+                ghost.dirX = chosen.x;
+                ghost.dirY = chosen.y;
+            }
+            ghost.x = centerCheckX;
+            ghost.y = centerCheckY;
+        } else {
+            ghost.x = nextX;
+            ghost.y = nextY;
+        }
+
+        // Collision check with player
+        let dist = Math.hypot(player.x - ghost.x, player.y - ghost.y);
+        if (dist < TILE_SIZE / 1.2) {
+            if (powerTimer > 0) {
+                // Eat ghost
+                score += 200;
+                setStatusMessage("Ghost Eaten! +200 PTS", "#00ffff");
+                ghost.x = 9 * TILE_SIZE + TILE_SIZE / 2;
+                ghost.y = 9 * TILE_SIZE + TILE_SIZE / 2;
+                updateScoreUI();
+            } else {
+                // Lose life
+                lives--;
+                updateScoreUI();
+                if (lives <= 0) {
+                    endGame("GAME OVER! Final Score: " + score);
+                } else {
+                    setStatusMessage("Ouch! Caught by ghost!", "#ff9900");
+                    resetPositions();
+                }
+            }
+        }
+    });
+}
+
+function setStatusMessage(msg, color) {
+    const statusEl = document.getElementById('status-message');
+    statusEl.innerText = msg;
+    statusEl.style.color = color;
+}
+
+function updateScoreUI() {
+    document.getElementById('score-val').innerText = score;
+    document.getElementById('lives-val').innerText = lives;
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw Map & Dots
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+            if (mazeMap[r][c] === 1) {
+                ctx.fillStyle = '#1e3a8a';
+                ctx.fillRect(c * TILE_SIZE, r * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                ctx.strokeStyle = '#000';
+                ctx.strokeRect(c * TILE_SIZE, r * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+            } else if (dotsGrid[r][c] === 0) {
+                ctx.fillStyle = '#ffb8ae';
+                ctx.beginPath();
+                ctx.arc(c * TILE_SIZE + TILE_SIZE/2, r * TILE_SIZE + TILE_SIZE/2, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+    }
+
+    // Draw Pellets
+    activePellets.forEach(pellet => {
+        if (!pellet) return;
+        let px = pellet.c * TILE_SIZE + TILE_SIZE/2;
+        let py = pellet.r * TILE_SIZE + TILE_SIZE/2;
+
+        ctx.fillStyle = '#ffd700';
+        ctx.beginPath();
+        ctx.arc(px, py, 10, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Label Pellet Word
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 10px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(pellet.word, px, py - 13);
+    });
+
+    // Draw Player
+    ctx.fillStyle = '#ffff00';
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, player.radius, 0.2 * Math.PI, 1.8 * Math.PI);
+    ctx.lineTo(player.x, player.y);
+    ctx.fill();
+
+    // Draw Ghosts
+    ghosts.forEach(ghost => {
+        ctx.fillStyle = powerTimer > 0 ? '#0000ff' : ghost.color;
+        ctx.beginPath();
+        ctx.arc(ghost.x, ghost.y - 2, TILE_SIZE/2 - 2, Math.PI, 0, false);
+        ctx.lineTo(ghost.x + TILE_SIZE/2 - 2, ghost.y + TILE_SIZE/2 - 2);
+        ctx.lineTo(ghost.x - TILE_SIZE/2 + 2, ghost.y + TILE_SIZE/2 - 2);
+        ctx.closePath();
+        ctx.fill();
+
+        // Eyes
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(ghost.x - 4, ghost.y - 4, 3, 0, Math.PI * 2);
+        ctx.arc(ghost.x + 4, ghost.y - 4, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.arc(ghost.x - 4, ghost.y - 4, 1.5, 0, Math.PI * 2);
+        ctx.arc(ghost.x + 4, ghost.y - 4, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+    });
+}
+
+function gameLoop() {
+    movePlayer();
+    moveGhosts();
+    draw();
+}
+
+function endGame(msg) {
+    clearInterval(gameInterval);
+    alert(msg);
+    initGame();
+}
+
+initGame();
+</script>
+</body>
+</html>

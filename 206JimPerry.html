@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Tower Defense: Vocabulary Reload</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #1e1e2e;
+            color: #cdd6f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        #game-container {
+            display: flex;
+            width: 1000px;
+            height: 600px;
+            background-color: #181825;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        /* Canvas Area */
+        #viewport {
+            position: relative;
+            width: 700px;
+            height: 600px;
+        }
+
+        canvas {
+            background-color: #2b2b3c;
+            display: block;
+        }
+
+        #hud {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            right: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: rgba(24, 24, 37, 0.85);
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 1px solid #45475a;
+            pointer-events: none;
+        }
+
+        .hud-item {
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .health-bar-container {
+            width: 150px;
+            height: 18px;
+            background-color: #313244;
+            border-radius: 9px;
+            overflow: hidden;
+            border: 1px solid #45475a;
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 8px;
+        }
+
+        #health-bar {
+            width: 100%;
+            height: 100%;
+            background-color: #a6e3a1;
+            transition: width 0.3s ease;
+        }
+
+        /* Sidebar Area */
+        #sidebar {
+            width: 300px;
+            height: 100%;
+            background-color: #11111b;
+            border-left: 2px solid #313244;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .sidebar-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #cba6f7;
+            margin-bottom: 15px;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Turret Status Panel */
+        .turret-status-card {
+            background-color: #1e1e2e;
+            border: 1px solid #45475a;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+
+        .turret-header {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            margin-bottom: 6px;
+        }
+
+        .ammo-bar-bg {
+            width: 100%;
+            height: 10px;
+            background-color: #313244;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .ammo-bar-fill {
+            height: 100%;
+            width: 100%;
+            background-color: #89b4fa;
+            transition: width 0.2s;
+        }
+
+        .status-text {
+            font-size: 12px;
+            margin-top: 4px;
+            color: #a6adc8;
+        }
+
+        .status-text.locked {
+            color: #f38ba8;
+            font-weight: bold;
+        }
+
+        /* Reload Puzzle Overlay */
+        #reload-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(17, 17, 27, 0.95);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            z-index: 10;
+            box-sizing: border-box;
+        }
+
+        #reload-overlay.hidden {
+            display: none;
+        }
+
+        .puzzle-title {
+            color: #f9e2af;
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .definition-box {
+            background-color: #1e1e2e;
+            border: 1px solid #45475a;
+            border-radius: 8px;
+            padding: 15px;
+            font-size: 14px;
+            line-height: 1.4;
+            color: #cdd6f4;
+            margin-bottom: 20px;
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .options-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .option-btn {
+            background-color: #313244;
+            color: #cdd6f4;
+            border: 1px solid #45475a;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: capitalize;
+        }
+
+        .option-btn:hover {
+            background-color: #45475a;
+            border-color: #89b4fa;
+        }
+
+        /* Game Over / Victory Overlay */
+        .modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+        }
+
+        .modal-overlay.hidden {
+            display: none;
+        }
+
+        .modal-title {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .modal-title.win { color: #a6e3a1; }
+        .modal-title.lose { color: #f38ba8; }
+
+        .btn-restart {
+            background-color: #89b4fa;
+            color: #11111b;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+
+        .btn-restart:hover {
+            background-color: #b4befe;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="viewport">
+        <canvas id="gameCanvas" width="700" height="600"></canvas>
+        <div id="hud">
+            <div class="hud-item">Wave: <span id="wave-display" style="color: #f9e2af;">1</span> / 5</div>
+            <div class="hud-item">
+                Base HP: 
+                <div class="health-bar-container">
+                    <div id="health-bar"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- End Game Modal -->
+        <div id="end-modal" class="modal-overlay hidden">
+            <div id="modal-status" class="modal-title win">VICTORY!</div>
+            <p id="modal-desc">You successfully defended the base!</p>
+            <button class="btn-restart" onclick="resetGame()">Play Again</button>
+        </div>
+    </div>
+
+    <div id="sidebar">
+        <div class="sidebar-title">Turret Status</div>
+        
+        <div id="turret-cards">
+            <!-- Dynamic Turret Cards -->
+        </div>
+
+        <!-- Vocabulary Reload Overlay -->
+        <div id="reload-overlay" class="hidden">
+            <div class="puzzle-title">⚠️ RELOAD PUZZLE</div>
+            <p style="font-size: 12px; color: #a6adc8; text-align: center; margin-bottom: 10px;">Select the correct word for the definition to reload ALL turrets!</p>
+            <div class="definition-box" id="puzzle-def">
+                A set of instructions or ingredients used for preparing a dish.
+            </div>
+            <div class="options-container" id="puzzle-options">
+                <!-- Dynamic Option Buttons -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// --- VOCABULARY DATASET ---
+const vocabulary = [
+    { word: "recipe", def: "A set of instructions and ingredients used for preparing a dish." },
+    { word: "pasta", def: "A dish originally from Italy consisting of dough made from wheat and water." },
+    { word: "variation", def: "A change or slight difference in condition, amount, or level." },
+    { word: "combination", def: "A joining or merging of different parts or qualities together." },
+    { word: "ultimately", def: "At the end of a process or period of time; finally." },
+    { word: "generation", def: "All of the people born and living at about the same time." },
+    { word: "deserve", def: "To be worthy of or qualify for something due to actions or qualities." },
+    { word: "ingredient", def: "Any of the foods or substances that are combined to make a particular dish." },
+    { word: "authentic", def: "Made or done in a traditional or original way; genuine." },
+    { word: "simmer", def: "To cook food gently in a liquid just below the boiling point." }
+];
+
+// --- GAME STATE & CONSTANTS ---
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+const PATH = [
+    {x: -20, y: 300},
+    {x: 150, y: 300},
+    {x: 150, y: 120},
+    {x: 380, y: 120},
+    {x: 380, y: 480},
+    {x: 580, y: 480},
+    {x: 580, y: 300},
+    {x: 720, y: 300}
+];
+
+let baseHealth = 100;
+let currentWave = 1;
+const maxWaves = 5;
+let gameOver = false;
+let gameLoopId = null;
+
+let enemies = [];
+let bullets = [];
+let particles = [];
+let spawnQueue = [];
+let spawnTimer = 0;
+
+// Turret Data
+const TURRET_CONFIGS = [
+    { id: 0, x: 250, y: 200 },
+    { id: 1, x: 250, y: 400 },
+    { id: 2, x: 480, y: 300 }
+];
+
+let turrets = [];
+
+// Vocabulary Puzzle State
+let activePuzzle = null;
+let reloadingTurretId = null;
+
+class Turret {
+    constructor(id, x, y) {
+        this.id = id;
+        this.x = x;
+        this.y = y;
+        this.range = 130;
+        this.maxAmmo = 10;
+        this.ammo = 10;
+        this.cooldown = 0;
+        this.fireRate = 30; // Frames between shots
+        this.lockoutTimer = 0; // Frames for 5s penalty
+        this.target = null;
+        this.angle = 0;
+    }
+
+    update() {
+        if (this.lockoutTimer > 0) {
+            this.lockoutTimer--;
+            return;
+        }
+
+        if (this.ammo <= 0) return;
+
+        if (this.cooldown > 0) this.cooldown--;
+
+        // Find Target
+        this.target = null;
+        let bestDist = this.range;
+        
+        for (let enemy of enemies) {
+            let dist = Math.hypot(enemy.x - this.x, enemy.y - this.y);
+            if (dist <= this.range) {
+                // Target enemy furthest along path
+                if (!this.target || enemy.pathIndex > this.target.pathIndex) {
+                    this.target = enemy;
+                    bestDist = dist;
+                }
+            }
+        }
+
+        if (this.target) {
+            this.angle = Math.atan2(this.target.y - this.y, this.target.x - this.x);
+            if (this.cooldown <= 0) {
+                this.shoot();
+            }
+        }
+    }
+
+    shoot() {
+        this.ammo--;
+        this.cooldown = this.fireRate;
+        bullets.push(new Bullet(this.x, this.y, this.target));
+
+        // Check empty ammo trigger
+        if (this.ammo <= 0) {
+            triggerReloadPuzzle(this.id);
+        }
+    }
+
+    draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        // Range Circle
+        ctx.beginPath();
+        ctx.arc(0, 0, this.range, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(137, 180, 250, 0.03)';
+        ctx.fill();
+        ctx.strokeStyle = this.lockoutTimer > 0 ? 'rgba(243, 139, 168, 0.2)' : 'rgba(137, 180, 250, 0.15)';
+        ctx.stroke();
+
+        // Base
+        ctx.beginPath();
+        ctx.arc(0, 0, 22, 0, Math.PI * 2);
+        ctx.fillStyle = '#313244';
+        ctx.fill();
+        ctx.strokeStyle = '#45475a';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // Barrel
+        ctx.rotate(this.angle);
+        ctx.fillStyle = this.lockoutTimer > 0 ? '#f38ba8' : (this.ammo === 0 ? '#f9e2af' : '#89b4fa');
+        ctx.fillRect(0, -6, 28, 12);
+
+        // Center Cap
+        ctx.beginPath();
+        ctx.arc(0, 0, 12, 0, Math.PI * 2);
+        ctx.fillStyle = '#11111b';
+        ctx.fill();
+
+        ctx.restore();
+    }
+}
+
+class Enemy {
+    constructor(hp, speed) {
+        this.x = PATH[0].x;
+        this.y = PATH[0].y;
+        this.hp = hp;
+        this.maxHp = hp;
+        this.speed = speed;
+        this.pathIndex = 0;
+        this.radius = 12;
+    }
+
+    update() {
+        let target = PATH[this.pathIndex + 1];
+        if (!target) return;
+
+        let dx = target.x - this.x;
+        let dy = target.y - this.y;
+        let dist = Math.hypot(dx, dy);
+
+        if (dist < this.speed) {
+            this.x = target.x;
+            this.y = target.y;
+            this.pathIndex++;
+            if (this.pathIndex >= PATH.length - 1) {
+                // Reached Base
+                takeBaseDamage(10);
+                this.hp = 0; // Destroy
+            }
+        } else {
+            this.x += (dx / dist) * this.speed;
+            this.y += (dy / dist) * this.speed;
+        }
+    }
+
+    draw() {
+        ctx.save();
+        // Body
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = '#f38ba8';
+        ctx.fill();
+        ctx.strokeStyle = '#11111b';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Health Bar
+        let barWidth = 24;
+        let barHeight = 4;
+        let hpPct = Math.max(0, this.hp / this.maxHp);
+        ctx.fillStyle = '#313244';
+        ctx.fillRect(this.x - barWidth / 2, this.y - this.radius - 8, barWidth, barHeight);
+        ctx.fillStyle = '#a6e3a1';
+        ctx.fillRect(this.x - barWidth / 2, this.y - this.radius - 8, barWidth * hpPct, barHeight);
+
+        ctx.restore();
+    }
+}
+
+class Bullet {
+    constructor(x, y, target) {
+        this.x = x;
+        this.y = y;
+        this.target = target;
+        this.speed = 8;
+        this.damage = 25;
+        this.active = true;
+    }
+
+    update() {
+        if (!this.target || this.target.hp <= 0) {
+            this.active = false;
+            return;
+        }
+
+        let dx = this.target.x - this.x;
+        let dy = this.target.y - this.y;
+        let dist = Math.hypot(dx, dy);
+
+        if (dist < this.speed) {
+            this.target.hp -= this.damage;
+            this.createImpactParticles(this.target.x, this.target.y);
+            this.active = false;
+        } else {
+            this.x += (dx / dist) * this.speed;
+            this.y += (dy / dist) * this.speed;
+        }
+    }
+
+    createImpactParticles(x, y) {
+        for(let i=0; i<5; i++) {
+            particles.push({
+                x: x, y: y,
+                vx: (Math.random() - 0.5) * 4,
+                vy: (Math.random() - 0.5) * 4,
+                life: 10,
+                color: '#f9e2af'
+            });
+        }
+    }
+
+    draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = '#f9e2af';
+        ctx.fill();
+    }
+}
+
+// --- GAME LOGIC FUNCTIONS ---
+
+function initGame() {
+    baseHealth = 100;
+    currentWave = 1;
+    gameOver = false;
+    enemies = [];
+    bullets = [];
+    particles = [];
+    
+    turrets = TURRET_CONFIGS.map(c => new Turret(c.id, c.x, c.y));
+    
+    updateHUD();
+    renderTurretCards();
+    startWave(currentWave);
+
+    if (gameLoopId) cancelAnimationFrame(gameLoopId);
+    gameLoop();
+}
+
+function startWave(waveNum) {
+    spawnQueue = [];
+    let count = 5 + waveNum * 3;
+    let hp = 40 + waveNum * 20;
+    let speed = 1.2 + waveNum * 0.15;
+
+    for (let i = 0; i < count; i++) {
+        spawnQueue.push({ hp: hp, speed: speed });
+    }
+}
+
+function takeBaseDamage(amount) {
+    baseHealth -= amount;
+    if (baseHealth <= 0) {
+        baseHealth = 0;
+        triggerGameOver(false);
+    }
+    updateHUD();
+}
+
+function updateHUD() {
+    document.getElementById('wave-display').innerText = currentWave;
+    const hpBar = document.getElementById('health-bar');
+    hpBar.style.width = baseHealth + '%';
+    if (baseHealth < 30) {
+        hpBar.style.backgroundColor = '#f38ba8';
+    } else if (baseHealth < 60) {
+        hpBar.style.backgroundColor = '#f9e2af';
+    } else {
+        hpBar.style.backgroundColor = '#a6e3a1';
+    }
+}
+
+// --- TURRET SIDEBAR & PUZZLE MECHANICS ---
+
+function renderTurretCards() {
+    const container = document.getElementById('turret-cards');
+    container.innerHTML = '';
+
+    turrets.forEach(t => {
+        const card = document.createElement('div');
+        card.className = 'turret-status-card';
+        
+        let statusText = `Ammo: ${t.ammo}/${t.maxAmmo}`;
+        let statusClass = '';
+
+        if (t.lockoutTimer > 0) {
+            let secondsLeft = Math.ceil(t.lockoutTimer / 60);
+            statusText = `LOCKED DOWN (${secondsLeft}s penalty)`;
+            statusClass = 'locked';
+        } else if (t.ammo === 0) {
+            statusText = `NEEDS RELOAD!`;
+            statusClass = 'locked';
+        }
+
+        const ammoPct = (t.ammo / t.maxAmmo) * 100;
+
+        card.innerHTML = `
+            <div class="turret-header">
+                <span>Turret ${t.id + 1}</span>
+            </div>
+            <div class="ammo-bar-bg">
+                <div class="ammo-bar-fill" style="width: ${ammoPct}%;"></div>
+            </div>
+            <div class="status-text ${statusClass}">${statusText}</div>
+        `;
+        container.appendChild(card);
+    });
+}
+
+function triggerReloadPuzzle(turretId) {
+    // If a puzzle is already actively showing, don't overwrite unless needed
+    if (!document.getElementById('reload-overlay').classList.contains('hidden')) return;
+
+    reloadingTurretId = turretId;
+    
+    // Pick random vocabulary item
+    const targetVocab = vocabulary[Math.floor(Math.random() * vocabulary.length)];
+    
+    // Generate 2 random wrong options
+    let options = [targetVocab.word];
+    while (options.length < 3) {
+        let randWord = vocabulary[Math.floor(Math.random() * vocabulary.length)].word;
+        if (!options.includes(randWord)) {
+            options.push(randWord);
+        }
+    }
+    
+    // Shuffle options
+    options.sort(() => Math.random() - 0.5);
+
+    activePuzzle = {
+        correctWord: targetVocab.word,
+        definition: targetVocab.def,
+        options: options
+    };
+
+    // Render Overlay
+    document.getElementById('puzzle-def').innerText = activePuzzle.definition;
+    const optsContainer = document.getElementById('puzzle-options');
+    optsContainer.innerHTML = '';
+
+    activePuzzle.options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = 'option-btn';
+        btn.innerText = opt;
+        btn.onclick = () => handleAnswer(opt);
+        optsContainer.appendChild(btn);
+    });
+
+    document.getElementById('reload-overlay').classList.remove('hidden');
+}
+
+function handleAnswer(selectedWord) {
+    document.getElementById('reload-overlay').classList.add('hidden');
+
+    if (selectedWord === activePuzzle.correctWord) {
+        // SUCCESS: Reload ALL turrets
+        turrets.forEach(t => {
+            t.ammo = t.maxAmmo;
+            t.lockoutTimer = 0; // Clear any active penalty
+        });
+    } else {
+        // PENALTY: Lock current turret for 5 seconds (300 frames at 60fps)
+        let t = turrets.find(tur => tur.id === reloadingTurretId);
+        if (t) {
+            t.lockoutTimer = 300;
+        }
+    }
+    
+    activePuzzle = null;
+    reloadingTurretId = null;
+    renderTurretCards();
+}
+
+// --- GAME LOOP & RENDERING ---
+
+function gameLoop() {
+    if (gameOver) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 1. Draw Path
+    drawPath();
+
+    // 2. Wave Spawning
+    if (spawnQueue.length > 0) {
+        spawnTimer++;
+        if (spawnTimer >= 70) {
+            let enemyData = spawnQueue.shift();
+            enemies.push(new Enemy(enemyData.hp, enemyData.speed));
+            spawnTimer = 0;
+        }
+    } else if (enemies.length === 0 && !gameOver) {
+        // Wave Completed
+        if (currentWave < maxWaves) {
+            currentWave++;
+            updateHUD();
+            startWave(currentWave);
+        } else {
+            triggerGameOver(true);
+            return;
+        }
+    }
+
+    // 3. Update & Draw Turrets
+    turrets.forEach(t => {
+        t.update();
+        t.draw();
+    });
+
+    // 4. Update & Draw Enemies
+    for (let i = enemies.length - 1; i >= 0; i--) {
+        let e = enemies[i];
+        e.update();
+        e.draw();
+        if (e.hp <= 0) {
+            enemies.splice(i, 1);
+        }
+    }
+
+    // 5. Update & Draw Bullets
+    for (let i = bullets.length - 1; i >= 0; i--) {
+        let b = bullets[i];
+        b.update();
+        b.draw();
+        if (!b.active) {
+            bullets.splice(i, 1);
+        }
+    }
+
+    // 6. Update Particles
+    for (let i = particles.length - 1; i >= 0; i--) {
+        let p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life--;
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x, p.y, 3, 3);
+        if (p.life <= 0) particles.splice(i, 1);
+    }
+
+    // UI Updates
+    renderTurretCards();
+
+    gameLoopId = requestAnimationFrame(gameLoop);
+}
+
+function drawPath() {
+    ctx.beginPath();
+    ctx.moveTo(PATH[0].x, PATH[0].y);
+    for (let i = 1; i < PATH.length; i++) {
+        ctx.lineTo(PATH[i].x, PATH[i].y);
+    }
+    ctx.strokeStyle = '#313244';
+    ctx.lineWidth = 36;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+
+    ctx.strokeStyle = '#45475a';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+}
+
+function triggerGameOver(isWin) {
+    gameOver = true;
+    const modal = document.getElementById('end-modal');
+    const title = document.getElementById('modal-status');
+    const desc = document.getElementById('modal-desc');
+
+    modal.classList.remove('hidden');
+    if (isWin) {
+        title.innerText = "VICTORY!";
+        title.className = "modal-title win";
+        desc.innerText = "Fantastic job! You mastered the vocabulary and defended the base through all 5 waves!";
+    } else {
+        title.innerText = "BASE OVERRUN";
+        title.className = "modal-title lose";
+        desc.innerText = "Enemies broke through your defenses. Master your vocabulary reload speed to try again!";
+    }
+}
+
+function resetGame() {
+    document.getElementById('end-modal').classList.add('hidden');
+    document.getElementById('reload-overlay').classList.add('hidden');
+    initGame();
+}
+
+// Start Game on Load
+window.onload = initGame;
+</script>
+</body>
+</html>

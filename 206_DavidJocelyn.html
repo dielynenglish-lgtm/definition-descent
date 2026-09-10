@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Split-Screen Vocabulary Battle</title>
+<style>
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    user-select: none;
+  }
+
+  body {
+    background-color: #1a1a1a;
+    color: #fff;
+    overflow: hidden;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Top Bar */
+  header {
+    height: 60px;
+    background-color: #2c3e50;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 20px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    z-index: 10;
+  }
+
+  .score-box {
+    font-size: 1.4rem;
+    font-weight: bold;
+  }
+
+  #p1-score-display { color: #ff6b6b; }
+  #p2-score-display { color: #51cf66; }
+
+  #timer-display {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: #fcc419;
+    background: #101113;
+    padding: 4px 16px;
+    border-radius: 20px;
+    border: 2px solid #fcc419;
+  }
+
+  /* Split Container */
+  .game-container {
+    display: flex;
+    flex: 1;
+    position: relative;
+  }
+
+  .player-screen {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    justify-content: space-between;
+    transition: background-color 0.2s ease;
+    position: relative;
+  }
+
+  /* Vertical Divider */
+  .divider {
+    width: 6px;
+    background-color: #495057;
+    height: 100%;
+  }
+
+  /* Colors */
+  #p1-screen { background-color: #2b1d1d; }
+  #p2-screen { background-color: #1d2b20; }
+
+  /* Lockout Overlay */
+  .lockout-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: rgba(220, 53, 69, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: white;
+    text-shadow: 2px 2px 4px #000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 5;
+  }
+
+  .lockout-active {
+    opacity: 1;
+  }
+
+  /* Flash Animations */
+  .flash-correct {
+    animation: flashGreen 0.4s ease;
+  }
+
+  @keyframes flashGreen {
+    0% { background-color: #2b1d1d; }
+    50% { background-color: #2b8a3e; }
+    100% { background-color: #2b1d1d; }
+  }
+
+  /* Definition Box */
+  .definition-card {
+    background: rgba(0, 0, 0, 0.4);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .definition-card h3 {
+    font-size: 1rem;
+    color: #adb5bd;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+
+  .definition-card p {
+    font-size: 1.3rem;
+    font-weight: 600;
+  }
+
+  /* Quadrant Grid */
+  .quadrant-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 15px;
+    height: 60%;
+  }
+
+  .btn-quad {
+    background: #343a40;
+    border: 3px solid #495057;
+    border-radius: 12px;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    font-weight: bold;
+    cursor: default;
+    position: relative;
+    box-shadow: 0 4px 0 #212529;
+  }
+
+  .key-hint {
+    position: absolute;
+    top: 8px;
+    left: 12px;
+    background-color: rgba(255,255,255,0.2);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    color: #f8f9fa;
+  }
+
+  /* Victory Screen Modal */
+  #victory-screen {
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    background-color: rgba(0, 0, 0, 0.9);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+  }
+
+  #victory-screen.hidden {
+    display: none;
+  }
+
+  #victory-screen h1 {
+    font-size: 3.5rem;
+    color: #fcc419;
+    margin-bottom: 20px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+
+  .final-scores {
+    font-size: 2rem;
+    margin-bottom: 30px;
+    text-align: center;
+  }
+
+  #rematch-btn {
+    background-color: #3b5bdb;
+    color: white;
+    border: none;
+    padding: 15px 40px;
+    font-size: 1.5rem;
+    font-weight: bold;
+    border-radius: 30px;
+    cursor: pointer;
+    box-shadow: 0 6px 0 #1c7ed6;
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+
+  #rematch-btn:active {
+    transform: translateY(4px);
+    box-shadow: 0 2px 0 #1c7ed6;
+  }
+</style>
+</head>
+<body>
+
+  <!-- Top Status Bar -->
+  <header>
+    <div class="score-box" id="p1-score-display">P1 (RED): 0</div>
+    <div id="timer-display">60</div>
+    <div class="score-box" id="p2-score-display">P2 (GREEN): 0</div>
+  </header>
+
+  <!-- Split Screen Area -->
+  <div class="game-container">
+    
+    <!-- Player 1 Screen -->
+    <div class="player-screen" id="p1-screen">
+      <div class="lockout-overlay" id="p1-lockout">LOCKED OUT!</div>
+      <div class="definition-card">
+        <h3>Definition</h3>
+        <p class="def-text">Loading...</p>
+      </div>
+      <div class="quadrant-grid">
+        <div class="btn-quad" id="p1-q"><span class="key-hint">Q</span><span class="word-text"></span></div>
+        <div class="btn-quad" id="p1-w"><span class="key-hint">W</span><span class="word-text"></span></div>
+        <div class="btn-quad" id="p1-a"><span class="key-hint">A</span><span class="word-text"></span></div>
+        <div class="btn-quad" id="p1-s"><span class="key-hint">S</span><span class="word-text"></span></div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Player 2 Screen -->
+    <div class="player-screen" id="p2-screen">
+      <div class="lockout-overlay" id="p2-lockout">LOCKED OUT!</div>
+      <div class="definition-card">
+        <h3>Definition</h3>
+        <p class="def-text">Loading...</p>
+      </div>
+      <div class="quadrant-grid">
+        <div class="btn-quad" id="p2-i"><span class="key-hint">I</span><span class="word-text"></span></div>
+        <div class="btn-quad" id="p2-o"><span class="key-hint">O</span><span class="word-text"></span></div>
+        <div class="btn-quad" id="p2-k"><span class="key-hint">K</span><span class="word-text"></span></div>
+        <div class="btn-quad" id="p2-l"><span class="key-hint">L</span><span class="word-text"></span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Victory Screen -->
+  <div id="victory-screen" class="hidden">
+    <h1>Mission Complete</h1>
+    <div class="final-scores" id="final-scores-text"></div>
+    <button id="rematch-btn" onclick="resetGame()">Rematch</button>
+  </div>
+
+<script>
+  // Vocabulary Database (B1 Level including user-specified list)
+  const fullVocabulary = [
+    { word: "solo", definition: "Done by one person alone without assistance." },
+    { word: "flexibility", definition: "The ability to bend easily or adapt to new situations." },
+    { word: "compromise", definition: "An agreement reached when both sides reduce their demands." },
+    { word: "destination", definition: "The place to which someone or something is going." },
+    { word: "split", definition: "To divide or break into two or more parts." },
+    { word: "arise", definition: "To begin to occur, exist, or become noticeble." },
+    { word: "occasionally", definition: "Happening sometimes, but not regularly or often." },
+    { word: "guarantee", definition: "A formal promise that certain conditions will be fulfilled." },
+    { word: "efficient", definition: "Achieving maximum productivity with minimum wasted effort." },
+    { word: "frequently", definition: "Regularly or at short intervals; very often." }
+  ];
+
+  // Key Mappings
+  const p1Keys = { 'q': 0, 'w': 1, 'a': 2, 's': 3 };
+  const p2Keys = { 'i': 0, 'o': 1, 'k': 2, 'l': 3 };
+
+  // State Variables
+  let currentQuestions = [];
+  let currentQuestionIndex = 0;
+  let p1Score = 0;
+  let p2Score = 0;
+  let timerVal = 60;
+  let timerInterval = null;
+  let p1Locked = false;
+  let p2Locked = false;
+  let isGameOver = false;
+
+  // DOM Elements
+  const p1ScoreEl = document.getElementById('p1-score-display');
+  const p2ScoreEl = document.getElementById('p2-score-display');
+  const timerEl = document.getElementById('timer-display');
+  const victoryScreen = document.getElementById('victory-screen');
+  const finalScoresText = document.getElementById('final-scores-text');
+
+  function shuffle(array) {
+    return array.sort(() => Math.random() - 0.5);
+  }
+
+  function initGame() {
+    // Pick 10 questions (shuffled order)
+    currentQuestions = shuffle([...fullVocabulary]).slice(0, 10);
+    currentQuestionIndex = 0;
+    p1Score = 0;
+    p2Score = 0;
+    timerVal = 60;
+    isGameOver = false;
+
+    p1ScoreEl.textContent = `P1 (RED): 0`;
+    p2ScoreEl.textContent = `P2 (GREEN): 0`;
+    timerEl.textContent = timerVal;
+    victoryScreen.classList.add('hidden');
+
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      timerVal--;
+      timerEl.textContent = timerVal;
+      if (timerVal <= 0) {
+        endGame();
+      }
+    }, 1000);
+
+    loadQuestion();
+  }
+
+  function loadQuestion() {
+    if (currentQuestionIndex >= 10 || currentQuestionIndex >= currentQuestions.length) {
+      endGame();
+      return;
+    }
+
+    p1Locked = false;
+    p2Locked = false;
+    document.getElementById('p1-lockout').classList.remove('lockout-active');
+    document.getElementById('p2-lockout').classList.remove('lockout-active');
+
+    const currentQ = currentQuestions[currentQuestionIndex];
+
+    // Generate 3 wrong options
+    const otherWords = fullVocabulary
+      .filter(item => item.word !== currentQ.word)
+      .map(item => item.word);
+    const distractors = shuffle(otherWords).slice(0, 3);
+    
+    // Combine & shuffle options
+    const options = shuffle([currentQ.word, ...distractors]);
+    currentQ.options = options;
+    currentQ.correctIndex = options.indexOf(currentQ.word);
+
+    // Update UI for both displays
+    document.querySelectorAll('.def-text').forEach(el => el.textContent = currentQ.definition);
+
+    const p1Btns = document.querySelectorAll('#p1-screen .word-text');
+    const p2Btns = document.querySelectorAll('#p2-screen .word-text');
+
+    options.forEach((opt, idx) => {
+      p1Btns[idx].textContent = opt;
+      p2Btns[idx].textContent = opt;
+    });
+  }
+
+  function handleKeyPress(e) {
+    if (isGameOver) return;
+    const key = e.key.toLowerCase();
+
+    // Player 1 Input
+    if (key in p1Keys && !p1Locked) {
+      const selectedIndex = p1Keys[key];
+      checkAnswer(1, selectedIndex);
+    }
+    // Player 2 Input
+    else if (key in p2Keys && !p2Locked) {
+      const selectedIndex = p2Keys[key];
+      checkAnswer(2, selectedIndex);
+    }
+  }
+
+  function checkAnswer(player, index) {
+    const correctIdx = currentQuestions[currentQuestionIndex].correctIndex;
+
+    if (index === correctIdx) {
+      // Correct Guess
+      if (player === 1) {
+        p1Score++;
+        p1ScoreEl.textContent = `P1 (RED): ${p1Score}`;
+        flashScreen('p1-screen');
+      } else {
+        p2Score++;
+        p2ScoreEl.textContent = `P2 (GREEN): ${p2Score}`;
+        flashScreen('p2-screen');
+      }
+      currentQuestionIndex++;
+      loadQuestion();
+    } else {
+      // Incorrect Guess -> Lock out player
+      if (player === 1) {
+        p1Locked = true;
+        document.getElementById('p1-lockout').classList.add('lockout-active');
+      } else {
+        p2Locked = true;
+        document.getElementById('p2-lockout').classList.add('lockout-active');
+      }
+
+      // If both players are locked out, move to next question automatically
+      if (p1Locked && p2Locked) {
+        setTimeout(() => {
+          currentQuestionIndex++;
+          loadQuestion();
+        }, 1000);
+      }
+    }
+  }
+
+  function flashScreen(screenId) {
+    const el = document.getElementById(screenId);
+    el.classList.add('flash-correct');
+    setTimeout(() => el.classList.remove('flash-correct'), 400);
+  }
+
+  function endGame() {
+    isGameOver = true;
+    clearInterval(timerInterval);
+    
+    let winnerText = "";
+    if (p1Score > p2Score) {
+      winnerText = "Player 1 (Red) Wins!";
+    } else if (p2Score > p1Score) {
+      winnerText = "Player 2 (Green) Wins!";
+    } else {
+      winnerText = "It's a Tie!";
+    }
+
+    finalScoresText.innerHTML = `${winnerText}<br><br>Player 1: ${p1Score} | Player 2: ${p2Score}`;
+    victoryScreen.classList.remove('hidden');
+  }
+
+  function resetGame() {
+    initGame();
+  }
+
+  // Event Listeners
+  window.addEventListener('keydown', handleKeyPress);
+
+  // Start game on load
+  initGame();
+</script>
+</body>
+</html>

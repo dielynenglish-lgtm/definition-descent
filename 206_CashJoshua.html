@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+ <meta charset="UTF-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1.0">
+ <title>Defend the Castle: Spellcaster</title>
+ <style>
+ * {
+ box-sizing: border-box;
+ margin: 0;
+ padding: 0;
+ user-select: none;
+ }
+
+ body {
+ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+ background-color: #1a1a2e;
+ color: #fff;
+ overflow: hidden;
+ display: flex;
+ justify-content: center;
+ align-items: center;
+ height: 100vh;
+ }
+
+ #game-container {
+ width: 1000px;
+ height: 600px;
+ background: linear-gradient(to bottom, #1f1c2c, #928dab);
+ position: relative;
+ border: 4px solid #4a4e69;
+ box-shadow: 0 0 20px rgba(0,0,0,0.8);
+ overflow: hidden;
+ }
+
+ /* Top HUD */
+ #hud {
+ position: absolute;
+ top: 15px;
+ left: 20px;
+ right: 20px;
+ display: flex;
+ justify-content: space-between;
+ align-items: center;
+ z-index: 10;
+ }
+
+ .hud-card {
+ background: rgba(0, 0, 0, 0.6);
+ padding: 10px 20px;
+ border-radius: 8px;
+ border: 1px solid #ffb703;
+ font-weight: bold;
+ font-size: 18px;
+ }
+
+ /* Definition Floating Box */
+ #definition-box {
+ position: absolute;
+ top: 20px;
+ right: 40px;
+ width: 320px;
+ background: rgba(20, 20, 35, 0.9);
+ border: 2px solid #8a2be2;
+ border-radius: 10px;
+ padding: 15px;
+ box-shadow: 0 0 15px rgba(138, 43, 226, 0.5);
+ text-align: center;
+ z-index: 10;
+ }
+
+ #definition-box h3 {
+ color: #8a2be2;
+ font-size: 14px;
+ text-transform: uppercase;
+ margin-bottom: 5px;
+ letter-spacing: 1px;
+ }
+
+ #definition-text {
+ font-size: 15px;
+ color: #e0e0e0;
+ line-height: 1.3;
+ }
+
+ /* Ground */
+ #ground {
+ position: absolute;
+ bottom: 0;
+ left: 0;
+ width: 100%;
+ height: 80px;
+ background: #2b2d42;
+ border-top: 4px solid #8d99ae;
+ }
+
+ /* Castle Wall */
+ #castle {
+ position: absolute;
+ right: 0;
+ bottom: 80px;
+ width: 120px;
+ height: 400px;
+ background: #4a4e69;
+ border-left: 6px solid #22223b;
+ box-shadow: -5px 0 15px rgba(0,0,0,0.5);
+ display: flex;
+ flex-direction: column;
+ justify-content: flex-start;
+ align-items: center;
+ }
+
+ .battlements {
+ width: 100%;
+ height: 30px;
+ background: repeating-linear-gradient(
+ 90deg,
+ #22223b,
+ #22223b 20px,
+ transparent 20px,
+ transparent 40px
+ );
+ }
+
+ /* Castle Health Bar */
+ #health-container {
+ width: 80%;
+ height: 20px;
+ background-color: #333;
+ border: 2px solid #fff;
+ border-radius: 10px;
+ margin-top: 20px;
+ overflow: hidden;
+ }
+
+ #health-bar {
+ width: 100%;
+ height: 100%;
+ background-color: #2ec4b6;
+ transition: width 0.3s ease, background-color 0.3s ease;
+ }
+
+ /* Enemies */
+ .enemy {
+ position: absolute;
+ width: 60px;
+ height: 60px;
+ background-color: #e63946;
+ border-radius: 50%;
+ border: 3px solid #9b5de5;
+ display: flex;
+ justify-content: center;
+ align-items: center;
+ cursor: pointer;
+ box-shadow: 0 0 10px rgba(230, 57, 70, 0.8);
+ transition: transform 0.1s;
+ z-index: 5;
+ }
+
+ .enemy:hover {
+ transform: scale(1.1);
+ }
+
+ .enemy.selected {
+ border-color: #00f5d4;
+ box-shadow: 0 0 15px #00f5d4;
+ }
+
+ /* Typing Box Floating Over Enemy */
+ .input-wrapper {
+ position: absolute;
+ top: -45px;
+ left: 50%;
+ transform: translateX(-50%);
+ display: flex;
+ flex-direction: column;
+ align-items: center;
+ pointer-events: auto;
+ }
+
+ .word-hint {
+ font-size: 12px;
+ background: rgba(0,0,0,0.8);
+ color: #f1faee;
+ padding: 2px 6px;
+ border-radius: 4px;
+ margin-bottom: 2px;
+ white-space: nowrap;
+ }
+
+ .type-input {
+ width: 100px;
+ padding: 4px;
+ border: 2px solid #00f5d4;
+ border-radius: 4px;
+ background: #000;
+ color: #fff;
+ text-align: center;
+ font-weight: bold;
+ outline: none;
+ }
+
+ /* Visual Effects */
+ .aoe-blast {
+ position: absolute;
+ border-radius: 50%;
+ background: radial-gradient(circle, rgba(255,159,28,0.8) 0%, rgba(255,0,110,0) 70%);
+ animation: explode 0.5s forwards;
+ pointer-events: none;
+ z-index: 8;
+ }
+
+ @keyframes explode {
+ 0% { width: 0px; height: 0px; opacity: 1; transform: translate(-50%, -50%); }
+ 100% { width: 250px; height: 250px; opacity: 0; transform: translate(-50%, -50%); }
+ }
+
+ .floating-text {
+ position: absolute;
+ font-weight: bold;
+ font-size: 20px;
+ animation: floatUp 1s forwards;
+ pointer-events: none;
+ z-index: 9;
+ }
+
+ @keyframes floatUp {
+ 0% { opacity: 1; transform: translateY(0); }
+ 100% { opacity: 0; transform: translateY(-40px); }
+ }
+
+ /* Game Over Screen */
+ #game-over {
+ position: absolute;
+ top: 0;
+ left: 0;
+ width: 100%;
+ height: 100%;
+ background: rgba(0, 0, 0, 0.85);
+ display: flex;
+ flex-direction: column;
+ justify-content: center;
+ align-items: center;
+ z-index: 20;
+ }
+
+ #game-over.hidden {
+ display: none;
+ }
+
+ #game-over h1 {
+ font-size: 48px;
+ color: #e63946;
+ margin-bottom: 20px;
+ }
+
+ #restart-btn {
+ padding: 12px 30px;
+ font-size: 20px;
+ background: #ffb703;
+ border: none;
+ border-radius: 5px;
+ cursor: pointer;
+ font-weight: bold;
+ color: #000;
+ transition: background 0.2s;
+ }
+
+ #restart-btn:hover {
+ background: #fb8500;
+ }
+ </style>
+</head>
+<body>
+
+<div id="game-container">
+ <div id="hud">
+ <div class="hud-card">Wave: <span id="wave-num">1</span></div>
+ </div>
+
+ <div id="definition-box">
+ <h3>Target Definition</h3>
+ <p id="definition-text">Click a monster to inspect word!</p>
+ </div>
+
+ <div id="castle">
+ <div class="battlements"></div>
+ <div id="health-container">
+ <div id="health-bar"></div>
+ </div>
+ </div>
+
+ <div id="ground"></div>
+
+ <div id="game-over" class="hidden">
+ <h1 id="over-title">CASTLE FALLEN!</h1>
+ <button id="restart-btn" onclick="restartGame()">Play Again</button>
+ </div>
+</div>
+
+<script>
+ // 10 Vocabulary Words & Definitions
+ const vocabularyList = [
+ { word: "coincidence", def: "A remarkable concurrence of events or circumstances without apparent causal connection." },
+ { word: "invade", def: "To enter a place, situation, or sphere in large numbers, especially forcefully or intrusively." },
+ { word: "overthrow", def: "To remove forcibly from power." },
+ { word: "rigid", def: "Unable to bend or be forced out of shape; not flexible." },
+ { word: "labor", def: "Work, especially hard physical work." },
+ { word: "peasant", def: "A poor farmer of low social status who owns or rents a small piece of land." },
+ { word: "noble", def: "Belonging to a hereditary class with high social or political status." },
+ { word: "monarchy", def: "A form of government with a monarch (king or queen) at the head." },
+ { word: "alliance", def: "A union or association formed for mutual benefit, especially between countries." },
+ { word: "fortress", def: "A heavily fortified building or strategic position constructed for defense." }
+ ];
+
+ let castleHealth = 100;
+ let wave = 1;
+ let enemies = [];
+ let currentTargetWord = null;
+ let activeEnemy = null;
+ let activeInput = null;
+ let gameInterval = null;
+ let spawnInterval = null;
+ let enemiesSpawnedInWave = 0;
+ let maxEnemiesInWave = 5;
+ let isGameOver = false;
+
+ const gameContainer = document.getElementById('game-container');
+ const healthBar = document.getElementById('health-bar');
+ const waveNumDisplay = document.getElementById('wave-num');
+ const definitionText = document.getElementById('definition-text');
+ const gameOverScreen = document.getElementById('game-over');
+ const overTitle = document.getElementById('over-title');
+
+ function initGame() {
+ castleHealth = 100;
+ wave = 1;
+ enemiesSpawnedInWave = 0;
+ maxEnemiesInWave = 5;
+ isGameOver = false;
+ updateHealthBar();
+ waveNumDisplay.innerText = wave;
+ gameOverScreen.classList.add('hidden');
+ 
+ // Pick initial definition to target
+ setRandomTargetDefinition();
+
+ // Game Loops
+ gameInterval = setInterval(updateGame, 50);
+ startSpawning();
+ }
+
+ function setRandomTargetDefinition() {
+ const randomItem = vocabularyList[Math.floor(Math.random() * vocabularyList.length)];
+ currentTargetWord = randomItem;
+ definitionText.innerText = currentTargetWord.def;
+ }
+
+ function startSpawning() {
+ clearInterval(spawnInterval);
+ spawnInterval = setInterval(() => {
+ if (enemiesSpawnedInWave < maxEnemiesInWave && !isGameOver) {
+ spawnEnemy();
+ enemiesSpawnedInWave++;
+ }
+ }, 3000 - Math.min(wave * 200, 2000));
+ }
+
+ function spawnEnemy() {
+ const vocabItem = vocabularyList[Math.floor(Math.random() * vocabularyList.length)];
+ 
+ const enemyEl = document.createElement('div');
+ enemyEl.className = 'enemy';
+ 
+ const minY = 100;
+ const maxY = 450;
+ const randomY = Math.floor(Math.random() * (maxY - minY)) + minY;
+
+ enemyEl.style.left = '0px';
+ enemyEl.style.top = randomY + 'px';
+
+ const enemyObj = {
+ element: enemyEl,
+ word: vocabItem.word,
+ def: vocabItem.def,
+ x: 0,
+ y: randomY,
+ speed: 0.8 + (wave * 0.1)
+ };
+
+ enemyEl.addEventListener('click', (e) => {
+ e.stopPropagation();
+ selectEnemy(enemyObj);
+ });
+
+ gameContainer.appendChild(enemyEl);
+ enemies.push(enemyObj);
+ }
+
+ function selectEnemy(enemyObj) {
+ if (activeEnemy && activeEnemy.element) {
+ activeEnemy.element.classList.remove('selected');
+ if (activeInput) activeInput.remove();
+ }
+
+ activeEnemy = enemyObj;
+ activeEnemy.element.classList.add('selected');
+
+ const inputWrapper = document.createElement('div');
+ inputWrapper.className = 'input-wrapper';
+
+ const hint = document.createElement('div');
+ hint.className = 'word-hint';
+ hint.innerText = enemyObj.word.toLowerCase();
+
+ const input = document.createElement('input');
+ input.type = 'text';
+ input.className = 'type-input';
+ input.autofocus = true;
+
+ inputWrapper.appendChild(hint);
+ inputWrapper.appendChild(input);
+ enemyObj.element.appendChild(inputWrapper);
+
+ activeInput = inputWrapper;
+
+ setTimeout(() => input.focus(), 10);
+
+ input.addEventListener('input', (e) => {
+ const typedVal = e.target.value.trim().toLowerCase();
+ 
+ if (typedVal === enemyObj.word.toLowerCase()) {
+ castSpell(enemyObj);
+ }
+ });
+ }
+
+ function castSpell(targetEnemy) {
+ const isAoE = (targetEnemy.word.toLowerCase() === currentTargetWord.word.toLowerCase());
+
+ if (isAoE) {
+ createAoEBlast(targetEnemy.x, targetEnemy.y);
+ showFloatingText(targetEnemy.x, targetEnemy.y, "AoE BLAST!", "#ffb703");
+ 
+ const aoeRadius = 150;
+ enemies = enemies.filter(enemy => {
+ const dx = enemy.x - targetEnemy.x;
+ const dy = enemy.y - targetEnemy.y;
+ const dist = Math.sqrt(dx * dx + dy * dy);
+
+ if (dist <= aoeRadius) {
+ destroyEnemy(enemy);
+ return false;
+ }
+ return true;
+ });
+
+ setRandomTargetDefinition();
+ } else {
+ showFloatingText(targetEnemy.x, targetEnemy.y, "Defended!", "#00f5d4");
+ destroyEnemy(targetEnemy);
+ enemies = enemies.filter(e => e !== targetEnemy);
+ }
+
+ activeEnemy = null;
+ activeInput = null;
+
+ checkWaveProgress();
+ }
+
+ function destroyEnemy(enemy) {
+ if (enemy.element && enemy.element.parentNode) {
+ enemy.element.parentNode.removeChild(enemy.element);
+ }
+ }
+
+ function createAoEBlast(x, y) {
+ const blast = document.createElement('div');
+ blast.className = 'aoe-blast';
+ blast.style.left = (x + 30) + 'px';
+ blast.style.top = (y + 30) + 'px';
+ gameContainer.appendChild(blast);
+
+ setTimeout(() => blast.remove(), 500);
+ }
+
+ function showFloatingText(x, y, text, color) {
+ const floatEl = document.createElement('div');
+ floatEl.className = 'floating-text';
+ floatEl.innerText = text;
+ floatEl.style.left = x + 'px';
+ floatEl.style.top = (y - 20) + 'px';
+ floatEl.style.color = color || '#fff';
+
+ gameContainer.appendChild(floatEl);
+ setTimeout(() => floatEl.remove(), 1000);
+ }
+
+ function updateGame() {
+ if (isGameOver) return;
+
+ const castleX = 880;
+
+ for (let i = enemies.length - 1; i >= 0; i--) {
+ let enemy = enemies[i];
+ enemy.x += enemy.speed;
+ enemy.element.style.left = enemy.x + 'px';
+
+ if (enemy.x >= castleX) {
+ castleHealth -= 15;
+ if (castleHealth < 0) castleHealth = 0;
+ updateHealthBar();
+ 
+ showFloatingText(castleX - 40, enemy.y, "-15 HP", "#e63946");
+ destroyEnemy(enemy);
+ enemies.splice(i, 1);
+
+ checkWaveProgress();
+
+ if (castleHealth <= 0) {
+ triggerGameOver(false);
+ }
+ }
+ }
+ }
+
+ function updateHealthBar() {
+ healthBar.style.width = castleHealth + '%';
+ if (castleHealth > 50) {
+ healthBar.style.backgroundColor = '#2ec4b6';
+ } else if (castleHealth > 20) {
+ healthBar.style.backgroundColor = '#ffb703';
+ } else {
+ healthBar.style.backgroundColor = '#e63946';
+ }
+ }
+
+ function checkWaveProgress() {
+ if (enemies.length === 0 && enemiesSpawnedInWave >= maxEnemiesInWave) {
+ wave++;
+ waveNumDisplay.innerText = wave;
+ enemiesSpawnedInWave = 0;
+ maxEnemiesInWave += 2;
+ showFloatingText(450, 250, "WAVE " + wave + " APPROACHES!", "#ffb703");
+ startSpawning();
+ }
+ }
+
+ function triggerGameOver(win) {
+ isGameOver = true;
+ clearInterval(gameInterval);
+ clearInterval(spawnInterval);
+
+ enemies.forEach(e => destroyEnemy(e));
+ enemies = [];
+
+ overTitle.innerText = win ? "VICTORY!" : "CASTLE FALLEN!";
+ gameOverScreen.classList.remove('hidden');
+ }
+
+ function restartGame() {
+ enemies.forEach(e => destroyEnemy(e));
+ enemies = [];
+ initGame();
+ }
+
+ gameContainer.addEventListener('click', () => {
+ if (activeEnemy && activeEnemy.element) {
+ activeEnemy.element.classList.remove('selected');
+ if (activeInput) activeInput.remove();
+ activeEnemy = null;
+ activeInput = null;
+ }
+ });
+
+ initGame();
+</script>
+</body>
+</html>

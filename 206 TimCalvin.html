@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Balloon Pop - Custom Vocabulary</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(to bottom, #1e3c72, #2a5298);
+      color: #fff;
+      position: relative;
+    }
+
+    /* Screen Shake Effect for Wrong Answers */
+    @keyframes shake {
+      0% { transform: translate(1px, 1px) rotate(0deg); }
+      10% { transform: translate(-3px, -2px) rotate(-1deg); }
+      20% { transform: translate(-5px, 0px) rotate(1deg); }
+      30% { transform: translate(5px, 2px) rotate(0deg); }
+      40% { transform: translate(1px, -1px) rotate(1deg); }
+      50% { transform: translate(-1px, 2px) rotate(-1deg); }
+      60% { transform: translate(-3px, 1px) rotate(0deg); }
+      70% { transform: translate(3px, 1px) rotate(-1deg); }
+      80% { transform: translate(-1px, -1px) rotate(1deg); }
+      90% { transform: translate(1px, 2px) rotate(0deg); }
+      100% { transform: translate(1px, -2px) rotate(-1deg); }
+    }
+
+    .shake {
+      animation: shake 0.4s ease-in-out;
+    }
+
+    /* Top HUD Display */
+    #hud {
+      position: absolute;
+      top: 15px;
+      left: 20px;
+      right: 20px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 22px;
+      font-weight: bold;
+      z-index: 10;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 10px 20px;
+      border-radius: 12px;
+      backdrop-filter: blur(5px);
+    }
+
+    /* Command Center Box */
+    #command-center {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 80%;
+      max-width: 550px;
+      background: rgba(255, 255, 255, 0.25);
+      backdrop-filter: blur(10px);
+      border: 2px solid rgba(255, 255, 255, 0.4);
+      border-radius: 20px;
+      padding: 25px;
+      text-align: center;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+      z-index: 5;
+      pointer-events: none;
+    }
+
+    #command-center h2 {
+      font-size: 16px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #ffd700;
+      margin-bottom: 8px;
+    }
+
+    #definition-display {
+      font-size: 20px;
+      line-height: 1.4;
+      font-weight: 600;
+    }
+
+    /* Game Container & Balloons */
+    #game-container {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      overflow: hidden;
+    }
+
+    .balloon {
+      position: absolute;
+      bottom: -120px;
+      width: 100px;
+      height: 120px;
+      border-radius: 50% 50% 50% 50% / 40% 40% 60% 60%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 10px;
+      font-weight: bold;
+      font-size: 14px;
+      color: #ffffff;
+      text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+      cursor: pointer;
+      box-shadow: inset -10px -10px 20px rgba(0,0,0,0.2), 0 5px 15px rgba(0,0,0,0.2);
+      transition: transform 0.1s ease;
+      z-index: 2;
+    }
+
+    .balloon::after {
+      content: "";
+      position: absolute;
+      bottom: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-bottom: 12px solid currentColor;
+      filter: brightness(0.8);
+    }
+
+    .balloon:hover {
+      transform: scale(1.08);
+    }
+
+    /* Game Over Modal */
+    #game-over-modal {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 20;
+    }
+
+    #game-over-modal h1 {
+      font-size: 48px;
+      margin-bottom: 20px;
+      color: #ffd700;
+    }
+
+    #game-over-modal p {
+      font-size: 24px;
+      margin-bottom: 30px;
+    }
+
+    #restart-btn {
+      padding: 12px 30px;
+      font-size: 20px;
+      font-weight: bold;
+      color: #1e3c72;
+      background: #ffd700;
+      border: none;
+      border-radius: 25px;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);
+    }
+
+    #restart-btn:hover {
+      background: #fff;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="hud">
+    <div id="score-display">Score: 0</div>
+    <div id="timer-display">Time: 90s</div>
+  </div>
+
+  <div id="command-center">
+    <h2>COMMAND CENTER</h2>
+    <div id="definition-display">Loading definition...</div>
+  </div>
+
+  <div id="game-container"></div>
+
+  <div id="game-over-modal" style="display: none;">
+    <h1>GAME OVER</h1>
+    <p id="final-score">Your Final Score: 0</p>
+    <button id="restart-btn" onclick="restartGame()">Play Again</button>
+  </div>
+
+  <script>
+    // Your exact 6 vocabulary words & definitions
+    const vocabularyList = [
+      { word: "imaginative", def: "Having or showing creativity or original thinking." },
+      { word: "artistic", def: "Having or showing natural creative skill in art." },
+      { word: "atmosphere", def: "The general mood, feeling, or environment of a place." },
+      { word: "gallery", def: "A room or building for displaying or selling works of art." },
+      { word: "architecture", def: "The art or practice of designing and constructing buildings." },
+      { word: "professional", def: "Relating to or belonging to a qualified, skilled profession." }
+    ];
+
+    const balloonColors = ['#ff5252', '#ff4081', '#e040fb', '#7c4dff', '#536def', '#448aff', '#18ffff', '#64ffda', '#69f0ae', '#ffd740', '#ff6e40'];
+
+    let score = 0;
+    let timeLeft = 90;
+    let currentTarget = null;
+    let timerInterval = null;
+    let spawnInterval = null;
+    let activeBalloons = [];
+
+    const gameContainer = document.getElementById('game-container');
+    const scoreDisplay = document.getElementById('score-display');
+    const timerDisplay = document.getElementById('timer-display');
+    const definitionDisplay = document.getElementById('definition-display');
+    const gameOverModal = document.getElementById('game-over-modal');
+    const finalScoreDisplay = document.getElementById('final-score');
+
+    function startGame() {
+      score = 0;
+      timeLeft = 90;
+      scoreDisplay.textContent = `Score: ${score}`;
+      timerDisplay.textContent = `Time: ${timeLeft}s`;
+      gameOverModal.style.display = 'none';
+      gameContainer.innerHTML = '';
+      activeBalloons = [];
+
+      pickNextWord();
+
+      // Countdown timer
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        timerDisplay.textContent = `Time: ${timeLeft}s`;
+        if (timeLeft <= 0) {
+          endGame();
+        }
+      }, 1000);
+
+      // Spawns 1 balloon per second
+      spawnInterval = setInterval(() => {
+        if (activeBalloons.length < 18) {
+          spawnBalloon();
+        }
+      }, 1000);
+    }
+
+    function pickNextWord() {
+      const randomIndex = Math.floor(Math.random() * vocabularyList.length);
+      currentTarget = vocabularyList[randomIndex];
+      definitionDisplay.textContent = currentTarget.def;
+    }
+
+    function spawnBalloon() {
+      const balloon = document.createElement('div');
+      balloon.classList.add('balloon');
+
+      // 40% chance to force target word, otherwise pick from the 6 words
+      let assignedWord = "";
+      if (Math.random() < 0.4) {
+        assignedWord = currentTarget.word;
+      } else {
+        const randomObj = vocabularyList[Math.floor(Math.random() * vocabularyList.length)];
+        assignedWord = randomObj.word;
+      }
+
+      balloon.textContent = assignedWord;
+      balloon.dataset.word = assignedWord;
+
+      // Styling & color
+      const color = balloonColors[Math.floor(Math.random() * balloonColors.length)];
+      balloon.style.backgroundColor = color;
+      balloon.style.color = color;
+
+      // Position & float speed
+      const posX = Math.random() * (window.innerWidth - 120);
+      balloon.style.left = `${posX}px`;
+
+      const speed = 1 + Math.random() * 1.2;
+      let currentPosY = -130;
+
+      gameContainer.appendChild(balloon);
+      activeBalloons.push(balloon);
+
+      balloon.addEventListener('click', () => handleBalloonClick(balloon));
+
+      function floatUp() {
+        if (!balloon.parentElement) return;
+
+        currentPosY += speed;
+        balloon.style.bottom = `${currentPosY}px`;
+
+        if (currentPosY > window.innerHeight + 130) {
+          balloon.remove();
+          activeBalloons = activeBalloons.filter(b => b !== balloon);
+        } else {
+          requestAnimationFrame(floatUp);
+        }
+      }
+
+      requestAnimationFrame(floatUp);
+    }
+
+    function handleBalloonClick(balloon) {
+      const clickedWord = balloon.dataset.word;
+
+      if (clickedWord === currentTarget.word) {
+        score += 10;
+        scoreDisplay.textContent = `Score: ${score}`;
+        popAnimation(balloon);
+        pickNextWord();
+      } else {
+        score -= 5;
+        scoreDisplay.textContent = `Score: ${score}`;
+        
+        // Trigger violent screen shake
+        document.body.classList.add('shake');
+        setTimeout(() => {
+          document.body.classList.remove('shake');
+        }, 400);
+
+        popAnimation(balloon);
+      }
+    }
+
+    function popAnimation(balloon) {
+      balloon.remove();
+      activeBalloons = activeBalloons.filter(b => b !== balloon);
+    }
+
+    function endGame() {
+      clearInterval(timerInterval);
+      clearInterval(spawnInterval);
+      finalScoreDisplay.textContent = `Your Final Score: ${score}`;
+      gameOverModal.style.display = 'flex';
+    }
+
+    function restartGame() {
+      startGame();
+    }
+
+    window.onload = startGame;
+  </script>
+</body>
+</html>

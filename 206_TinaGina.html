@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Intergalactic Vocab-Defender</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background: #050515;
+      color: #fff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+    #game-container {
+      position: relative;
+      width: 800px;
+      height: 600px;
+      border: 3px solid #00f0ff;
+      box-shadow: 0 0 25px rgba(0, 240, 255, 0.4);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #020208;
+    }
+    #ui-header {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(10, 15, 30, 0.85);
+      border-bottom: 2px solid #00f0ff;
+      z-index: 10;
+    }
+    .hud-element {
+      font-size: 18px;
+      font-weight: bold;
+      letter-spacing: 1px;
+    }
+    #briefing-box {
+      position: absolute;
+      top: 55px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90%;
+      background: rgba(0, 20, 50, 0.9);
+      border: 1px solid #ff0055;
+      box-shadow: 0 0 10px rgba(255, 0, 85, 0.5);
+      border-radius: 6px;
+      padding: 10px 15px;
+      text-align: center;
+      z-index: 10;
+      animation: pulse 2s infinite alternate;
+    }
+    @keyframes pulse {
+      0% { border-color: #ff0055; box-shadow: 0 0 8px rgba(255, 0, 85, 0.4); }
+      100% { border-color: #00f0ff; box-shadow: 0 0 18px rgba(0, 240, 255, 0.8); }
+    }
+    #briefing-title {
+      font-size: 11px;
+      color: #ff0055;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 3px;
+    }
+    #target-definition {
+      font-size: 15px;
+      color: #ffffff;
+      font-weight: 600;
+    }
+    #gameCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(5, 5, 20, 0.92);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+    }
+    h1 {
+      font-size: 38px;
+      color: #00f0ff;
+      text-shadow: 0 0 15px #00f0ff;
+      margin-bottom: 10px;
+    }
+    p.subtitle {
+      color: #aaa;
+      margin-bottom: 25px;
+      max-width: 80%;
+      text-align: center;
+    }
+    button {
+      background: linear-gradient(45deg, #ff0055, #ff5500);
+      color: white;
+      border: none;
+      padding: 12px 30px;
+      font-size: 18px;
+      font-weight: bold;
+      border-radius: 25px;
+      cursor: pointer;
+      box-shadow: 0 0 15px rgba(255, 0, 85, 0.5);
+      transition: all 0.2s;
+    }
+    button:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 25px rgba(255, 0, 85, 0.8);
+    }
+    #leaderboard {
+      margin-top: 15px;
+      width: 80%;
+      max-width: 350px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    #leaderboard h3 {
+      text-align: center;
+      color: #00f0ff;
+      margin-bottom: 8px;
+    }
+    .score-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 10px;
+      font-size: 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    #stall-warning {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #ff0055;
+      font-weight: bold;
+      font-size: 20px;
+      text-shadow: 0 0 10px #ff0055;
+      display: none;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="game-container">
+    <div id="ui-header">
+      <div class="hud-element" style="color: #00f0ff;">SCORE: <span id="score">0</span></div>
+      <div class="hud-element" style="color: #ffea00;">WARP DRIVE: <span id="timer">60</span>s</div>
+    </div>
+
+    <div id="briefing-box">
+      <div id="briefing-title">★ Mission Briefing: Target Word Definition ★</div>
+      <div id="target-definition">Loading target...</div>
+    </div>
+
+    <div id="stall-warning">⚠️ LASERS STALLED! ⚠️</div>
+
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <div id="start-screen" class="overlay">
+      <h1>INTERGALACTIC VOCAB-DEFENDER</h1>
+      <p class="subtitle">Defend Earth from alien word-ships! Read the Mission Briefing definition, position your starfighter, and shoot the matching vocabulary alien.</p>
+      <button onclick="startGame()">LAUNCH MISSION</button>
+    </div>
+
+    <div id="end-screen" class="overlay" style="display: none;">
+      <h1 id="end-title">MISSION COMPLETE</h1>
+      <p id="final-score-text" style="font-size: 20px; margin-bottom: 10px;"></p>
+      
+      <div id="leaderboard">
+        <h3>Galactic Ace Leaderboard</h3>
+        <div id="leaderboard-list"></div>
+      </div>
+      <br>
+      <button onclick="startGame()">PLAY AGAIN</button>
+    </div>
+  </div>
+
+  <script>
+    const vocabData = [
+      { word: "LUXURIOUS", def: "Extremely comfortable, elegant, or enjoyable, especially involving great expense." },
+      { word: "INNOVATION", def: "A new method, idea, product, or feature that introduces improvements." },
+      { word: "SURGERY", def: "Medical treatment involving an operation to repair or remove damaged body parts." },
+      { word: "TERRIFYING", def: "Causing extreme fear, fright, or intense panic." },
+      { word: "PHYSICALLY", def: "In a manner relating to the physical body rather than the mind." },
+      { word: "PROCEDURE", def: "An established or official way of doing something using step-by-step actions." },
+      { word: "AGONY", def: "Extreme physical or mental suffering and pain." },
+      { word: "EMERGENCY", def: "A serious, unexpected, and dangerous situation requiring immediate action." },
+      { word: "RECOVER", def: "To return to a normal state of health, strength, or well-being." },
+      { word: "SEVERE", def: "Very great, intense, harsh, or strict in degree." }
+    ];
+
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    let score = 0;
+    let timer = 60;
+    let gameInterval = null;
+    let timerInterval = null;
+    let isRunning = false;
+
+    let targetWordObj = null;
+    let stallUntil = 0;
+    let shakeFrames = 0;
+
+    let player = { x: 375, y: 530, w: 50, h: 40, speed: 7, dx: 0 };
+    let lasers = [];
+    let aliens = [];
+    let particles = [];
+    let stars = [];
+
+    const keys = {};
+
+    window.addEventListener("keydown", (e) => {
+      keys[e.code] = true;
+      if (e.code === "Space" && isRunning) {
+        fireLaser();
+      }
+    });
+
+    window.addEventListener("keyup", (e) => {
+      keys[e.code] = false;
+    });
+
+    // Generate Background Stars
+    for (let i = 0; i < 80; i++) {
+      stars.push({
+        x: Math.random() * 800,
+        y: Math.random() * 600,
+        size: Math.random() * 2,
+        speed: Math.random() * 0.5 + 0.2
+      });
+    }
+
+    function startGame() {
+      score = 0;
+      timer = 60;
+      stallUntil = 0;
+      shakeFrames = 0;
+      lasers = [];
+      particles = [];
+      player.x = 375;
+
+      document.getElementById("score").innerText = score;
+      document.getElementById("timer").innerText = timer;
+      document.getElementById("start-screen").style.display = "none";
+      document.getElementById("end-screen").style.display = "none";
+
+      isRunning = true;
+      nextRound();
+
+      clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        timer--;
+        document.getElementById("timer").innerText = timer;
+        if (timer <= 0) {
+          endGame();
+        }
+      }, 1000);
+
+      cancelAnimationFrame(gameInterval);
+      loop();
+    }
+
+    function nextRound() {
+      targetWordObj = vocabData[Math.floor(Math.random() * vocabData.length)];
+      document.getElementById("target-definition").innerText = `"${targetWordObj.def}"`;
+
+      let choices = [targetWordObj];
+      while (choices.length < 4) {
+        let randomWord = vocabData[Math.floor(Math.random() * vocabData.length)];
+        if (!choices.includes(randomWord)) {
+          choices.push(randomWord);
+        }
+      }
+
+      // Shuffle choices
+      choices.sort(() => Math.random() - 0.5);
+
+      aliens = choices.map((item, index) => {
+        return {
+          word: item.word,
+          x: 60 + index * 170,
+          y: 140,
+          w: 130,
+          h: 40,
+          dx: 1.5,
+          color: "#00ffcc"
+        };
+      });
+    }
+
+    function fireLaser() {
+      if (Date.now() < stallUntil) return;
+      lasers.push({
+        x: player.x + player.w / 2 - 3,
+        y: player.y,
+        w: 6,
+        h: 15,
+        speed: 10
+      });
+    }
+
+    function createExplosion(x, y, color) {
+      for (let i = 0; i < 25; i++) {
+        particles.push({
+          x: x,
+          y: y,
+          vx: (Math.random() - 0.5) * 8,
+          vy: (Math.random() - 0.5) * 8,
+          radius: Math.random() * 3 + 1,
+          color: color,
+          alpha: 1
+        });
+      }
+    }
+
+    function update() {
+      // Handle Player Movement
+      if (keys["ArrowLeft"] || keys["KeyA"]) {
+        player.x = Math.max(10, player.x - player.speed);
+      }
+      if (keys["ArrowRight"] || keys["KeyD"]) {
+        player.x = Math.min(800 - player.w - 10, player.x + player.speed);
+      }
+
+      // Laser stall indicator
+      if (Date.now() < stallUntil) {
+        document.getElementById("stall-warning").style.display = "block";
+      } else {
+        document.getElementById("stall-warning").style.display = "none";
+      }
+
+      // Stars
+      stars.forEach(star => {
+        star.y += star.speed;
+        if (star.y > 600) star.y = 0;
+      });
+
+      // Move Lasers
+      for (let i = lasers.length - 1; i >= 0; i--) {
+        lasers[i].y -= lasers[i].speed;
+        if (lasers[i].y < 0) lasers.splice(i, 1);
+      }
+
+      // Move Aliens (Zig-zag fleet)
+      let hitEdge = false;
+      aliens.forEach(alien => {
+        alien.x += alien.dx;
+        if (alien.x <= 10 || alien.x + alien.w >= 790) hitEdge = true;
+      });
+
+      if (hitEdge) {
+        aliens.forEach(alien => {
+          alien.dx = -alien.dx;
+          alien.y += 12;
+          if (alien.y > 450) {
+            alien.y = 140; // Reset height if descending too low
+          }
+        });
+      }
+
+      // Collision Detection
+      for (let l = lasers.length - 1; l >= 0; l--) {
+        let laser = lasers[l];
+        for (let a = 0; a < aliens.length; a++) {
+          let alien = aliens[a];
+
+          if (
+            laser.x < alien.x + alien.w &&
+            laser.x + laser.w > alien.x &&
+            laser.y < alien.y + alien.h &&
+            laser.y + laser.h > alien.y
+          ) {
+            lasers.splice(l, 1);
+
+            if (alien.word === targetWordObj.word) {
+              // Correct hit
+              score += 100;
+              document.getElementById("score").innerText = score;
+              createExplosion(alien.x + alien.w / 2, alien.y + alien.h / 2, "#00f0ff");
+              nextRound();
+            } else {
+              // Wrong hit
+              score = Math.max(0, score - 50);
+              document.getElementById("score").innerText = score;
+              stallUntil = Date.now() + 2000; // Stall lasers for 2 seconds
+              shakeFrames = 15; // Trigger screen shake
+              createExplosion(alien.x + alien.w / 2, alien.y + alien.h / 2, "#ff0055");
+            }
+            break;
+          }
+        }
+      }
+
+      // Update Explosions
+      for (let p = particles.length - 1; p >= 0; p--) {
+        let particle = particles[p];
+        particle.x += particle.vx;
+        particle.y += particle.vy;
+        particle.alpha -= 0.03;
+        if (particle.alpha <= 0) particles.splice(p, 1);
+      }
+    }
+
+    function render() {
+      ctx.save();
+
+      // Handle Screen Shake on Error
+      if (shakeFrames > 0) {
+        let dx = (Math.random() - 0.5) * 12;
+        let dy = (Math.random() - 0.5) * 12;
+        ctx.translate(dx, dy);
+        shakeFrames--;
+      }
+
+      ctx.fillStyle = "#020208";
+      ctx.fillRect(0, 0, 800, 600);
+
+      // Render Stars
+      ctx.fillStyle = "#ffffff";
+      stars.forEach(star => {
+        ctx.globalAlpha = Math.random() * 0.5 + 0.5;
+        ctx.fillRect(star.x, star.y, star.size, star.size);
+      });
+      ctx.globalAlpha = 1;
+
+      // Draw Player Ship
+      ctx.fillStyle = "#00f0ff";
+      ctx.beginPath();
+      ctx.moveTo(player.x + player.w / 2, player.y);
+      ctx.lineTo(player.x + player.w, player.y + player.h);
+      ctx.lineTo(player.x, player.y + player.h);
+      ctx.closePath();
+      ctx.fill();
+
+      // Thruster Flame
+      ctx.fillStyle = "#ff5500";
+      ctx.beginPath();
+      ctx.moveTo(player.x + player.w / 2 - 8, player.y + player.h);
+      ctx.lineTo(player.x + player.w / 2 + 8, player.y + player.h);
+      ctx.lineTo(player.x + player.w / 2, player.y + player.h + 12 + Math.random() * 5);
+      ctx.closePath();
+      ctx.fill();
+
+      // Draw Lasers
+      ctx.fillStyle = "#ff0055";
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = "#ff0055";
+      lasers.forEach(laser => {
+        ctx.fillRect(laser.x, laser.y, laser.w, laser.h);
+      });
+      ctx.shadowBlur = 0;
+
+      // Draw Alien Word-Ships
+      aliens.forEach(alien => {
+        ctx.fillStyle = "rgba(15, 30, 60, 0.9)";
+        ctx.strokeStyle = "#00ffcc";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(alien.x, alien.y, alien.w, alien.h, 8);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 12px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(alien.word, alien.x + alien.w / 2, alien.y + alien.h / 2);
+      });
+
+      // Draw Particles
+      particles.forEach(p => {
+        ctx.globalAlpha = p.alpha;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+
+      ctx.restore();
+    }
+
+    function loop() {
+      if (!isRunning) return;
+      update();
+      render();
+      gameInterval = requestAnimationFrame(loop);
+    }
+
+    function endGame() {
+      isRunning = false;
+      clearInterval(timerInterval);
+
+      // Save Score
+      let leaderboard = JSON.parse(localStorage.getItem("vocab_leaderboard") || "[]");
+      leaderboard.push({ score: score, date: new Date().toLocaleDateString() });
+      leaderboard.sort((a, b) => b.score - a.score);
+      leaderboard = leaderboard.slice(0, 5);
+      localStorage.setItem("vocab_leaderboard", JSON.stringify(leaderboard));
+
+      // Display High Scores
+      let listContainer = document.getElementById("leaderboard-list");
+      listContainer.innerHTML = "";
+      leaderboard.forEach((entry, index) => {
+        let row = document.createElement("div");
+        row.className = "score-row";
+        row.innerHTML = `<span>#${index + 1} Defender</span><span>${entry.score} pts</span>`;
+        listContainer.appendChild(row);
+      });
+
+      document.getElementById("final-score-text").innerText = `Final Score: ${score} Points`;
+      document.getElementById("end-screen").style.display = "flex";
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Vocabulary Pinball</title>
+<style>
+  body {
+    background-color: #111;
+    color: #fff;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0;
+    padding: 20px;
+  }
+
+  #game-container {
+    position: relative;
+    width: 450px;
+    background: #222;
+    border: 4px solid #444;
+    border-radius: 10px;
+    box-shadow: 0 0 20px rgba(0, 255, 204, 0.3);
+  }
+
+  #display-board {
+    background: #000;
+    border-bottom: 2px solid #444;
+    padding: 15px;
+    text-align: center;
+  }
+
+  #definition-box {
+    font-size: 1.1rem;
+    color: #ffeb3b;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #stats {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 10px;
+    font-weight: bold;
+    color: #00e676;
+  }
+
+  canvas {
+    background: linear-gradient(180deg, #0d0221 0%, #000000 100%);
+    display: block;
+  }
+
+  #controls-info {
+    margin-top: 15px;
+    text-align: center;
+    color: #aaa;
+    font-size: 0.9rem;
+  }
+
+  .key {
+    background: #333;
+    color: #fff;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid #666;
+  }
+</style>
+</head>
+<body>
+
+<h1>🕹️ Vocabulary Pinball</h1>
+
+<div id="game-container">
+  <div id="display-board">
+    <div id="definition-box">Press DOWN ARROW to launch ball!</div>
+    <div id="stats">
+      <span>Score: <span id="score">0</span></span>
+      <span>Balls: <span id="balls">3</span></span>
+    </div>
+  </div>
+  <canvas id="pinball" width="450" height="600"></canvas>
+</div>
+
+<div id="controls-info">
+  Controls: <span class="key">Shift Left</span> (Left Flipper) | <span class="key">Shift Right</span> (Right Flipper) | <span class="key">Down Arrow</span> (Pull Plunger)
+</div>
+
+<script>
+const canvas = document.getElementById('pinball');
+const ctx = canvas.getContext('2d');
+
+const vocabList = [
+  { word: "reservation", def: "An arrangement to secure something, like a room or table, in advance." },
+  { word: "preference", def: "A greater liking for one alternative over another." },
+  { word: "secure", def: "To succeed in obtaining or fixing firmly in place." },
+  { word: "session", def: "A period devoted to a particular activity." },
+  { word: "massage", def: "Rubbing and kneading of muscles and joints to relieve tension." },
+  { word: "promptly", def: "With little or no delay; immediately." },
+  { word: "opening", def: "An available position, space, or time slot." }
+];
+
+let score = 0;
+let ballsRemaining = 3;
+let currentQuestion = null;
+let flipperShrunk = false;
+let flipperShrinkTimer = 0;
+let ballSaverActive = false;
+let ballSaverTimer = 0;
+let gameOver = false;
+
+// Physics Config
+const gravity = 0.15;
+const bounce = 0.7;
+
+// Game Entities
+const ball = {
+  x: 425,
+  y: 500,
+  vx: 0,
+  vy: 0,
+  radius: 8,
+  inPlunger: true
+};
+
+const plunger = {
+  power: 0,
+  isCharging: false
+};
+
+const flippers = {
+  left: { angle: 0.3, active: false, x: 140, y: 530, length: 70, baseLength: 70 },
+  right: { angle: -0.3, active: false, x: 280, y: 530, length: 70, baseLength: 70 }
+};
+
+let bumpers = [
+  { x: 110, y: 180, radius: 35, word: "", isTarget: false, flash: 0 },
+  { x: 210, y: 130, radius: 35, word: "", isTarget: false, flash: 0 },
+  { x: 310, y: 180, radius: 35, word: "", isTarget: false, flash: 0 }
+];
+
+// Controls
+const keys = {};
+
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'ShiftLeft') flippers.left.active = true;
+  if (e.code === 'ShiftRight') flippers.right.active = true;
+  if (e.code === 'ArrowDown' && ball.inPlunger) plunger.isCharging = true;
+});
+
+window.addEventListener('keyup', (e) => {
+  if (e.code === 'ShiftLeft') flippers.left.active = false;
+  if (e.code === 'ShiftRight') flippers.right.active = false;
+  if (e.code === 'ArrowDown' && ball.inPlunger) {
+    plunger.isCharging = false;
+    ball.vy = -plunger.power;
+    ball.vx = (Math.random() - 0.5) * 2;
+    ball.inPlunger = false;
+    plunger.power = 0;
+  }
+});
+
+function setupQuestion() {
+  if (vocabList.length === 0) return;
+  
+  // Pick random target word
+  const targetIndex = Math.floor(Math.random() * vocabList.length);
+  currentQuestion = vocabList[targetIndex];
+  
+  // Pick 2 distractor words
+  let distractors = vocabList.filter((_, idx) => idx !== targetIndex);
+  distractors = distractors.sort(() => 0.5 - Math.random()).slice(0, 2);
+  
+  let options = [currentQuestion, ...distractors].sort(() => 0.5 - Math.random());
+  
+  bumpers.forEach((bumper, idx) => {
+    bumper.word = options[idx] ? options[idx].word : "";
+    bumper.isTarget = (bumper.word === currentQuestion.word);
+  });
+
+  document.getElementById('definition-box').innerText = `Target: "${currentQuestion.def}"`;
+}
+
+function updatePhysics() {
+  if (gameOver) return;
+
+  // Handle Plunger Charging
+  if (plunger.isCharging) {
+    plunger.power = Math.min(plunger.power + 0.5, 16);
+  }
+
+  // Ball Gravity & Movement
+  if (!ball.inPlunger) {
+    ball.vy += gravity;
+    ball.x += ball.vx;
+    ball.y += ball.vy;
+
+    // Wall Collisions
+    if (ball.x - ball.radius < 10) { ball.x = 10 + ball.radius; ball.vx *= -bounce; }
+    if (ball.x + ball.radius > 395 && ball.y < 450) { ball.x = 395 - ball.radius; ball.vx *= -bounce; } // Plunger lane wall
+    if (ball.x + ball.radius > 440) { ball.x = 440 - ball.radius; ball.vx *= -bounce; }
+    if (ball.y - ball.radius < 10) { ball.y = 10 + ball.radius; ball.vy *= -bounce; }
+
+    // Plunger Lane Barrier Dynamics
+    if (ball.x > 395 && ball.y > 450 && !ball.inPlunger) {
+      if (ball.vy > 0 && ball.x < 405) { ball.vx *= -1; }
+    }
+
+    // Bumper Collisions
+    bumpers.forEach(bumper => {
+      let dx = ball.x - bumper.x;
+      let dy = ball.y - bumper.y;
+      let dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist < ball.radius + bumper.radius) {
+        // Bounce physics
+        let angle = Math.atan2(dy, dx);
+        let force = 8;
+        ball.vx = Math.cos(angle) * force;
+        ball.vy = Math.sin(angle) * force;
+        bumper.flash = 15; // Visual arcade flash
+
+        // Logic check
+        if (bumper.word === currentQuestion.word) {
+          score += 500;
+          ballSaverActive = true;
+          ballSaverTimer = 300; // 5 seconds at 60fps
+          setupQuestion();
+        } else {
+          score = Math.max(0, score - 100);
+          flipperShrunk = true;
+          flipperShrinkTimer = 300; // 5 seconds
+        }
+        document.getElementById('score').innerText = score;
+      }
+    });
+
+    // Flipper Collisions & Angle Movement
+    let leftLen = flipperShrunk ? 45 : 70;
+    let rightLen = flipperShrunk ? 45 : 70;
+
+    flippers.left.angle = flippers.left.active ? -0.4 : 0.3;
+    flippers.right.angle = flippers.right.active ? 0.4 : -0.3;
+
+    // Ball Drain Check
+    if (ball.y > 610) {
+      if (ballSaverActive) {
+        // Reset Ball to top
+        ball.x = 200;
+        ball.y = 100;
+        ball.vx = 0;
+        ball.vy = 2;
+      } else {
+        ballsRemaining--;
+        document.getElementById('balls').innerText = ballsRemaining;
+        if (ballsRemaining <= 0) {
+          gameOver = true;
+          document.getElementById('definition-box').innerText = "GAME OVER! Refresh to play again.";
+        } else {
+          resetBall();
+        }
+      }
+    }
+  }
+
+  // Timers
+  if (flipperShrinkTimer > 0) {
+    flipperShrinkTimer--;
+    if (flipperShrinkTimer === 0) flipperShrunk = false;
+  }
+  if (ballSaverTimer > 0) {
+    ballSaverTimer--;
+    if (ballSaverTimer === 0) ballSaverActive = false;
+  }
+}
+
+function resetBall() {
+  ball.x = 425;
+  ball.y = 500;
+  ball.vx = 0;
+  ball.vy = 0;
+  ball.inPlunger = true;
+}
+
+function render() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Outer Walls
+  ctx.strokeStyle = '#555';
+  ctx.lineWidth = 6;
+  ctx.strokeRect(3, 3, 444, 594);
+  
+  // Plunger Lane Divider
+  ctx.beginPath();
+  ctx.moveTo(395, 600);
+  ctx.lineTo(395, 150);
+  ctx.strokeStyle = '#333';
+  ctx.stroke();
+
+  // Draw Ball Saver Gate
+  if (ballSaverActive) {
+    ctx.strokeStyle = '#00ffff';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(140, 580);
+    ctx.lineTo(280, 580);
+    ctx.stroke();
+  }
+
+  // Draw Bumpers
+  bumpers.forEach(bumper => {
+    ctx.beginPath();
+    ctx.arc(bumper.x, bumper.y, bumper.radius, 0, Math.PI * 2);
+    
+    if (bumper.flash > 0) {
+      ctx.fillStyle = '#ffffff';
+      bumper.flash--;
+    } else {
+      ctx.fillStyle = '#1e88e5';
+    }
+    
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#64b5f6';
+    ctx.stroke();
+
+    // Bumper Text
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(bumper.word, bumper.x, bumper.y + 4);
+  });
+
+  // Draw Flippers
+  let len = flipperShrunk ? 45 : 70;
+
+  // Left Flipper
+  ctx.save();
+  ctx.translate(flippers.left.x, flippers.left.y);
+  ctx.rotate(flippers.left.angle);
+  ctx.fillStyle = flipperShrunk ? '#ff5252' : '#ff4081';
+  ctx.fillRect(0, -5, len, 10);
+  ctx.restore();
+
+  // Right Flipper
+  ctx.save();
+  ctx.translate(flippers.right.x, flippers.right.y);
+  ctx.rotate(flippers.right.angle);
+  ctx.fillStyle = flipperShrunk ? '#ff5252' : '#ff4081';
+  ctx.fillRect(-len, -5, len, 10);
+  ctx.restore();
+
+  // Draw Ball
+  ctx.beginPath();
+  ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+  ctx.fillStyle = '#e0e0e0';
+  ctx.fill();
+
+  // Draw Plunger Gauge
+  if (ball.inPlunger) {
+    ctx.fillStyle = '#ff9800';
+    ctx.fillRect(415, 580 - (plunger.power * 5), 20, plunger.power * 5);
+  }
+}
+
+function gameLoop() {
+  updatePhysics();
+  render();
+  requestAnimationFrame(gameLoop);
+}
+
+setupQuestion();
+gameLoop();
+</script>
+</body>
+</html>
