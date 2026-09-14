@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crossword Arcade Frogger</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a1a2e;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+        #game-header {
+            text-align: center;
+            background: #16213e;
+            padding: 15px 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            max-width: 600px;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+        #clue-box {
+            font-size: 1.1rem;
+            color: #e94560;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+        #stats {
+            display: flex;
+            justify-content: space-between;
+            width: 600px;
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        #game-board {
+            width: 600px;
+            height: 400px;
+            background-color: #0f3460;
+            position: relative;
+            overflow: hidden;
+            border: 4px solid #e94560;
+            border-radius: 8px;
+        }
+        /* Lanes */
+        .zone-top { position: absolute; top: 0; width: 100%; height: 50px; background: #22254a; display: flex; justify-content: space-around; align-items: center; }
+        .river { position: absolute; top: 50px; width: 100%; height: 150px; background: #005f73; }
+        .road { position: absolute; top: 200px; width: 100%; height: 150px; background: #2b2d42; }
+        .zone-start { position: absolute; top: 350px; width: 100%; height: 50px; background: #2a9d8f; text-align: center; line-height: 50px; font-weight: bold; }
+        
+        /* Targets / Safety Zones */
+        .target {
+            background: #e94560;
+            padding: 5px 12px;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            border: 2px solid #fff;
+        }
+
+        /* Moving Elements */
+        .entity {
+            position: absolute;
+            height: 40px;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: bold;
+            color: #fff;
+            white-space: nowrap;
+            padding: 0 10px;
+            box-sizing: border-box;
+        }
+        .log { background-color: #8b5a2b; border: 2px solid #a67c52; }
+        .car { background-color: #d90429; border: 2px solid #ef233c; font-size: 0.75rem; }
+
+        /* Player */
+        #player {
+            width: 30px;
+            height: 30px;
+            background-color: #00f5d4;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            position: absolute;
+            z-index: 10;
+            transition: all 0.1s ease;
+        }
+
+        /* Controls Instructions */
+        #instructions {
+            margin-top: 15px;
+            color: #a8b2d1;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-header">
+        <h2>Crossword Arcade Frogger</h2>
+        <div>FILL IN THE BLANK:</div>
+        <div id="clue-box">Loading clue...</div>
+    </div>
+
+    <div id="stats">
+        <div>Score: <span id="score">0</span></div>
+        <div>Time Left: <span id="timer">45</span>s</div>
+    </div>
+
+    <div id="game-board">
+        <div class="zone-top" id="top-zone"></div>
+        <div class="river"></div>
+        <div class="road"></div>
+        <div class="zone-start">STARTING ZONE</div>
+        <div id="player"></div>
+    </div>
+
+    <div id="instructions">
+        Use <b>Arrow Keys (Up, Down, Left, Right)</b> or <b>W, A, S, D</b> to navigate across logs and avoid cars!
+    </div>
+
+    <script>
+        const vocabulary = [
+            { word: "participant", clue: "A person who takes part in an activity or event: 'Every _____ registered at the desk.'", def: "One who participates" },
+            { word: "implication", clue: "A possible future result or effect: 'Consider the long-term _____ of this choice.'", def: "Consequence / Result" },
+            { word: "motivation", clue: "The reason or desire to act: 'Her main _____ was to help others.'", def: "Incentive / Drive" },
+            { word: "polished", clue: "Refined, impressive, and free of mistakes: 'He gave a highly _____ presentation.'", def: "Smooth / Accomplished" },
+            { word: "outfit", clue: "A set of clothes worn together for an occasion: 'She chose a warm _____ for winter.'", def: "Set of attire" },
+            { word: "reinforce", clue: "To strengthen or support: 'Use examples to _____ your argument.'", def: "Strengthen / Fortify" },
+            { word: "accessible", clue: "Easy to reach, enter, or understand: 'The building is fully _____ to everyone.'", def: "Reachable / Available" }
+        ];
+
+        let currentQuestion = 0;
+        let score = 0;
+        let timeLeft = 45;
+        let timerInterval;
+        let gameLoopInterval;
+
+        // Player grid position (Grid size 600x400)
+        let playerX = 285;
+        let playerY = 360;
+        const step = 50;
+
+        // Dynamic entities (cars and logs)
+        let entities = [];
+
+        function initGame() {
+            loadQuestion();
+            resetPlayerPosition();
+            createEntities();
+            
+            clearInterval(timerInterval);
+            timeLeft = 45;
+            document.getElementById('timer').innerText = timeLeft;
+            timerInterval = setInterval(updateTimer, 1000);
+
+            if (!gameLoopInterval) {
+                gameLoopInterval = setInterval(updateGame, 30);
+            }
+        }
+
+        function loadQuestion() {
+            const q = vocabulary[currentQuestion];
+            document.getElementById('clue-box').innerText = q.clue;
+
+            // Generate Top Targets (1 correct, 2 distractors)
+            const topZone = document.getElementById('top-zone');
+            topZone.innerHTML = '';
+            
+            let choices = [q.word];
+            while(choices.length < 3) {
+                let randomWord = vocabulary[Math.floor(Math.random() * vocabulary.length)].word;
+                if(!choices.includes(randomWord)) choices.push(randomWord);
+            }
+            choices.sort(() => Math.random() - 0.5);
+
+            choices.forEach(word => {
+                const target = document.createElement('div');
+                target.className = 'target';
+                target.innerText = word;
+                target.dataset.word = word;
+                topZone.appendChild(target);
+            });
+        }
+
+        function createEntities() {
+            entities = [
+                // Logs (River Lanes: Y = 50, 100, 150)
+                { x: 0, y: 55, speed: 2, width: 120, type: 'log', text: vocabulary[0].word },
+                { x: 300, y: 55, speed: 2, width: 120, type: 'log', text: vocabulary[1].word },
+                { x: 100, y: 105, speed: -2.5, width: 140, type: 'log', text: vocabulary[2].word },
+                { x: 400, y: 105, speed: -2.5, width: 140, type: 'log', text: vocabulary[3].word },
+                { x: 50, y: 155, speed: 1.8, width: 130, type: 'log', text: vocabulary[4].word },
+
+                // Cars (Road Lanes: Y = 205, 255, 305)
+                { x: 500, y: 205, speed: -3.5, width: 100, type: 'car', text: vocabulary[0].def },
+                { x: 200, y: 205, speed: -3.5, width: 100, type: 'car', text: vocabulary[1].def },
+                { x: 50, y: 255, speed: 4, width: 110, type: 'car', text: vocabulary[2].def },
+                { x: 350, y: 255, speed: 4, width: 110, type: 'car', text: vocabulary[3].def },
+                { x: 400, y: 305, speed: -3, width: 90, type: 'car', text: vocabulary[4].def }
+            ];
+
+            // Clean up existing elements
+            const existing = document.querySelectorAll('.entity');
+            existing.forEach(e => e.remove());
+
+            const board = document.getElementById('game-board');
+            entities.forEach((ent, index) => {
+                const el = document.createElement('div');
+                el.className = `entity ${ent.type}`;
+                el.id = `entity-${index}`;
+                el.innerText = ent.text;
+                el.style.width = ent.width + 'px';
+                board.appendChild(el);
+            });
+        }
+
+        function resetPlayerPosition() {
+            playerX = 285;
+            playerY = 360;
+            updatePlayerDOM();
+        }
+
+        function updatePlayerDOM() {
+            const player = document.getElementById('player');
+            player.style.left = playerX + 'px';
+            player.style.top = playerY + 'px';
+        }
+
+        function updateTimer() {
+            timeLeft--;
+            document.getElementById('timer').innerText = timeLeft;
+            if (timeLeft <= 0) {
+                alert("Time's up! Level Resetting.");
+                initGame();
+            }
+        }
+
+        function updateGame() {
+            // Move entities
+            entities.forEach((ent, index) => {
+                ent.x += ent.speed;
+                if (ent.speed > 0 && ent.x > 600) ent.x = -ent.width;
+                if (ent.speed < 0 && ent.x < -ent.width) ent.x = 600;
+
+                const el = document.getElementById(`entity-${index}`);
+                if (el) {
+                    el.style.left = ent.x + 'px';
+                    el.style.top = ent.y + 'px';
+                }
+            });
+
+            // Collision Detection
+            let onLog = false;
+            let logSpeed = 0;
+
+            // River Bounds: Y = 50 to 200
+            const inRiver = playerY >= 50 && playerY < 200;
+            // Road Bounds: Y = 200 to 350
+            const onRoad = playerY >= 200 && playerY < 350;
+
+            entities.forEach(ent => {
+                // Simple AABB Collision
+                if (
+                    playerX < ent.x + ent.width &&
+                    playerX + 30 > ent.x &&
+                    playerY < ent.y + 40 &&
+                    playerY + 30 > ent.y
+                ) {
+                    if (ent.type === 'car') {
+                        // Hit by car
+                        resetPlayerPosition();
+                    } else if (ent.type === 'log') {
+                        onLog = true;
+                        logSpeed = ent.speed;
+                    }
+                }
+            });
+
+            if (inRiver) {
+                if (onLog) {
+                    playerX += logSpeed;
+                    // Keep within board limits
+                    if (playerX < 0) playerX = 0;
+                    if (playerX > 570) playerX = 570;
+                    updatePlayerDOM();
+                } else {
+                    // Drowned in river
+                    resetPlayerPosition();
+                }
+            }
+
+            // Check Win Condition at Top Safety Zone
+            if (playerY < 50) {
+                checkWinCondition();
+            }
+        }
+
+        function checkWinCondition() {
+            const targets = document.querySelectorAll('.target');
+            let matched = false;
+
+            targets.forEach(t => {
+                const rect = t.getBoundingClientRect();
+                const pRect = document.getElementById('player').getBoundingClientRect();
+
+                // Check overlap with target option
+                if (!(pRect.right < rect.left || pRect.left > rect.right || pRect.bottom < rect.top || pRect.top > rect.bottom)) {
+                    if (t.dataset.word === vocabulary[currentQuestion].word) {
+                        score += 100 + timeLeft * 2;
+                        document.getElementById('score').innerText = score;
+                        alert("Correct! Moving to next round.");
+                        currentQuestion = (currentQuestion + 1) % vocabulary.length;
+                        initGame();
+                        matched = true;
+                    } else {
+                        alert("Incorrect word target! Try again.");
+                        resetPlayerPosition();
+                        matched = true;
+                    }
+                }
+            });
+
+            if (!matched) {
+                // Safe zone but missed exact target box
+                resetPlayerPosition();
+            }
+        }
+
+        // Handle Player Movement
+        window.addEventListener('keydown', e => {
+            switch (e.key) {
+                case 'ArrowUp': case 'w': case 'W':
+                    if (playerY - step >= 0) playerY -= step;
+                    break;
+                case 'ArrowDown': case 's': case 'S':
+                    if (playerY + step <= 360) playerY += step;
+                    break;
+                case 'ArrowLeft': case 'a': case 'A':
+                    if (playerX - step >= 0) playerX -= step;
+                    break;
+                case 'ArrowRight': case 'd': case 'D':
+                    if (playerX + step <= 570) playerX += step;
+                    break;
+            }
+            updatePlayerDOM();
+        });
+
+        // Initialize on load
+        initGame();
+    </script>
+</body>
+</html>

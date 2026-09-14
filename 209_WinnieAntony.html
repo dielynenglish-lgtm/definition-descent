@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Intergalactic Vocab-Defender</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: #050515;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        #game-container {
+            width: 800px;
+            height: 600px;
+            background: linear-gradient(180deg, #090a0f 0%, #1b1e38 100%);
+            border: 3px solid #00f0ff;
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        /* Screen shake effect */
+        .shake {
+            animation: shake 0.3s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-4px, 0, 0); }
+            20%, 80% { transform: translate3d(6px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-8px, 0, 0); }
+            40%, 60% { transform: translate3d(8px, 0, 0); }
+        }
+
+        /* HUD Header */
+        #hud {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 1px solid #00f0ff;
+            z-index: 10;
+        }
+
+        .hud-item {
+            font-size: 1.2rem;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        .hud-item span {
+            color: #00f0ff;
+        }
+
+        /* Mission Briefing Box */
+        #mission-box {
+            background: rgba(10, 15, 30, 0.85);
+            border: 2px solid #ff0055;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            width: 90%;
+            box-shadow: 0 0 15px rgba(ff, 0, 85, 0.3);
+            z-index: 10;
+        }
+
+        #mission-title {
+            color: #ff0055;
+            font-size: 0.9rem;
+            letter-spacing: 2px;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+
+        #definition-display {
+            font-size: 1.3rem;
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        /* Alien Fleet Area */
+        #fleet-container {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            margin-top: 20px;
+            z-index: 10;
+        }
+
+        .alien-ship {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid #00f0ff;
+            border-radius: 8px;
+            padding: 12px 18px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #00f0ff;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+            user-select: none;
+        }
+
+        .alien-ship:hover {
+            background: #00f0ff;
+            color: #000;
+            box-shadow: 0 0 20px #00f0ff;
+            transform: translateY(-3px);
+        }
+
+        /* Player Ship Area */
+        #player-area {
+            position: relative;
+            width: 100%;
+            height: 100px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            z-index: 10;
+        }
+
+        #player-ship {
+            width: 0;
+            height: 0;
+            border-left: 25px solid transparent;
+            border-right: 25px solid transparent;
+            border-bottom: 50px solid #00ff66;
+            filter: drop-shadow(0 0 10px #00ff66);
+            transition: transform 0.1s ease;
+        }
+
+        /* Glitch effect on ship during stall */
+        .glitch {
+            opacity: 0.3;
+            border-bottom-color: #ff0000 !important;
+            filter: drop-shadow(0 0 10px #ff0000) !important;
+        }
+
+        /* Feedback Text */
+        #feedback-message {
+            height: 30px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            text-align: center;
+            z-index: 10;
+        }
+
+        /* Start / Game Over Overlay */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 5, 21, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .overlay h1 {
+            font-size: 2.5rem;
+            color: #00f0ff;
+            margin-bottom: 15px;
+            text-shadow: 0 0 10px #00f0ff;
+        }
+
+        .overlay p {
+            font-size: 1.1rem;
+            color: #cccccc;
+            margin-bottom: 25px;
+            max-width: 600px;
+            line-height: 1.5;
+        }
+
+        .btn {
+            background: #ff0055;
+            color: #fff;
+            border: none;
+            padding: 15px 35px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(255, 0, 85, 0.5);
+            transition: all 0.2s ease;
+        }
+
+        .btn:hover {
+            background: #ff3377;
+            transform: scale(1.05);
+            box-shadow: 0 0 25px rgba(255, 0, 85, 0.8);
+        }
+
+        .hide {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <!-- HUD Header -->
+        <div id="hud">
+            <div class="hud-item">SCORE: <span id="score-display">0</span></div>
+            <div class="hud-item">WARP DRIVE: <span id="timer-display">60</span>s</div>
+        </div>
+
+        <!-- Mission Briefing -->
+        <div id="mission-box">
+            <div id="mission-title">MISSION BRIEFING - TARGET DEFINITION</div>
+            <div id="definition-display">Target definition will appear here...</div>
+        </div>
+
+        <!-- Feedback Message -->
+        <div id="feedback-message"></div>
+
+        <!-- Alien Fleet (Word Options) -->
+        <div id="fleet-container">
+            <!-- Ships generated dynamically via JS -->
+        </div>
+
+        <!-- Player Ship -->
+        <div id="player-area">
+            <div id="player-ship"></div>
+        </div>
+
+        <!-- Start Screen Overlay -->
+        <div id="start-screen" class="overlay">
+            <h1>INTERGALACTIC VOCAB-DEFENDER</h1>
+            <p>
+                Step into the pilot's seat! Defend Earth from an incoming fleet of alien word-ships. 
+                Match each Target Definition in the Mission Briefing to the correct vocabulary word ship before time runs out.
+            </p>
+            <button class="btn" onclick="startGame()">LAUNCH MISSION</button>
+        </div>
+
+        <!-- Game Over Screen Overlay -->
+        <div id="game-over-screen" class="overlay hide">
+            <h1 id="end-title">MISSION COMPLETE</h1>
+            <p id="end-message"></p>
+            <button class="btn" onclick="startGame()">REPLAY MISSION</button>
+        </div>
+    </div>
+
+    <script>
+        // Vocabulary Database (7 Target Words)
+        const vocabData = [
+            { word: "miraculous", definition: "Extraordinary, unexpected, or bringing welcome reassurance like a miracle." },
+            { word: "massive", definition: "Large and heavy or solid; exceptionally large in scale or degree." },
+            { word: "vomit", definition: "To eject the contents of the stomach through the mouth." },
+            { word: "physician", definition: "A person qualified to practice medicine; a medical doctor." },
+            { word: "dose", definition: "A quantity of a medicine or drug taken at a particular time." },
+            { word: "established", definition: "Having existed for a long time and therefore recognized and accepted." },
+            { word: "undergo", definition: "To experience or be subjected to something (such as a trial or change)." }
+        ];
+
+        // Game State Variables
+        let currentQuestion = {};
+        let score = 0;
+        let timeLeft = 60;
+        let timerInterval = null;
+        let isStalled = false;
+
+        // Elements
+        const containerEl = document.getElementById('game-container');
+        const scoreEl = document.getElementById('score-display');
+        const timerEl = document.getElementById('timer-display');
+        const definitionEl = document.getElementById('definition-display');
+        const fleetEl = document.getElementById('fleet-container');
+        const playerShipEl = document.getElementById('player-ship');
+        const feedbackEl = document.getElementById('feedback-message');
+        const startScreenEl = document.getElementById('start-screen');
+        const gameOverScreenEl = document.getElementById('game-over-screen');
+        const endTitleEl = document.getElementById('end-title');
+        const endMessageEl = document.getElementById('end-message');
+
+        function startGame() {
+            score = 0;
+            timeLeft = 60;
+            isStalled = false;
+            scoreEl.textContent = score;
+            timerEl.textContent = timeLeft;
+            feedbackEl.textContent = "";
+            
+            startScreenEl.classList.add('hide');
+            gameOverScreenEl.classList.add('hide');
+
+            clearInterval(timerInterval);
+            timerInterval = setInterval(updateTimer, 1000);
+
+            nextRound();
+        }
+
+        function updateTimer() {
+            timeLeft--;
+            timerEl.textContent = timeLeft;
+
+            if (timeLeft <= 0) {
+                endGame();
+            }
+        }
+
+        function nextRound() {
+            if (timeLeft <= 0) return;
+
+            // Pick a random word target
+            const randomIndex = Math.floor(Math.random() * vocabData.length);
+            currentQuestion = vocabData[randomIndex];
+            definitionEl.textContent = `"${currentQuestion.definition}"`;
+
+            // Build options array (1 correct + 2 distractors)
+            let options = [currentQuestion.word];
+            while (options.length < 3) {
+                let randomWord = vocabData[Math.floor(Math.random() * vocabData.length)].word;
+                if (!options.includes(randomWord)) {
+                    options.push(randomWord);
+                }
+            }
+
+            // Shuffle options
+            options.sort(() => Math.random() - 0.5);
+
+            // Render fleet
+            fleetEl.innerHTML = "";
+            options.forEach(word => {
+                const ship = document.createElement('div');
+                ship.className = 'alien-ship';
+                ship.textContent = word;
+                ship.onclick = () => handleShipClick(word, ship);
+                fleetEl.appendChild(ship);
+            });
+        }
+
+        function handleShipClick(selectedWord, shipElement) {
+            if (isStalled) return; // Lasers stalled due to misfire
+
+            if (selectedWord === currentQuestion.word) {
+                // Correct Hit
+                score += 100;
+                scoreEl.textContent = score;
+                feedbackEl.style.color = "#00ff66";
+                feedbackEl.textContent = "SPECTACULAR EXPLOSION! +100 PTS";
+
+                nextRound();
+            } else {
+                // Wrong Hit
+                score = Math.max(0, score - 50);
+                scoreEl.textContent = score;
+                feedbackEl.style.color = "#ff0055";
+                feedbackEl.textContent = "MISFIRE! LASERS STALLED (-50 PTS)";
+
+                // Trigger Screen Shake & Ship Glitch
+                containerEl.classList.add('shake');
+                playerShipEl.classList.add('glitch');
+                isStalled = true;
+
+                setTimeout(() => {
+                    containerEl.classList.remove('shake');
+                }, 300);
+
+                setTimeout(() => {
+                    playerShipEl.classList.remove('glitch');
+                    isStalled = false;
+                    feedbackEl.textContent = "";
+                }, 2000);
+            }
+        }
+
+        function endGame() {
+            clearInterval(timerInterval);
+            gameOverScreenEl.classList.remove('hide');
+
+            let rank = "Galactic Recruit";
+            if (score >= 1000) rank = "Galactic Ace / Ultimate Defender";
+            else if (score >= 600) rank = "Starfleet Commander";
+            else if (score >= 300) rank = "Space Pilot";
+
+            endTitleEl.textContent = "WARP DRIVE EXHAUSTED";
+            endMessageEl.innerHTML = `Your Mission Score: <strong>${score}</strong><br>Rank Achieved: <strong>${rank}</strong>`;
+        }
+    </script>
+</body>
+</html>

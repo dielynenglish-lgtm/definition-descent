@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Vocab Pac-Maze</title>
+  <style>
+    body {
+      background-color: #111;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 10px;
+    }
+    #game-container {
+      display: inline-block;
+      margin-top: 10px;
+    }
+    #definition-box {
+      background: #222;
+      border: 2px solid #ffb8ae;
+      padding: 12px;
+      font-size: 1.1rem;
+      max-width: 600px;
+      margin: 0 auto 10px auto;
+      border-radius: 8px;
+    }
+    #hud {
+      font-size: 1.2rem;
+      margin-bottom: 10px;
+      font-weight: bold;
+    }
+    canvas {
+      background-color: #000;
+      border: 4px solid #1919a6;
+      display: block;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Vocab Pac-Maze</h1>
+  
+  <div id="hud">Score: <span id="score">0</span></div>
+  <div id="definition-box">Definition: <span id="definition-text">Loading...</span></div>
+
+  <div id="game-container">
+    <canvas id="mazeCanvas" width="570" height="570"></canvas>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("mazeCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const tileSize = 30;
+    const rows = 19;
+    const cols = 19;
+
+    // 1: Wall, 0: Path/Dot, 2: Spawn/Empty Path
+    const grid = [
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+      [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
+      [1,0,1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,0,1],
+      [1,0,1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,0,1],
+      [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+      [1,0,1,1,0,1,0,1,1,1,1,1,0,1,0,1,1,0,1],
+      [1,0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,1],
+      [1,1,1,1,0,1,1,1,2,1,2,1,1,1,0,1,1,1,1],
+      [1,1,1,1,0,1,2,2,2,2,2,2,2,1,0,1,1,1,1],
+      [1,1,1,1,0,1,2,1,1,2,1,1,2,1,0,1,1,1,1],
+      [1,1,1,1,0,1,2,1,2,2,2,1,2,1,0,1,1,1,1],
+      [1,1,1,1,0,1,2,1,1,1,1,1,2,1,0,1,1,1,1],
+      [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
+      [1,0,1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,0,1],
+      [1,0,0,1,0,0,0,0,0,2,0,0,0,0,0,1,0,0,1],
+      [1,1,0,1,0,1,0,1,1,1,1,1,0,1,0,1,0,1,1],
+      [1,0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,1],
+      [1,0,1,1,1,1,1,1,0,1,0,1,1,1,1,1,1,0,1],
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+    ];
+
+    // Dot tracker
+    let dots = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (grid[r][c] === 0) {
+          dots.push({r, c});
+        }
+      }
+    }
+
+    const vocabList = [
+      { word: "communication", def: "The exchanging of information or news." },
+      { word: "conventional", def: "Based on or in accordance with what is generally done." },
+      { word: "fascinating", def: "Extremely interesting." },
+      { word: "generate", def: "To produce or create something." },
+      { word: "scent", def: "A distinctive smell, especially an agreeable one." },
+      { word: "prompt", def: "Done without delay; immediate." },
+      { word: "nutrient", def: "A substance that provides nourishment essential for growth." },
+      { word: "environment", def: "The surroundings or conditions in which a person, animal, or plant lives." },
+      { word: "habitat", def: "The natural home or environment of an animal, plant, or other organism." },
+      { word: "ecosystem", def: "A biological community of interacting organisms and their physical environment." }
+    ];
+
+    let score = 0;
+    let targetWordObj = null;
+    let pellets = [];
+    let vulnerabilityTimer = null;
+    let speedBoostTimer = null;
+    let isGhostVulnerable = false;
+    let ghostSpeedMultiplier = 1.0;
+
+    const player = {
+      x: 9 * tileSize + tileSize / 2,
+      y: 14 * tileSize + tileSize / 2,
+      radius: 12,
+      speed: 2.5,
+      dirX: 0,
+      dirY: 0,
+      nextDirX: 0,
+      nextDirY: 0
+    };
+
+    const ghosts = [
+      { x: 8 * tileSize + tileSize/2, y: 8 * tileSize + tileSize/2, color: 'red', dirX: 1, dirY: 0 },
+      { x: 10 * tileSize + tileSize/2, y: 8 * tileSize + tileSize/2, color: 'pink', dirX: -1, dirY: 0 }
+    ];
+
+    // Power Pellet spawn locations in the corners
+    const pelletLocations = [
+      { r: 1, c: 1 },
+      { r: 1, c: 17 },
+      { r: 16, c: 1 }
+    ];
+
+    function setupNewTarget() {
+      // Choose random target word
+      targetWordObj = vocabList[Math.floor(Math.random() * vocabList.length)];
+      document.getElementById("definition-text").innerText = targetWordObj.def;
+
+      // Select 2 distractor words
+      let distractors = vocabList.filter(v => v.word !== targetWordObj.word);
+      distractors.sort(() => 0.5 - Math.random());
+      
+      let selectedWords = [targetWordObj.word, distractors[0].word, distractors[1].word];
+      selectedWords.sort(() => 0.5 - Math.random());
+
+      pellets = pelletLocations.map((loc, idx) => ({
+        x: loc.c * tileSize + tileSize / 2,
+        y: loc.r * tileSize + tileSize / 2,
+        word: selectedWords[idx]
+      }));
+    }
+
+    function isWall(x, y) {
+      let r = Math.floor(y / tileSize);
+      let c = Math.floor(x / tileSize);
+      if (r < 0 || r >= rows || c < 0 || c >= cols) return true;
+      return grid[r][c] === 1;
+    }
+
+    function update() {
+      // Try updating player direction
+      if (player.nextDirX !== 0 || player.nextDirY !== 0) {
+        let testX = player.x + player.nextDirX * player.speed;
+        let testY = player.y + player.nextDirY * player.speed;
+        if (!isWall(testX, testY)) {
+          player.dirX = player.nextDirX;
+          player.dirY = player.nextDirY;
+        }
+      }
+
+      // Move player
+      let newX = player.x + player.dirX * player.speed;
+      let newY = player.y + player.dirY * player.speed;
+      if (!isWall(newX, newY)) {
+        player.x = newX;
+        player.y = newY;
+      }
+
+      // Collect small dots
+      dots = dots.filter(dot => {
+        let dotX = dot.c * tileSize + tileSize / 2;
+        let dotY = dot.r * tileSize + tileSize / 2;
+        if (Math.hypot(player.x - dotX, player.y - dotY) < 10) {
+          score += 10;
+          document.getElementById("score").innerText = score;
+          return false;
+        }
+        return true;
+      });
+
+      // Check pellet collection
+      pellets.forEach((pellet, index) => {
+        if (Math.hypot(player.x - pellet.x, player.y - pellet.y) < 15) {
+          if (pellet.word === targetWordObj.word) {
+            // Correct Pellet
+            score += 100;
+            triggerVulnerability();
+          } else {
+            // Incorrect Pellet
+            triggerGhostSpeedUp();
+          }
+          document.getElementById("score").innerText = score;
+          setupNewTarget();
+        }
+      });
+
+      // Move Ghosts
+      ghosts.forEach(ghost => {
+        let gSpeed = 1.5 * ghostSpeedMultiplier;
+        let nextG3X = ghost.x + ghost.dirX * gSpeed;
+        let nextG3Y = ghost.y + ghost.dirY * gSpeed;
+
+        if (isWall(nextG3X, nextG3Y) || Math.random() < 0.02) {
+          const dirs = [{x:1, y:0}, {x:-1, y:0}, {x:0, y:1}, {x:0, y:-1}];
+          let validDirs = dirs.filter(d => !isWall(ghost.x + d.x * tileSize/2, ghost.y + d.y * tileSize/2));
+          if (validDirs.length > 0) {
+            let chosen = validDirs[Math.floor(Math.random() * validDirs.length)];
+            ghost.dirX = chosen.x;
+            ghost.dirY = chosen.y;
+          }
+        } else {
+          ghost.x = nextG3X;
+          ghost.y = nextG3Y;
+        }
+
+        // Ghost-Player Collision
+        if (Math.hypot(player.x - ghost.x, player.y - ghost.y) < 15) {
+          if (isGhostVulnerable) {
+            score += 200;
+            document.getElementById("score").innerText = score;
+            // Respawn ghost
+            ghost.x = 9 * tileSize + tileSize/2;
+            ghost.y = 8 * tileSize + tileSize/2;
+          } else {
+            // Game Over / Reset Player Position
+            player.x = 9 * tileSize + tileSize / 2;
+            player.y = 14 * tileSize + tileSize / 2;
+            score = Math.max(0, score - 50);
+            document.getElementById("score").innerText = score;
+          }
+        }
+      });
+    }
+
+    function triggerVulnerability() {
+      isGhostVulnerable = true;
+      if (vulnerabilityTimer) clearTimeout(vulnerabilityTimer);
+      vulnerabilityTimer = setTimeout(() => {
+        isGhostVulnerable = false;
+      }, 8000);
+    }
+
+    function triggerGhostSpeedUp() {
+      ghostSpeedMultiplier = 1.25;
+      if (speedBoostTimer) clearTimeout(speedBoostTimer);
+      speedBoostTimer = setTimeout(() => {
+        ghostSpeedMultiplier = 1.0;
+      }, 5000);
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw Grid Walls
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (grid[r][c] === 1) {
+            ctx.fillStyle = "#1919a6";
+            ctx.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
+          }
+        }
+      }
+
+      // Draw Dots
+      ctx.fillStyle = "#ffb8ae";
+      dots.forEach(dot => {
+        ctx.beginPath();
+        ctx.arc(dot.c * tileSize + tileSize/2, dot.r * tileSize + tileSize/2, 3, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Draw Power Pellets with Word Labels
+      pellets.forEach(pellet => {
+        ctx.fillStyle = "#ffb8ff";
+        ctx.beginPath();
+        ctx.arc(pellet.x, pellet.y, 10, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#fff";
+        ctx.font = "12px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(pellet.word, pellet.x, pellet.y - 14);
+      });
+
+      // Draw Player (Pacman)
+      ctx.fillStyle = "yellow";
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Draw Ghosts
+      ghosts.forEach(ghost => {
+        ctx.fillStyle = isGhostVulnerable ? "blue" : ghost.color;
+        ctx.beginPath();
+        ctx.arc(ghost.x, ghost.y, 12, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
+    function loop() {
+      update();
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    window.addEventListener("keydown", e => {
+      if (e.key === "ArrowUp") { player.nextDirX = 0; player.nextDirY = -1; }
+      if (e.key === "ArrowDown") { player.nextDirX = 0; player.nextDirY = 1; }
+      if (e.key === "ArrowLeft") { player.nextDirX = -1; player.nextDirY = 0; }
+      if (e.key === "ArrowRight") { player.nextDirX = 1; player.nextDirY = 0; }
+    });
+
+    setupNewTarget();
+    loop();
+  </script>
+</body>
+</html>

@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gallery Memory Matrix</title>
+  <style>
+    :root {
+      --bg-color: #121214;
+      --card-bg: #2a2a30;
+      --card-flipped: #e2c044;
+      --text-dark: #121214;
+      --text-light: #f0f0f5;
+      --accent-color: #d4af37;
+      --matched-bg: #4a7c59;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-light);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+    }
+
+    h1 {
+      margin-bottom: 5px;
+      color: var(--accent-color);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    p.subtitle {
+      margin-top: 0;
+      color: #aaa;
+      font-style: italic;
+    }
+
+    .stats-container {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      max-width: 500px;
+      margin-bottom: 20px;
+      background: #1e1e24;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+      box-sizing: border-box;
+    }
+
+    .stat-box {
+      font-size: 1.1rem;
+      font-weight: bold;
+    }
+
+    .grid-container {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      width: 100%;
+      max-width: 500px;
+      perspective: 1000px;
+    }
+
+    /* 3D Card Flip Structure */
+    .card {
+      height: 110px;
+      position: relative;
+      cursor: pointer;
+      user-select: none;
+      perspective: 1000px;
+    }
+
+    .card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      text-align: center;
+      transition: transform 0.6s;
+      transform-style: preserve-3d;
+      border-radius: 6px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
+
+    .card.flipped .card-inner {
+      transform: rotateY(180deg);
+    }
+
+    .card-front, .card-back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px;
+      box-sizing: border-box;
+      border: 1px solid #3a3a42;
+    }
+
+    .card-front {
+      background-color: var(--card-bg);
+      color: var(--text-light);
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+
+    .card-back {
+      background-color: var(--card-flipped);
+      color: var(--text-dark);
+      transform: rotateY(180deg);
+      font-size: 0.85rem;
+      font-weight: bold;
+    }
+
+    .card.matched .card-back {
+      background-color: var(--matched-bg);
+      color: white;
+      border-color: #5c9c6f;
+    }
+
+    .card.matched {
+      cursor: default;
+    }
+
+    /* Modal Styling */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+    }
+
+    .modal-content {
+      background: #1e1e24;
+      padding: 30px;
+      border-radius: 12px;
+      text-align: center;
+      border: 2px solid var(--accent-color);
+      max-width: 400px;
+      width: 80%;
+    }
+
+    .modal-content h2 {
+      color: var(--accent-color);
+      margin-top: 0;
+    }
+
+    button {
+      background-color: var(--accent-color);
+      color: var(--text-dark);
+      border: none;
+      padding: 10px 20px;
+      font-size: 1rem;
+      font-weight: bold;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 15px;
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background-color: #f5d061;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Gallery Matrix</h1>
+  <p class="subtitle">Match Vocabulary Words with their Architectural & Artistic Definitions</p>
+
+  <div class="stats-container">
+    <div class="stat-box">Time: <span id="timer">90</span>s</div>
+    <div class="stat-box">Moves: <span id="moves">0</span></div>
+    <div class="stat-box">Matches: <span id="matches">0</span>/6</div>
+  </div>
+
+  <div class="grid-container" id="grid"></div>
+
+  <!-- End Game Screen -->
+  <div class="modal" id="endModal">
+    <div class="modal-content">
+      <h2 id="modalTitle">Gallery Master!</h2>
+      <p id="modalMessage"></p>
+      <button onclick="restartGame()">Play Again</button>
+    </div>
+  </div>
+
+  <script>
+    const vocabData = [
+      { word: "Imaginative", def: "Having or showing creativity or inventiveness in design." },
+      { word: "Artistic", def: "Having natural creative skill or aesthetic value." },
+      { word: "Atmosphere", def: "The pervading tone, mood, or feeling of a space." },
+      { word: "Gallery", def: "A room or building for the display or sale of works of art." },
+      { word: "Architecture", def: "The art or practice of designing and constructing buildings." },
+      { word: "Professional", def: "Conforming to the technical or ethical standards of a profession." }
+    ];
+
+    let cards = [];
+    let flippedCards = [];
+    let matchedPairs = 0;
+    let moves = 0;
+    let timeLeft = 90;
+    let timerInterval = null;
+    let gameActive = false;
+
+    const grid = document.getElementById('grid');
+    const timerDisplay = document.getElementById('timer');
+    const movesDisplay = document.getElementById('moves');
+    const matchesDisplay = document.getElementById('matches');
+    const modal = document.getElementById('endModal');
+
+    function initGame() {
+      cards = [];
+      vocabData.forEach((item, index) => {
+        cards.push({ id: index, text: item.word, type: 'word' });
+        cards.push({ id: index, text: item.def, type: 'def' });
+      });
+
+      for (let i = 0; i < 4; i++) {
+        cards.push({ id: -1, text: "Exhibit " + (i + 1), type: 'filler' });
+      }
+
+      cards.sort(() => Math.random() - 0.5);
+
+      grid.innerHTML = '';
+      flippedCards = [];
+      matchedPairs = 0;
+      moves = 0;
+      timeLeft = 90;
+      gameActive = true;
+      
+      movesDisplay.textContent = moves;
+      matchesDisplay.textContent = matchedPairs;
+      timerDisplay.textContent = timeLeft;
+      modal.style.display = 'none';
+
+      cards.forEach((cardData, index) => {
+        const cardElem = document.createElement('div');
+        cardElem.classList.add('card');
+        cardElem.dataset.index = index;
+
+        cardElem.innerHTML = `
+          <div class="card-inner">
+            <div class="card-front">?</div>
+            <div class="card-back">${cardData.text}</div>
+          </div>
+        `;
+
+        cardElem.addEventListener('click', handleCardClick);
+        grid.appendChild(cardElem);
+      });
+
+      clearInterval(timerInterval);
+      timerInterval = setInterval(updateTimer, 1000);
+    }
+
+    function handleCardClick() {
+      if (!gameActive) return;
+      
+      if (this.classList.contains('flipped') || this.classList.contains('matched')) return;
+      if (flippedCards.length >= 2) return;
+
+      this.classList.add('flipped');
+      const index = this.dataset.index;
+      flippedCards.push({ element: this, data: cards[index] });
+
+      if (flippedCards.length === 2) {
+        moves++;
+        movesDisplay.textContent = moves;
+        checkMatch();
+      }
+    }
+
+    function checkMatch() {
+      const [card1, card2] = flippedCards;
+
+      if (card1.data.id === -1 || card2.data.id === -1 || card1.data.id !== card2.data.id) {
+        setTimeout(() => {
+          card1.element.classList.remove('flipped');
+          card2.element.classList.remove('flipped');
+          flippedCards = [];
+        }, 1000);
+      } else {
+        card1.element.classList.add('matched');
+        card2.element.classList.add('matched');
+        matchedPairs++;
+        matchesDisplay.textContent = matchedPairs;
+        flippedCards = [];
+
+        if (matchedPairs === vocabData.length) {
+          endGame(true);
+        }
+      }
+    }
+
+    function updateTimer() {
+      timeLeft--;
+      timerDisplay.textContent = timeLeft;
+      if (timeLeft <= 0) {
+        endGame(false);
+      }
+    }
+
+    function calculateEfficiency() {
+      if (moves <= 8) return "S Tier (Architectural Genius)";
+      if (moves <= 12) return "A Tier (Curator Level)";
+      if (moves <= 16) return "B Tier (Gallery Assistant)";
+      return "C Tier (Art Student)";
+    }
+
+    function endGame(isWin) {
+      gameActive = false;
+      clearInterval(timerInterval);
+
+      const modalTitle = document.getElementById('modalTitle');
+      const modalMessage = document.getElementById('modalMessage');
+
+      if (isWin) {
+        modalTitle.textContent = "Exhibition Complete!";
+        const rating = calculateEfficiency();
+        modalMessage.innerHTML = `You matched all vocabulary items!<br><br><b>Moves Taken:</b> ${moves}<br><b>Time Remaining:</b> ${timeLeft}s<br><b>Efficiency Rating:</b> ${rating}`;
+      } else {
+        modalTitle.textContent = "Time's Up!";
+        modalMessage.textContent = `You ran out of time! You found ${matchedPairs} out of 6 matches.`;
+      }
+
+      modal.style.display = 'flex';
+    }
+
+    function restartGame() {
+      initGame();
+    }
+
+    initGame();
+  </script>
+</body>
+</html>

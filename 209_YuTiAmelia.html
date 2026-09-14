@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Word Tower Defense</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #1e1e2e;
+    color: #cdd6f4;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+  }
+  #game-wrapper {
+    display: flex;
+    background: #181825;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    overflow: hidden;
+    width: 1000px;
+    max-width: 100%;
+  }
+  #game-container {
+    position: relative;
+    width: 650px;
+    height: 450px;
+    background: #11111b;
+  }
+  canvas {
+    display: block;
+    background: #181825;
+  }
+  #sidebar {
+    width: 350px;
+    background: #313244;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    border-left: 2px solid #45475a;
+  }
+  .hud-item {
+    background: #1e1e2e;
+    padding: 10px 15px;
+    border-radius: 8px;
+    font-weight: bold;
+  }
+  #health-bar-container {
+    width: 100%;
+    background: #45475a;
+    height: 20px;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-top: 5px;
+  }
+  #health-bar {
+    width: 100%;
+    height: 100%;
+    background: #a6e3a1;
+    transition: width 0.3s ease;
+  }
+  #reload-panel {
+    background: #1e1e2e;
+    border: 2px solid #f38ba8;
+    border-radius: 8px;
+    padding: 15px;
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+  }
+  #reload-panel.active { display: flex; }
+  .btn {
+    background: #89b4fa;
+    color: #11111b;
+    border: none;
+    padding: 10px;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.2s;
+    text-align: left;
+  }
+  .btn:hover { background: #b4befe; }
+  .btn:disabled { background: #585b70; cursor: not-allowed; }
+  #lockout-msg {
+    color: #f38ba8;
+    font-weight: bold;
+    font-size: 0.9em;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<div id="game-wrapper">
+  <div id="game-container">
+    <canvas id="gameCanvas" width="650" height="450"></canvas>
+  </div>
+  <div id="sidebar">
+    <h2>Word Tower Defense</h2>
+    <div class="hud-item">
+      Base Health
+      <div id="health-bar-container">
+        <div id="health-bar"></div>
+      </div>
+    </div>
+    <div class="hud-item">
+      Wave: <span id="wave-counter">1</span>
+    </div>
+
+    <!-- Interactive Reload Panel -->
+    <div id="reload-panel">
+      <h3>RELOAD PUZZLE</h3>
+      <p id="turret-name" style="color: #fab387; font-weight: bold;"></p>
+      <p><strong>Definition:</strong></p>
+      <p id="vocab-def" style="font-style: italic; font-size: 0.95em;"></p>
+      <div id="options-container" style="display: flex; flex-direction: column; gap: 8px;"></div>
+      <p id="lockout-msg">Incorrect! Turret locked for 5 seconds.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const vocabList = [
+  { word: "solo", def: "Done by one person alone; unaccompanied." },
+  { word: "flexibility", def: "The ability to bend easily or adapt to new situations." },
+  { word: "compromise", def: "An agreement reached when both sides give up something." },
+  { word: "destination", def: "The place to which someone or something is going." },
+  { word: "split", def: "To divide or cause to divide into parts or groups." },
+  { word: "arise", def: "To emerge, result, or come into notice." },
+  { word: "occasionally", def: "At times from time to time; now and then." },
+  { word: "strategy", def: "A plan of action designed to achieve a long-term goal." },
+  { word: "defense", def: "Action taken to protect against attack or harm." },
+  { word: "barrier", def: "An obstacle that prevents movement or access." }
+];
+
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+let baseHealth = 100;
+let wave = 1;
+let enemies = [];
+let bullets = [];
+let spawnTimer = 0;
+let activeTurretForReload = null;
+
+// Track active lockout timers so they can clear properly
+let lockoutTimeouts = {};
+
+// 3 Defensive Turrets
+const turrets = [
+  { id: 1, x: 200, y: 100, ammo: 10, maxAmmo: 10, range: 160, lockedUntil: 0, fireCooldown: 0 },
+  { id: 2, x: 200, y: 225, ammo: 10, maxAmmo: 10, range: 160, lockedUntil: 0, fireCooldown: 0 },
+  { id: 3, x: 200, y: 350, ammo: 10, maxAmmo: 10, range: 160, lockedUntil: 0, fireCooldown: 0 }
+];
+
+// Simple path coordinates from left edge to base on the right
+const path = [
+  { x: 0, y: 225 },
+  { x: 120, y: 225 },
+  { x: 120, y: 80 },
+  { x: 350, y: 80 },
+  { x: 350, y: 370 },
+  { x: 550, y: 370 },
+  { x: 550, y: 225 },
+  { x: 650, y: 225 }
+];
+
+function updateGame() {
+  if (baseHealth <= 0) return;
+
+  // Enemy Spawning
+  spawnTimer++;
+  if (spawnTimer > Math.max(30, 120 - wave * 10)) {
+    enemies.push({
+      x: path[0].x,
+      y: path[0].y,
+      pathIndex: 0,
+      speed: 1 + wave * 0.15,
+      hp: 20 + wave * 5
+    });
+    spawnTimer = 0;
+  }
+
+  // Move Enemies
+  for (let i = enemies.length - 1; i >= 0; i--) {
+    let e = enemies[i];
+    let target = path[e.pathIndex + 1];
+    
+    if (target) {
+      let dx = target.x - e.x;
+      let dy = target.y - e.y;
+      let dist = Math.hypot(dx, dy);
+      
+      if (dist < e.speed) {
+        e.pathIndex++;
+      } else {
+        e.x += (dx / dist) * e.speed;
+        e.y += (dy / dist) * e.speed;
+      }
+    } else {
+      // Enemy reached base
+      baseHealth = Math.max(0, baseHealth - 10);
+      document.getElementById("health-bar").style.width = baseHealth + "%";
+      enemies.splice(i, 1);
+    }
+  }
+
+  // Turret Actions
+  const now = Date.now();
+  turrets.forEach(t => {
+    if (t.fireCooldown > 0) t.fireCooldown--;
+
+    if (t.ammo > 0 && now > t.lockedUntil && t.fireCooldown <= 0) {
+      // Find enemy in range
+      let target = enemies.find(e => Math.hypot(e.x - t.x, e.y - t.y) <= t.range);
+      if (target) {
+        bullets.push({ x: t.x, y: t.y, target: target, speed: 6 });
+        t.ammo--;
+        t.fireCooldown = 25; // Fire rate delay
+      }
+    }
+  });
+
+  // Bullet Movement & Collision
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    let b = bullets[i];
+    if (!enemies.includes(b.target)) {
+      bullets.splice(i, 1);
+      continue;
+    }
+    let dx = b.target.x - b.x;
+    let dy = b.target.y - b.y;
+    let dist = Math.hypot(dx, dy);
+
+    if (dist < 8) {
+      b.target.hp -= 10;
+      if (b.target.hp <= 0) {
+        let idx = enemies.indexOf(b.target);
+        if (idx > -1) enemies.splice(idx, 1);
+      }
+      bullets.splice(i, 1);
+    } else {
+      b.x += (dx / dist) * b.speed;
+      b.y += (dy / dist) * b.speed;
+    }
+  }
+
+  // Increase wave over time
+  if (Math.floor(Date.now() / 10000) % 2 === 0) {
+    wave = Math.min(10, 1 + Math.floor(spawnTimer / 200));
+    document.getElementById("wave-counter").innerText = wave;
+  }
+}
+
+function drawGame() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Draw Path
+  ctx.strokeStyle = "#45475a";
+  ctx.lineWidth = 30;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  ctx.moveTo(path[0].x, path[0].y);
+  for (let i = 1; i < path.length; i++) ctx.lineTo(path[i].x, path[i].y);
+  ctx.stroke();
+
+  // Draw Base
+  ctx.fillStyle = "#a6e3a1";
+  ctx.fillRect(620, 185, 30, 80);
+
+  // Draw Turrets
+  const now = Date.now();
+  turrets.forEach(t => {
+    ctx.fillStyle = t.lockedUntil > now ? "#f38ba8" : (t.ammo === 0 ? "#fab387" : "#89b4fa");
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, 20, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Text Ammo
+    ctx.fillStyle = "#11111b";
+    ctx.font = "bold 12px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(`${t.ammo}/${t.maxAmmo}`, t.x, t.y + 4);
+
+    // Range Ring on hover/click indicator
+    if (t.ammo === 0) {
+      ctx.strokeStyle = "#fab387";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, t.range, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  });
+
+  // Draw Enemies
+  enemies.forEach(e => {
+    ctx.fillStyle = "#f38ba8";
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, 10, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Draw Bullets
+  ctx.fillStyle = "#f9e2af";
+  bullets.forEach(b => {
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, 4, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Game Over Text
+  if (baseHealth <= 0) {
+    ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#f38ba8";
+    ctx.font = "bold 36px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2);
+  }
+}
+
+// Click detection for reloading turrets
+canvas.addEventListener("click", (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const clickX = e.clientX - rect.left;
+  const clickY = e.clientY - rect.top;
+
+  turrets.forEach(t => {
+    const dist = Math.hypot(clickX - t.x, clickY - t.y);
+    if (dist <= 20) {
+      openReloadPuzzle(t);
+    }
+  });
+});
+
+function openReloadPuzzle(turret) {
+  activeTurretForReload = turret;
+  const panel = document.getElementById("reload-panel");
+  const optionsContainer = document.getElementById("options-container");
+  const lockoutMsg = document.getElementById("lockout-msg");
+
+  lockoutMsg.style.display = "none";
+  panel.classList.add("active");
+  document.getElementById("turret-name").innerText = `Turret #${turret.id}`;
+
+  // Select target word
+  const targetObj = vocabList[Math.floor(Math.random() * vocabList.length)];
+  document.getElementById("vocab-def").innerText = targetObj.def;
+
+  // Build 3 options
+  let options = [targetObj];
+  while (options.length < 3) {
+    let rand = vocabList[Math.floor(Math.random() * vocabList.length)];
+    if (!options.includes(rand)) options.push(rand);
+  }
+  options.sort(() => Math.random() - 0.5);
+
+  optionsContainer.innerHTML = "";
+  options.forEach(opt => {
+    const btn = document.createElement("button");
+    btn.className = "btn";
+    btn.innerText = opt.word;
+    
+    // Disable if turret currently locked down
+    if (Date.now() < turret.lockedUntil) {
+      btn.disabled = true;
+    }
+
+    btn.onclick = () => {
+      if (opt.word === targetObj.word) {
+        // Correct answer: instant reload all turrets!
+        turrets.forEach(t => t.ammo = t.maxAmmo);
+        panel.classList.remove("active");
+      } else {
+        // Wrong answer: 5-second penalty lock on this specific turret
+        turret.lockedUntil = Date.now() + 5000;
+        lockoutMsg.style.display = "block";
+        
+        // Disable buttons
+        const allBtns = optionsContainer.querySelectorAll('.btn');
+        allBtns.forEach(b => b.disabled = true);
+
+        if (lockoutTimeouts[turret.id]) clearTimeout(lockoutTimeouts[turret.id]);
+        lockoutTimeouts[turret.id] = setTimeout(() => {
+          lockoutMsg.style.display = "none";
+          allBtns.forEach(b => b.disabled = false);
+        }, 5000);
+      }
+    };
+    optionsContainer.appendChild(btn);
+  });
+}
+
+function gameLoop() {
+  updateGame();
+  drawGame();
+  requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+</script>
+</body>
+</html>

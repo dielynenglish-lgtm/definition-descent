@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocabulary Quest: Business & Psychology</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body {
+            background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+        .game-card {
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 30px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+        h1 {
+            text-align: center;
+            color: #182848;
+            margin-top: 0;
+            font-size: 1.8rem;
+        }
+        .progress-container {
+            background-color: #e0e0e0;
+            border-radius: 10px;
+            height: 12px;
+            width: 100%;
+            margin-bottom: 25px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            background-color: #4caf50;
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        .question-box {
+            font-size: 1.15rem;
+            color: #333;
+            margin-bottom: 25px;
+            line-height: 1.5;
+            background: #f4f6f9;
+            padding: 15px 20px;
+            border-left: 5px solid #4b6cb7;
+            border-radius: 4px;
+        }
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .btn {
+            padding: 14px 20px;
+            font-size: 1rem;
+            border: 2px solid #4b6cb7;
+            background-color: #fff;
+            color: #4b6cb7;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s ease;
+        }
+        .btn:hover {
+            background-color: #4b6cb7;
+            color: #fff;
+        }
+        .btn.correct {
+            background-color: #4caf50 !important;
+            color: white !important;
+            border-color: #4caf50 !important;
+        }
+        .btn.incorrect {
+            background-color: #f44336 !important;
+            color: white !important;
+            border-color: #f44336 !important;
+        }
+        .feedback {
+            margin-top: 20px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            text-align: center;
+            min-height: 30px;
+        }
+        .next-btn {
+            display: block;
+            width: 100%;
+            margin-top: 20px;
+            padding: 12px;
+            background-color: #182848;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .next-btn:hover {
+            background-color: #334d7d;
+        }
+        .score-screen {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-card" id="gameCard">
+        <h1>Vocabulary Quest</h1>
+        <div class="progress-container">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <div id="quizSection">
+            <div class="question-box" id="questionText">Loading vocabulary target...</div>
+            <div class="options-grid" id="optionsGrid"></div>
+            <div class="feedback" id="feedbackText"></div>
+            <button class="next-btn" id="nextBtn" style="display:none;" onclick="nextQuestion()">Next Word</button>
+        </div>
+        <div id="scoreSection" class="score-screen" style="display:none;">
+            <h2>Challenge Complete!</h2>
+            <p id="finalScore" style="font-size: 1.5rem; font-weight: bold; color: #182848;"></p>
+            <button class="next-btn" onclick="restartGame()">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        const vocabularyData = [
+            {
+                word: "presentation",
+                definition: "A formal display or speech showing information, ideas, or a product to an audience.",
+                options: ["presentation", "purchase", "stability", "trigger"]
+            },
+            {
+                word: "boost",
+                definition: "To help or encourage something to increase, improve, or become stronger.",
+                options: ["boost", "accomplish", "psychology", "presentation"]
+            },
+            {
+                word: "purchase",
+                definition: "To acquire something by paying money for it; to buy.",
+                options: ["purchase", "trigger", "boost", "stability"]
+            },
+            {
+                word: "trigger",
+                definition: "To cause an event, process, or psychological reaction to happen.",
+                options: ["trigger", "psychology", "accomplish", "purchase"]
+            },
+            {
+                word: "psychology",
+                definition: "The scientific study of the human mind, emotions, and behavioral patterns.",
+                options: ["psychology", "presentation", "boost", "stability"]
+            },
+            {
+                word: "stability",
+                definition: "The state of being firm, steady, secure, and unlikely to change or fail.",
+                options: ["stability", "purchase", "trigger", "accomplish"]
+            },
+            {
+                word: "accomplish",
+                definition: "To successfully achieve or complete a desired goal or task.",
+                options: ["accomplish", "boost", "presentation", "psychology"]
+            }
+        ];
+
+        let currentQuestionIndex = 0;
+        let score = 0;
+
+        function loadQuestion() {
+            const currentData = vocabularyData[currentQuestionIndex];
+            document.getElementById("questionText").innerHTML = `<strong>Definition:</strong> ${currentData.definition}`;
+            document.getElementById("feedbackText").innerText = "";
+            document.getElementById("nextBtn").style.display = "none";
+            
+            const progressBar = document.getElementById("progressBar");
+            progressBar.style.width = `${((currentQuestionIndex) / vocabularyData.length) * 100}%`;
+
+            const optionsGrid = document.getElementById("optionsGrid");
+            optionsGrid.innerHTML = "";
+
+            const shuffledOptions = [...currentData.options].sort(() => Math.random() - 0.5);
+
+            shuffledOptions.forEach(option => {
+                const btn = document.createElement("button");
+                btn.className = "btn";
+                btn.innerText = option;
+                btn.onclick = () => checkAnswer(btn, option, currentData.word);
+                optionsGrid.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(selectedBtn, selectedOption, correctWord) {
+            const buttons = document.querySelectorAll(".btn");
+            buttons.forEach(btn => btn.disabled = true);
+
+            if (selectedOption === correctWord) {
+                selectedBtn.classList.add("correct");
+                document.getElementById("feedbackText").innerText = "✨ Correct!";
+                document.getElementById("feedbackText").style.color = "#4caf50";
+                score++;
+            } else {
+                selectedBtn.classList.add("incorrect");
+                document.getElementById("feedbackText").innerText = `❌ Incorrect! The correct word is '${correctWord}'.`;
+                document.getElementById("feedbackText").style.color = "#f44336";
+                buttons.forEach(btn => {
+                    if (btn.innerText === correctWord) {
+                        btn.classList.add("correct");
+                    }
+                });
+            }
+
+            document.getElementById("nextBtn").style.display = "block";
+        }
+
+        function nextQuestion() {
+            currentQuestionIndex++;
+            if (currentQuestionIndex < vocabularyData.length) {
+                loadQuestion();
+            } else {
+                showScore();
+            }
+        }
+
+        function showScore() {
+            document.getElementById("progressBar").style.width = "100%";
+            document.getElementById("quizSection").style.display = "none";
+            document.getElementById("scoreSection").style.display = "block";
+            document.getElementById("finalScore").innerText = `You scored ${score} out of ${vocabularyData.length}!`;
+        }
+
+        function restartGame() {
+            currentQuestionIndex = 0;
+            score = 0;
+            document.getElementById("quizSection").style.display = "block";
+            document.getElementById("scoreSection").style.display = "none";
+            loadQuestion();
+        }
+
+        loadQuestion();
+    </script>
+</body>
+</html>

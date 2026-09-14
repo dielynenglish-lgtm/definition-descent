@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Definition Gates: Vocabulary Runner</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+        body {
+            background-color: #0d0f18;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            box-shadow: 0 0 30px rgba(0, 240, 255, 0.3);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid #1e293b;
+        }
+        canvas {
+            display: block;
+            background: #050714;
+        }
+        /* Top Definition Overlay Bar */
+        #definition-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(15, 23, 42, 0.95);
+            border-bottom: 2px solid #00f0ff;
+            padding: 12px 20px;
+            text-align: center;
+            z-index: 10;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        #def-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #38bdf8;
+            margin-bottom: 4px;
+        }
+        #def-text {
+            font-size: 16px;
+            font-weight: 600;
+            color: #f8fafc;
+            line-height: 1.3;
+        }
+        /* HUD Display */
+        #hud {
+            position: absolute;
+            top: 75px;
+            left: 15px;
+            right: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .hud-card {
+            background: rgba(15, 23, 42, 0.7);
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.1);
+            backdrop-filter: blur(4px);
+        }
+        .hud-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            color: #94a3b8;
+            letter-spacing: 1px;
+        }
+        .hud-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #ffffff;
+        }
+        /* Shield Health Bar */
+        #shield-container {
+            width: 150px;
+            height: 12px;
+            background: #1e293b;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid #475569;
+            margin-top: 4px;
+        }
+        #shield-fill {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, #10b981, #34d399);
+            transition: width 0.2s ease;
+        }
+        /* Overlay Screens (Start & Game Over) */
+        .overlay-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 15, 30, 0.92);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            text-align: center;
+            padding: 40px;
+        }
+        .overlay-title {
+            font-size: 36px;
+            font-weight: 800;
+            color: #00f0ff;
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+        }
+        .overlay-sub {
+            font-size: 16px;
+            color: #94a3b8;
+            margin-bottom: 30px;
+            max-width: 500px;
+            line-height: 1.5;
+        }
+        .btn {
+            background: linear-gradient(135deg, #00f0ff, #0072ff);
+            color: #050714;
+            font-size: 18px;
+            font-weight: 700;
+            padding: 12px 36px;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 25px rgba(0, 240, 255, 0.7);
+        }
+        .controls-info {
+            margin-top: 25px;
+            font-size: 13px;
+            color: #64748b;
+        }
+        .controls-info span {
+            color: #38bdf8;
+            font-weight: bold;
+        }
+        /* Banner Messages */
+        #feedback-pop {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            font-size: 28px;
+            font-weight: 900;
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: none;
+            z-index: 15;
+            text-shadow: 0 0 10px rgba(0,0,0,0.8);
+        }
+        #feedback-pop.active {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1.1);
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <!-- Top Fixed Definition Bar -->
+    <div id="definition-bar">
+        <div id="def-title">Target Definition</div>
+        <div id="def-text">Press START GAME to begin target acquisition...</div>
+    </div>
+
+    <!-- HUD -->
+    <div id="hud">
+        <div class="hud-card">
+            <div class="hud-label">Distance Meter</div>
+            <div class="hud-value" id="score-display">0 m</div>
+        </div>
+        <div class="hud-card">
+            <div class="hud-label">Speed System</div>
+            <div class="hud-value" id="speed-display">1.0x</div>
+        </div>
+        <div class="hud-card">
+            <div class="hud-label">Shield Health</div>
+            <div id="shield-container">
+                <div id="shield-fill"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Feedback Popup -->
+    <div id="feedback-pop"></div>
+
+    <!-- Canvas Game View -->
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <!-- Start Screen Overlay -->
+    <div id="start-screen" class="overlay-screen">
+        <h1 class="overlay-title">DEFINITION GATES</h1>
+        <p class="overlay-sub">Run through the correct vocabulary archway matching the definition at the top! Avoid ground obstacles by jumping.</p>
+        <button class="btn" id="start-btn">START RUN</button>
+        <div class="controls-info">
+            Controls: <span>LEFT / RIGHT Arrows</span> (or A/D) to Shift Lanes | <span>UP Arrow</span> (or W/Space) to Jump
+        </div>
+    </div>
+
+    <!-- Game Over Screen Overlay -->
+    <div id="gameover-screen" class="overlay-screen" style="display: none;">
+        <h1 class="overlay-title" style="color: #ef4444;">SHIELD CRITICAL</h1>
+        <p class="overlay-sub" id="final-stats">Your craft was destroyed.</p>
+        <button class="btn" id="restart-btn">RETRY RUN</button>
+    </div>
+</div>
+
+<script>
+    // Vocabulary Array (Targeting the 7 prompt words)
+    const VOCAB_DATABASE = [
+        { word: "DISQUALIFY", def: "To declare someone ineligible due to an offense or failure to meet rules." },
+        { word: "REVISE", def: "To re-examine and make alterations or corrections to a written plan or text." },
+        { word: "AEROSPACE", def: "The branch of technology and industry concerned with aviation and spaceflight." },
+        { word: "SURGEON", def: "A medical practitioner qualified to practice and perform surgery." },
+        { word: "CANDIDATE", def: "A person who applies for or is nominated for a position or award." },
+        { word: "APPLICANT", def: "A person who formally applies for something, such as a job or admission." },
+        { word: "LAUNCH", def: "To set in motion or send off an object, such as a rocket or spacecraft." }
+    ];
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // UI Elements
+    const defTextEl = document.getElementById('def-text');
+    const scoreDisplay = document.getElementById('score-display');
+    const speedDisplay = document.getElementById('speed-display');
+    const shieldFill = document.getElementById('shield-fill');
+    const feedbackPop = document.getElementById('feedback-pop');
+    const startScreen = document.getElementById('start-screen');
+    const gameoverScreen = document.getElementById('gameover-screen');
+    const finalStats = document.getElementById('final-stats');
+
+    // Game Configuration & State
+    const LANES = [220, 400, 580]; // Left, Center, Right lane X-coordinates
+    let isRunning = false;
+    let distance = 0;
+    let speed = 4;
+    let baseSpeed = 4;
+    let shield = 100;
+    let lastTime = 0;
+    let gateTimer = 0;
+    const GATE_INTERVAL = 10; // Gate spawns every 10 seconds
+
+    // Player Object
+    const player = {
+        lane: 1, // Start in center lane
+        x: LANES[1],
+        y: 490,
+        width: 44,
+        height: 60,
+        jumpZ: 0,
+        jumpVelocity: 0,
+        isJumping: false,
+        gravity: 0.8
+    };
+
+    // Active Game Elements
+    let obstacles = [];
+    let activeGatePair = null;
+    let currentQuiz = null;
+    let obstacleTimer = 0;
+
+    // Background Scrolling FX
+    let bgScroll = 0;
+
+    // Event Listeners
+    document.getElementById('start-btn').addEventListener('click', startGame);
+    document.getElementById('restart-btn').addEventListener('click', startGame);
+
+    window.addEventListener('keydown', (e) => {
+        if (!isRunning) return;
+
+        if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+            if (player.lane > 0) player.lane--;
+        } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+            if (player.lane < 2) player.lane++;
+        } else if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W' || e.key === ' ') {
+            if (!player.isJumping) {
+                player.isJumping = true;
+                player.jumpVelocity = 14;
+            }
+        }
+    });
+
+    function startGame() {
+        startScreen.style.display = 'none';
+        gameoverScreen.style.display = 'none';
+        
+        distance = 0;
+        baseSpeed = 4.5;
+        speed = baseSpeed;
+        shield = 100;
+        gateTimer = 3; // First gate appears in 3 seconds
+        obstacleTimer = 0;
+        player.lane = 1;
+        player.x = LANES[1];
+        player.jumpZ = 0;
+        player.isJumping = false;
+        
+        obstacles = [];
+        activeGatePair = null;
+        currentQuiz = null;
+        
+        updateHUD();
+        defTextEl.textContent = "Prepare for upcoming Definition Gates! Shift lanes and jump obstacles.";
+        
+        isRunning = true;
+        lastTime = performance.now();
+        requestAnimationFrame(gameLoop);
+    }
+
+    function gameLoop(time) {
+        if (!isRunning) return;
+
+        const dt = (time - lastTime) / 1000;
+        lastTime = time;
+
+        update(dt);
+        render();
+
+        if (shield > 0) {
+            requestAnimationFrame(gameLoop);
+        } else {
+            endGame();
+        }
+    }
+
+    function update(dt) {
+        // Distance & Progressive Speed increase
+        distance += speed * dt * 10;
+        baseSpeed += dt * 0.05; // Gets progressively faster over time
+        speed = Math.max(baseSpeed, speed);
+
+        // Player Lane Smoothing
+        const targetX = LANES[player.lane];
+        player.x += (targetX - player.x) * 0.25;
+
+        // Player Jump Physics
+        if (player.isJumping) {
+            player.jumpZ += player.jumpVelocity;
+            player.jumpVelocity -= player.gravity;
+            if (player.jumpZ <= 0) {
+                player.jumpZ = 0;
+                player.isJumping = false;
+            }
+        }
+
+        // Background scrolling animation
+        bgScroll = (bgScroll + speed * 1.5) % 40;
+
+        // Ground Obstacle Spawning (Only when gates aren't directly on screen)
+        obstacleTimer += dt;
+        if (obstacleTimer > (2.5 / (speed / 4)) && (!activeGatePair || activeGatePair.y < 100)) {
+            obstacleTimer = 0;
+            if (Math.random() > 0.3) {
+                const lane = Math.floor(Math.random() * 3);
+                obstacles.push({
+                    lane: lane,
+                    x: LANES[lane],
+                    y: -40,
+                    width: 50,
+                    height: 25,
+                    passed: false
+                });
+            }
+        }
+
+        // Move & Collide Obstacles
+        for (let i = obstacles.length - 1; i >= 0; i--) {
+            let obs = obstacles[i];
+            obs.y += speed * 1.3;
+
+            // Player Collision Check
+            if (!obs.passed && obs.y > player.y - 20 && obs.y < player.y + 30) {
+                if (player.lane === obs.lane) {
+                    if (player.jumpZ < 25) { // Failed to jump high enough
+                        obs.passed = true;
+                        takeDamage(20, "CRASH! -20 SHIELD");
+                    }
+                }
+            }
+
+            if (obs.y > canvas.height + 50) {
+                obstacles.splice(i, 1);
+            }
+        }
+
+        // Gate Timer & Spawning System
+        if (!activeGatePair) {
+            gateTimer -= dt;
+            if (gateTimer <= 0) {
+                spawnGatePair();
+                gateTimer = GATE_INTERVAL;
+            }
+        } else {
+            // Move Active Gates
+            activeGatePair.y += speed * 1.1;
+
+            // Check Gate Collision / Passing
+            if (!activeGatePair.passed && activeGatePair.y >= player.y - 10) {
+                activeGatePair.passed = true;
+                
+                // Determine player's gate choice
+                if (player.lane === activeGatePair.correctLane) {
+                    // Correct Gate Pass!
+                    speed += 1.8; // Speed Boost
+                    distance += 150; // Bonus Points
+                    shield = Math.min(100, shield + 10); // Shield Heal
+                    showFeedback("CORRECT! +SPEED & POINTS", "#10b981");
+                } else {
+                    // Wrong Gate / Crash!
+                    takeDamage(25, "WRONG GATE! SHIELD BROKEN");
+                }
+
+                // Reset definition display after passing
+                setTimeout(() => {
+                    if (activeGatePair && activeGatePair.passed) {
+                        defTextEl.textContent = "Next gate structure approaching soon...";
+                    }
+                }, 1500);
+            }
+
+            // Remove gate when offscreen
+            if (activeGatePair.y > canvas.height + 100) {
+                activeGatePair = null;
+            }
+        }
+
+        updateHUD();
+    }
+
+    function spawnGatePair() {
+        // Choose target word and distractor word
+        const targetIndex = Math.floor(Math.random() * VOCAB_DATABASE.length);
+        const targetObj = VOCAB_DATABASE[targetIndex];
+
+        let distractorIndex = Math.floor(Math.random() * VOCAB_DATABASE.length);
+        while (distractorIndex === targetIndex) {
+            distractorIndex = Math.floor(Math.random() * VOCAB_DATABASE.length);
+        }
+        const distractorObj = VOCAB_DATABASE[distractorIndex];
+
+        // Randomize Archway Lanes (Left=0 & Right=2 OR Left=0 & Center=1, etc.)
+        const correctLane = Math.floor(Math.random() * 3);
+        let otherLane = (correctLane + 1 + Math.floor(Math.random() * 2)) % 3;
+
+        currentQuiz = targetObj;
+        defTextEl.textContent = `"${targetObj.def}"`;
+
+        activeGatePair = {
+            y: -120,
+            correctLane: correctLane,
+            gateA: { lane: correctLane, word: targetObj.word, isCorrect: true },
+            gateB: { lane: otherLane, word: distractorObj.word, isCorrect: false },
+            passed: false
+        };
+    }
+
+    function takeDamage(amount, msg) {
+        shield -= amount;
+        speed = Math.max(3, speed - 2); // Slows down player on crash
+        showFeedback(msg, "#ef4444");
+    }
+
+    function showFeedback(text, color) {
+        feedbackPop.textContent = text;
+        feedbackPop.style.color = color;
+        feedbackPop.classList.add('active');
+        setTimeout(() => {
+            feedbackPop.classList.remove('active');
+        }, 1200);
+    }
+
+    function updateHUD() {
+        scoreDisplay.textContent = `${Math.floor(distance)} m`;
+        speedDisplay.textContent = `${(speed / 4).toFixed(1)}x`;
+        shieldFill.style.width = `${Math.max(0, shield)}%`;
+
+        if (shield < 30) {
+            shieldFill.style.background = 'linear-gradient(90deg, #ef4444, #f87171)';
+        } else {
+            shieldFill.style.background = 'linear-gradient(90deg, #10b981, #34d399)';
+        }
+    }
+
+    function render() {
+        // Clear Background
+        ctx.fillStyle = '#050714';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw Perspective Track / Lanes
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 3;
+        
+        // Track outer edges & dividers
+        const laneBounds = [130, 310, 490, 670];
+        laneBounds.forEach(x => {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, canvas.height);
+            ctx.stroke();
+        });
+
+        // Moving Track Lines (Illusion of forward movement)
+        ctx.strokeStyle = '#0284c7';
+        ctx.lineWidth = 1;
+        ctx.globalAlpha = 0.3;
+        for (let y = bgScroll; y < canvas.height; y += 40) {
+            ctx.beginPath();
+            ctx.moveTo(130, y);
+            ctx.lineTo(670, y);
+            ctx.stroke();
+        }
+        ctx.globalAlpha = 1.0;
+
+        // Draw Ground Obstacles
+        obstacles.forEach(obs => {
+            ctx.fillStyle = '#ef4444';
+            ctx.shadowColor = '#ef4444';
+            ctx.shadowBlur = 10;
+            ctx.fillRect(obs.x - obs.width/2, obs.y, obs.width, obs.height);
+            ctx.shadowBlur = 0;
+            
+            // Obstacle Caution Stripes
+            ctx.fillStyle = '#fef08a';
+            ctx.fillRect(obs.x - obs.width/2 + 5, obs.y + 5, 10, obs.height - 10);
+            ctx.fillRect(obs.x + obs.width/2 - 15, obs.y + 5, 10, obs.height - 10);
+        });
+
+        // Draw Active Gate Structure
+        if (activeGatePair) {
+            drawArchway(activeGatePair.gateA.lane, activeGatePair.y, activeGatePair.gateA.word);
+            drawArchway(activeGatePair.gateB.lane, activeGatePair.y, activeGatePair.gateB.word);
+        }
+
+        // Draw Player Runner Craft
+        const renderY = player.y - player.jumpZ;
+
+        // Jump Shadow
+        if (player.isJumping) {
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.beginPath();
+            ctx.ellipse(player.x, player.y + 25, 20, 8, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Player Sprite (Cyber Craft / Runner)
+        ctx.fillStyle = '#00f0ff';
+        ctx.shadowColor = '#00f0ff';
+        ctx.shadowBlur = 15;
+        
+        // Main Body Triangle
+        ctx.beginPath();
+        ctx.moveTo(player.x, renderY - 30);
+        ctx.lineTo(player.x - 22, renderY + 20);
+        ctx.lineTo(player.x + 22, renderY + 20);
+        ctx.closePath();
+        ctx.fill();
+
+        // Cockpit / Center Light
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(player.x, renderY - 5, 6, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Thruster Engine Glow
+        ctx.fillStyle = '#ff0055';
+        ctx.shadowColor = '#ff0055';
+        ctx.shadowBlur = 10;
+        ctx.fillRect(player.x - 8, renderY + 20, 16, 8 + Math.random() * 6);
+        ctx.shadowBlur = 0;
+    }
+
+    function drawArchway(laneIndex, y, word) {
+        const x = LANES[laneIndex];
+        const width = 150;
+        const height = 90;
+
+        // Archway Frame Pillars
+        ctx.fillStyle = '#1e1b4b';
+        ctx.strokeStyle = '#818cf8';
+        ctx.lineWidth = 4;
+        ctx.shadowColor = '#6366f1';
+        ctx.shadowBlur = 12;
+
+        // Arch Top Header
+        ctx.fillRect(x - width/2, y, width, 30);
+        ctx.strokeRect(x - width/2, y, width, 30);
+
+        // Left Pillar
+        ctx.fillRect(x - width/2, y + 30, 20, height - 30);
+        ctx.strokeRect(x - width/2, y + 30, 20, height - 30);
+
+        // Right Pillar
+        ctx.fillRect(x + width/2 - 20, y + 30, 20, height - 30);
+        ctx.strokeRect(x + width/2 - 20, y + 30, 20, height - 30);
+
+        ctx.shadowBlur = 0;
+
+        // Word Label Display
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 15px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(word, x, y + 20);
+    }
+
+    function endGame() {
+        isRunning = false;
+        finalStats.innerHTML = `Distance Traveled: <strong>${Math.floor(distance)} meters</strong><br>Keep practicing your aerospace and career vocabulary!`;
+        gameoverScreen.style.display = 'flex';
+    }
+</script>
+</body>
+</html>

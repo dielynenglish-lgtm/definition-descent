@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocabulary Pinball Arcade</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 20px;
+        }
+
+        #game-container {
+            position: relative;
+            background: #1a1a2e;
+            border: 4px solid #e94560;
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(233, 69, 96, 0.5);
+            padding: 10px;
+        }
+
+        #display-board {
+            width: 400px;
+            height: 90px;
+            background: #0f3460;
+            border: 2px solid #00fff5;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            padding: 10px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+        #definition-display {
+            font-size: 14px;
+            color: #00fff5;
+            margin-bottom: 5px;
+            min-height: 36px;
+        }
+
+        #stats-display {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            font-size: 14px;
+            color: #e94560;
+        }
+
+        canvas {
+            background: #16213e;
+            border-radius: 8px;
+            display: block;
+        }
+
+        .controls-hint {
+            margin-top: 10px;
+            font-size: 13px;
+            color: #a0a0a0;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="display-board">
+            <div id="definition-display">Press DOWN ARROW to Launch Ball!</div>
+            <div id="stats-display">
+                <span>Score: <span id="score">0</span></span>
+                <span>Balls: <span id="balls">3</span></span>
+            </div>
+        </div>
+        <canvas id="pinballCanvas" width="400" height="550"></canvas>
+    </div>
+
+    <div class="controls-hint">
+        <strong>Controls:</strong> Left/Right Arrow or A/D Keys = Flippers | Down Arrow or S Key = Pull Plunger
+    </div>
+
+    <script>
+        const canvas = document.getElementById('pinballCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const defDisplay = document.getElementById('definition-display');
+        const scoreDisplay = document.getElementById('score');
+        const ballsDisplay = document.getElementById('balls');
+
+        const vocabList = [
+            { word: "ban", def: "To officially prohibit or forbid something." },
+            { word: "welfare", def: "The health, happiness, and fortunes of a person or group." },
+            { word: "controversy", def: "Disagreement, typically when prolonged, public, and heated." },
+            { word: "prey", def: "An animal that is hunted and killed by another for food." },
+            { word: "rear", def: "The back part of something; or to raise/bring up." },
+            { word: "sniff", def: "To draw in air audibly through the nose to smell." },
+            { word: "dignity", def: "The state or quality of being worthy of honor or respect." },
+            { word: "intact", def: "Not damaged or impaired; whole." },
+            { word: "assemble", def: "To fit together the separate component parts of something." },
+            { word: "mount", def: "To climb up or increase; to attach to a support." }
+        ];
+
+        let score = 0;
+        let ballsLeft = 3;
+        let currentTargetWord = null;
+        let flipperShrinkTimer = 0;
+        let ballSaverActive = false;
+        let ballSaverTimer = 0;
+        let gameOver = false;
+
+        // Ball Setup
+        const ball = {
+            x: 385,
+            y: 500,
+            vx: 0,
+            vy: 0,
+            radius: 8,
+            inPlunger: true
+        };
+
+        // Flippers
+        const flippers = {
+            baseWidth: 60,
+            currentWidth: 60,
+            height: 12,
+            leftAngle: 0.2,
+            rightAngle: -0.2,
+            isLeftActive: false,
+            isRightActive: false
+        };
+
+        // Bumpers setup
+        let bumpers = [
+            { x: 100, y: 180, radius: 30, word: "" },
+            { x: 200, y: 130, radius: 30, word: "" },
+            { x: 300, y: 180, radius: 30, word: "" }
+        ];
+
+        function getRandomWords() {
+            let shuffled = [...vocabList].sort(() => 0.5 - Math.random());
+            let selected = shuffled.slice(0, 3);
+            currentTargetWord = selected[Math.floor(Math.random() * 3)];
+            
+            bumpers[0].word = selected[0].word;
+            bumpers[1].word = selected[1].word;
+            bumpers[2].word = selected[2].word;
+
+            defDisplay.innerHTML = `TARGET DEFINITION:<br><strong>"${currentTargetWord.def}"</strong>`;
+        }
+
+        // Key Listeners
+        const keys = {};
+        window.addEventListener('keydown', e => {
+            keys[e.key] = true;
+            if ((e.key === 'ArrowDown' || e.key === 's') && ball.inPlunger) {
+                ball.vy = -14 - Math.random() * 3;
+                ball.vx = -1 - Math.random() * 2;
+                ball.inPlunger = false;
+            }
+        });
+        window.addEventListener('keyup', e => keys[e.key] = false);
+
+        function resetBall() {
+            if (ballsLeft <= 0) {
+                gameOver = true;
+                defDisplay.innerHTML = "<strong>GAME OVER! Refresh to play again.</strong>";
+                return;
+            }
+            ball.x = 385;
+            ball.y = 480;
+            ball.vx = 0;
+            ball.vy = 0;
+            ball.inPlunger = true;
+        }
+
+        function updatePhysics() {
+            if (gameOver) return;
+
+            // Flipper shrink duration logic
+            if (flipperShrinkTimer > 0) {
+                flipperShrinkTimer--;
+                flippers.currentWidth = flippers.baseWidth * 0.6;
+            } else {
+                flippers.currentWidth = flippers.baseWidth;
+            }
+
+            // Ball saver timer logic
+            if (ballSaverTimer > 0) {
+                ballSaverTimer--;
+                if (ballSaverTimer === 0) ballSaverActive = false;
+            }
+
+            if (!ball.inPlunger) {
+                ball.vy += 0.25; // Gravity
+                ball.x += ball.vx;
+                ball.y += ball.vy;
+
+                // Wall Collisions
+                if (ball.x - ball.radius < 0) { ball.x = ball.radius; ball.vx *= -0.7; }
+                if (ball.x + ball.radius > 370) { ball.x = 370 - ball.radius; ball.vx *= -0.7; }
+                if (ball.y - ball.radius < 0) { ball.y = ball.radius; ball.vy *= -0.7; }
+
+                // Plunger Lane Divider Wall
+                if (ball.x > 370 && ball.y > 100 && ball.x - ball.radius < 370) {
+                    ball.x = 370 - ball.radius;
+                    ball.vx *= -0.7;
+                }
+
+                // Bumpers Collisions
+                bumpers.forEach(b => {
+                    let dx = ball.x - b.x;
+                    let dy = ball.y - b.y;
+                    let dist = Math.hypot(dx, dy);
+                    if (dist < ball.radius + b.radius) {
+                        // Elastic bounce angle calculation
+                        let angle = Math.atan2(dy, dx);
+                        ball.vx = Math.cos(angle) * 8;
+                        ball.vy = Math.sin(angle) * 8;
+
+                        // Target check
+                        if (b.word === currentTargetWord.word) {
+                            score += 500;
+                            ballSaverActive = true;
+                            ballSaverTimer = 300; // 5 seconds at 60fps
+                        } else {
+                            score = Math.max(0, score - 100);
+                            flipperShrinkTimer = 300; // Shrink flippers for 5 seconds
+                        }
+                        scoreDisplay.innerText = score;
+                        getRandomWords();
+                    }
+                });
+
+                // Flippers Collisions
+                flippers.isLeftActive = keys['ArrowLeft'] || keys['a'];
+                flippers.isRightActive = keys['ArrowRight'] || keys['d'];
+
+                // Left Flipper Area Collision
+                if (ball.y > 450 && ball.y < 480 && ball.x > 60 && ball.x < 60 + flippers.currentWidth) {
+                    ball.vy = flippers.isLeftActive ? -12 : -5;
+                    ball.vx += flippers.isLeftActive ? 2 : 0;
+                }
+                // Right Flipper Area Collision
+                if (ball.y > 450 && ball.y < 480 && ball.x > 310 - flippers.currentWidth && ball.x < 310) {
+                    ball.vy = flippers.isRightActive ? -12 : -5;
+                    ball.vx -= flippers.isRightActive ? 2 : 0;
+                }
+
+                // Ball Drain/Saver Logic
+                if (ball.y > 550) {
+                    if (ballSaverActive) {
+                        ball.y = 400;
+                        ball.vy = -8;
+                        ballSaverActive = false;
+                    } else {
+                        ballsLeft--;
+                        ballsDisplay.innerText = ballsLeft;
+                        resetBall();
+                    }
+                }
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Plunger Wall
+            ctx.strokeStyle = '#00fff5';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(370, 100);
+            ctx.lineTo(370, 550);
+            ctx.stroke();
+
+            // Draw Ball Saver Gate
+            if (ballSaverActive) {
+                ctx.strokeStyle = '#00ff00';
+                ctx.lineWidth = 6;
+                ctx.beginPath();
+                ctx.moveTo(120, 530);
+                ctx.lineTo(250, 530);
+                ctx.stroke();
+            }
+
+            // Draw Bumpers
+            bumpers.forEach(b => {
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+                ctx.fillStyle = (b.word === currentTargetWord?.word) ? '#e94560' : '#0f3460';
+                ctx.fill();
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = '#00fff5';
+                ctx.stroke();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(b.word.toUpperCase(), b.x, b.y + 4);
+            });
+
+            // Draw Flippers
+            ctx.fillStyle = '#e94560';
+            // Left Flipper
+            ctx.save();
+            ctx.translate(60, 460);
+            ctx.rotate(flippers.isLeftActive ? -0.4 : 0.3);
+            ctx.fillRect(0, 0, flippers.currentWidth, flippers.height);
+            ctx.restore();
+
+            // Right Flipper
+            ctx.save();
+            ctx.translate(310, 460);
+            ctx.rotate(flippers.isRightActive ? 0.4 : -0.3);
+            ctx.fillRect(-flippers.currentWidth, 0, flippers.currentWidth, flippers.height);
+            ctx.restore();
+
+            // Draw Ball
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = "#ffffff";
+
+            updatePhysics();
+            requestAnimationFrame(draw);
+        }
+
+        getRandomWords();
+        draw();
+    </script>
+</body>
+</html>

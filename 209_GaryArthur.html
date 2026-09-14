@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Whack-A-Word Arcade Game</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e1e2f;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #ffcc00;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .game-header {
+            background-color: #2a2a40;
+            padding: 15px 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            text-align: center;
+            max-width: 600px;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        .stats-container {
+            display: flex;
+            justify-content: space-around;
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .stat-box {
+            background-color: #3b3b58;
+            padding: 8px 16px;
+            border-radius: 8px;
+        }
+
+        .definition-box {
+            font-size: 1.1rem;
+            color: #4da6ff;
+            background: #181824;
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 5px solid #4da6ff;
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        .hole {
+            position: relative;
+            background-color: #3e2723;
+            height: 120px;
+            border-radius: 50%;
+            border: 4px solid #5d4037;
+            overflow: hidden;
+            box-shadow: inset 0 10px 10px rgba(0,0,0,0.6);
+        }
+
+        .mole {
+            position: absolute;
+            bottom: -100%;
+            width: 100%;
+            height: 100%;
+            background-color: #ff9800;
+            border-radius: 50% 50% 0 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #ffffff;
+            font-weight: bold;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: bottom 0.2s ease-out;
+            user-select: none;
+            box-shadow: 0 -4px 8px rgba(0,0,0,0.2);
+            text-shadow: 1px 1px 2px black;
+            padding: 5px;
+            text-align: center;
+            box-sizing: border-box;
+        }
+
+        .hole.up .mole {
+            bottom: 0;
+        }
+
+        .mole:active {
+            background-color: #e65100;
+        }
+
+        .start-btn {
+            margin-top: 20px;
+            padding: 12px 30px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .start-btn:hover {
+            background-color: #45a049;
+        }
+
+        .start-btn:active {
+            transform: scale(0.98);
+        }
+
+        .feedback {
+            height: 25px;
+            margin-top: 10px;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        .correct { color: #4caf50; }
+        .wrong { color: #f44336; }
+    </style>
+</head>
+<body>
+
+    <h1>🔨 Whack-A-Word Arcade</h1>
+
+    <div class="game-header">
+        <div class="stats-container">
+            <div class="stat-box">Score: <span id="score">0</span></div>
+            <div class="stat-box">Time Left: <span id="timer">60</span>s</div>
+        </div>
+        <div><strong>Target Definition:</strong></div>
+        <div class="definition-box" id="definition">Click "Start Game" to begin!</div>
+    </div>
+
+    <div class="feedback" id="feedback"></div>
+
+    <div class="grid">
+        <div class="hole"><div class="mole"></div></div>
+        <div class="hole"><div class="mole"></div></div>
+        <div class="hole"><div class="mole"></div></div>
+        <div class="hole"><div class="mole"></div></div>
+        <div class="hole"><div class="mole"></div></div>
+        <div class="hole"><div class="mole"></div></div>
+    </div>
+
+    <button class="start-btn" id="start-btn" onclick="startGame()">Start Game</button>
+
+    <script>
+        const words = [
+            { word: "formula", definition: "A mathematical rule expressed in symbols, or a fixed method for doing something." },
+            { word: "equation", definition: "A statement showing that two mathematical expressions are equal." },
+            { word: "orbit", definition: "The curved path of a celestial object or spacecraft around a star or planet." },
+            { word: "abstract", definition: "Existing in thought or as an idea but not having a physical or concrete existence." },
+            { word: "contribution", definition: "A gift or payment to a common fund, or a role played in achieving something." },
+            { word: "forge", definition: "To create or produce something with strong effort, or to shape metal using heat." }
+        ];
+
+        const holes = document.querySelectorAll('.hole');
+        const moles = document.querySelectorAll('.mole');
+        const scoreDisplay = document.querySelector('#score');
+        const timerDisplay = document.querySelector('#timer');
+        const definitionDisplay = document.querySelector('#definition');
+        const feedbackDisplay = document.querySelector('#feedback');
+        const startBtn = document.querySelector('#start-btn');
+
+        let lastHole;
+        let timeUp = false;
+        let score = 0;
+        let timeLeft = 60;
+        let countdownTimer;
+        let moleTimer;
+        let currentTargetWord = null;
+
+        function getRandomTime(min, max) {
+            return Math.round(Math.random() * (max - min) + min);
+        }
+
+        function getRandomHole(holes) {
+            const idx = Math.floor(Math.random() * holes.length);
+            const hole = holes[idx];
+            if (hole === lastHole) {
+                return getRandomHole(holes);
+            }
+            lastHole = hole;
+            return hole;
+        }
+
+        function pickNewTargetWord() {
+            const randomIndex = Math.floor(Math.random() * words.length);
+            currentTargetWord = words[randomIndex];
+            definitionDisplay.textContent = currentTargetWord.definition;
+        }
+
+        function popUpMole() {
+            if (timeUp) return;
+
+            const time = getRandomTime(1200, 2000);
+            const hole = getRandomHole(holes);
+            const mole = hole.querySelector('.mole');
+
+            // 70% probability for the correct matching word to appear
+            let chosenWord;
+            if (Math.random() < 0.7 && currentTargetWord) {
+                chosenWord = currentTargetWord.word;
+            } else {
+                const randomWordObj = words[Math.floor(Math.random() * words.length)];
+                chosenWord = randomWordObj.word;
+            }
+
+            mole.textContent = chosenWord;
+            mole.dataset.word = chosenWord;
+
+            hole.classList.add('up');
+
+            moleTimer = setTimeout(() => {
+                hole.classList.remove('up');
+                if (!timeUp) popUpMole();
+            }, time);
+        }
+
+        function whack(e) {
+            if(!e.isTrusted) return;
+            const clickedMole = this;
+            const clickedWord = clickedMole.dataset.word;
+            const hole = clickedMole.parentNode;
+
+            if (!hole.classList.contains('up')) return;
+
+            if (clickedWord === currentTargetWord.word) {
+                score += 10;
+                scoreDisplay.textContent = score;
+                showFeedback("Correct! +10", "correct");
+                hole.classList.remove('up');
+                pickNewTargetWord();
+            } else {
+                score = Math.max(0, score - 5);
+                scoreDisplay.textContent = score;
+                showFeedback("Wrong Word! -5", "wrong");
+                hole.classList.remove('up');
+            }
+        }
+
+        function showFeedback(text, className) {
+            feedbackDisplay.textContent = text;
+            feedbackDisplay.className = `feedback ${className}`;
+            setTimeout(() => {
+                feedbackDisplay.textContent = '';
+            }, 1000);
+        }
+
+        function startGame() {
+            score = 0;
+            timeLeft = 60;
+            timeUp = false;
+            scoreDisplay.textContent = score;
+            timerDisplay.textContent = timeLeft;
+            startBtn.disabled = true;
+            feedbackDisplay.textContent = '';
+
+            pickNewTargetWord();
+            popUpMole();
+
+            countdownTimer = setInterval(() => {
+                timeLeft--;
+                timerDisplay.textContent = timeLeft;
+                if (timeLeft <= 0) {
+                    clearInterval(countdownTimer);
+                    timeUp = true;
+                    startBtn.disabled = false;
+                    definitionDisplay.textContent = "Game Over! Final Score: " + score;
+                    feedbackDisplay.textContent = '';
+                }
+            }, 1000);
+        }
+
+        moles.forEach(mole => mole.addEventListener('click', whack));
+    </script>
+</body>
+</html>

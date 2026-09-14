@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Breakout Word-Wall Builder</title>
+    <style>
+        body {
+            background-color: #1a1a1a;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 20px;
+        }
+        #game-container {
+            position: relative;
+        }
+        canvas {
+            border: 3px solid #4CAF50;
+            background-color: #000000;
+            border-radius: 8px;
+        }
+        #ui {
+            display: flex;
+            justify-content: space-between;
+            width: 800px;
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+        /* Modal for vocabulary choice */
+        #quiz-modal {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #2b2b2b;
+            border: 3px solid #FFD700;
+            border-radius: 10px;
+            padding: 20px;
+            width: 400px;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+        }
+        .choice-btn {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .choice-btn:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Breakout Word-Wall Builder</h1>
+    <div id="ui">
+        <div>Score: <span id="score">0</span></div>
+        <div>Lives: <span id="lives">3</span></div>
+    </div>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="800" height="500"></canvas>
+        
+        <div id="quiz-modal">
+            <h2>Word Unlocked!</h2>
+            <p id="definition-text">Select the matching definition:</p>
+            <div id="choices-container"></div>
+        </div>
+    </div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// Game state variables
+let score = 0;
+let lives = 3;
+let isPaused = false;
+
+// Vocabulary Data
+const vocabData = [
+    { word: "version", definition: "A particular form of something differing from other forms", options: ["A particular form of something differing from other forms", "A large open space", "To clean thoroughly"] },
+    { word: "vast", definition: "An immense space or very great extent", options: ["Small and restricted", "An immense space or very great extent", "Moving quickly"] },
+    { word: "undertake", definition: "To commit oneself to or begin a enterprise or responsibility", options: ["To run away from trouble", "To commit oneself to or begin a responsibility", "To hide under something"] },
+    { word: "extraordinary", definition: "Very unusual or remarkable", options: ["Very unusual or remarkable", "Boring and plain", "Easily broken"] },
+    { word: "landscape", definition: "All the visible features of an area of countryside or land", options: ["A type of vehicle", "All visible features of an area of land", "Underground tunnels"] },
+    { word: "dusty", definition: "Covered with or resembling powder or dry particles", options: ["Wet and slippery", "Covered with dry particles", "Bright and shining"] },
+    { word: "diverse", definition: "Showing a great deal of variety or difference", options: ["Showing a great deal of variety", "Exactly the same", "Extremely dangerous"] }
+];
+
+// Paddle setup
+const paddle = {
+    width: 120,
+    height: 15,
+    x: (canvas.width - 120) / 2,
+    y: canvas.height - 30,
+    color: '#4CAF50'
+};
+
+// Ball(s) setup array for Multiball support
+let balls = [{
+    x: canvas.width / 2,
+    y: canvas.height - 50,
+    dx: 4,
+    dy: -4,
+    radius: 8,
+    color: '#FFFFFF'
+}];
+
+// Brick layout initialization (7 rows for 7 vocabulary words)
+const brickRowCount = 7;
+const brickColumnCount = 8;
+const brickWidth = 90;
+const brickHeight = 20;
+const brickPadding = 8;
+const brickOffsetTop = 40;
+const brickOffsetLeft = 12;
+const rowColors = ['#FF5722', '#E91E63', '#9C27B0', '#3F51B5', '#03A9F4', '#009688', '#8BC34A'];
+
+let bricks = [];
+for (let r = 0; r < brickRowCount; r++) {
+    bricks[r] = [];
+    for (let c = 0; c < brickColumnCount; c++) {
+        bricks[r][c] = { x: 0, y: 0, status: 2, wordIndex: r }; // Status 2 = unbroken, 1 = cracked, 0 = destroyed
+    }
+}
+
+// Track row completions
+let rowStatus = new Array(brickRowCount).fill(brickColumnCount);
+
+// Mouse control
+document.addEventListener("mousemove", (e) => {
+    const relativeX = e.clientX - canvas.offsetLeft;
+    if (relativeX > 0 && relativeX < canvas.width) {
+        paddle.x = relativeX - paddle.width / 2;
+    }
+});
+
+function drawPaddle() {
+    ctx.beginPath();
+    ctx.rect(paddle.x, paddle.y, paddle.width, paddle.height);
+    ctx.fillStyle = paddle.color;
+    ctx.fill();
+    ctx.closePath();
+}
+
+function drawBalls() {
+    balls.forEach(ball => {
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+        ctx.fillStyle = ball.color;
+        ctx.fill();
+        ctx.closePath();
+    });
+}
+
+function drawBricks() {
+    for (let r = 0; r < brickRowCount; r++) {
+        for (let c = 0; c < brickColumnCount; c++) {
+            let b = bricks[r][c];
+            if (b.status > 0) {
+                let brickX = (c * (brickWidth + brickPadding)) + brickOffsetLeft;
+                let brickY = (r * (brickHeight + brickPadding)) + brickOffsetTop;
+                b.x = brickX;
+                b.y = brickY;
+
+                ctx.beginPath();
+                ctx.rect(brickX, brickY, brickWidth, brickHeight);
+                ctx.fillStyle = b.status === 2 ? rowColors[r] : '#777777'; // Gray out when cracked
+                ctx.fill();
+                ctx.closePath();
+
+                // Display cracked hint letter
+                if (b.status === 1) {
+                    ctx.font = "12px Arial";
+                    ctx.fillStyle = "#FFFFFF";
+                    ctx.fillText(vocabData[r].word[c % vocabData[r].word.length].toUpperCase(), brickX + 10, brickY + 15);
+                }
+            }
+        }
+    }
+}
+
+function collisionDetection() {
+    balls.forEach(ball => {
+        for (let r = 0; r < brickRowCount; r++) {
+            for (let c = 0; c < brickColumnCount; c++) {
+                let b = bricks[r][c];
+                if (b.status > 0) {
+                    if (ball.x > b.x && ball.x < b.x + brickWidth && ball.y > b.y && ball.y < b.y + brickHeight) {
+                        ball.dy = -ball.dy; // Vector reflection
+                        b.status -= 1;
+
+                        if (b.status === 0) {
+                            score += 10;
+                            document.getElementById('score').innerText = score;
+                            rowStatus[r]--;
+
+                            // Check if the entire row (word layer) is shattered
+                            if (rowStatus[r] === 0) {
+                                triggerQuiz(r);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function triggerQuiz(rowIndex) {
+    isPaused = true;
+    const item = vocabData[rowIndex];
+    const modal = document.getElementById('quiz-modal');
+    const choicesContainer = document.getElementById('choices-container');
+    
+    choicesContainer.innerHTML = '';
+    document.getElementById('definition-text').innerText = `Word: "${item.word.toUpperCase()}"\nSelect the correct definition:`;
+
+    // Shuffle options
+    let shuffled = [...item.options].sort(() => Math.random() - 0.5);
+
+    shuffled.forEach(option => {
+        const btn = document.createElement('button');
+        btn.className = 'choice-btn';
+        btn.innerText = option;
+        btn.onclick = () => handleAnswer(option === item.definition);
+        choicesContainer.appendChild(btn);
+    });
+
+    modal.style.display = 'block';
+}
+
+function handleAnswer(isCorrect) {
+    document.getElementById('quiz-modal').style.display = 'none';
+    isPaused = false;
+
+    if (isCorrect) {
+        // Reward: Multiball Power-up!
+        balls.push({
+            x: paddle.x + paddle.width / 2,
+            y: paddle.y - 10,
+            dx: -4,
+            dy: -4,
+            radius: 8,
+            color: '#FFD700'
+        });
+        alert("Correct! Power-up Activated: MULTIBALL!");
+    } else {
+        // Penalty: Shrink Paddle!
+        paddle.width = Math.max(40, paddle.width - 20);
+        alert("Incorrect! Penalty: Paddle Shrunk!");
+    }
+    
+    requestAnimationFrame(draw);
+}
+
+function updateBallPositions() {
+    for (let i = balls.length - 1; i >= 0; i--) {
+        let ball = balls[i];
+        
+        // Wall collisions
+        if (ball.x + ball.dx > canvas.width - ball.radius || ball.x + ball.dx < ball.radius) {
+            ball.dx = -ball.dx;
+        }
+        if (ball.y + ball.dy < ball.radius) {
+            ball.dy = -ball.dy;
+        } else if (ball.y + ball.dy > canvas.height - ball.radius) {
+            // Paddle collision
+            if (ball.x > paddle.x && ball.x < paddle.x + paddle.width) {
+                ball.dy = -ball.dy;
+            } else {
+                // Ball fell below canvas
+                balls.splice(i, 1);
+            }
+        }
+
+        ball.x += ball.dx;
+        ball.y += ball.dy;
+    }
+
+    // Check life status
+    if (balls.length === 0) {
+        lives--;
+        document.getElementById('lives').innerText = lives;
+        if (lives === 0) {
+            alert("GAME OVER");
+            document.location.reload();
+        } else {
+            // Reset main ball
+            balls.push({ x: canvas.width / 2, y: canvas.height - 50, dx: 4, dy: -4, radius: 8, color: '#FFFFFF' });
+        }
+    }
+}
+
+function draw() {
+    if (isPaused) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    drawBricks();
+    drawPaddle();
+    drawBalls();
+    collisionDetection();
+    updateBallPositions();
+
+    requestAnimationFrame(draw);
+}
+
+draw();
+</script>
+</body>
+</html>
