@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Balloon Pop Vocabulary Game</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(180deg, #1a1e29 0%, #0d1017 100%);
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+            color: #fff;
+        }
+
+        /* Screen Shake Animation */
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-3px, -2px) rotate(-2deg); }
+            20% { transform: translate(-5px, 0px) rotate(3deg); }
+            30% { transform: translate(5px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(2deg); }
+            50% { transform: translate(-2px, 2px) rotate(-1deg); }
+            60% { transform: translate(-4px, 1px) rotate(0deg); }
+            70% { transform: translate(4px, 1px) rotate(-2deg); }
+            80% { transform: translate(-1px, -1px) rotate(3deg); }
+            90% { transform: translate(2px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+        .shake {
+            animation: shake 0.4s;
+        }
+
+        /* Command Center Box */
+        #command-center {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            max-width: 600px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            z-index: 100;
+        }
+
+        #stats {
+            display: flex;
+            justify-content: space-between;
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 12px;
+            color: #4cd137;
+        }
+
+        #target-definition {
+            font-size: 1.25rem;
+            line-height: 1.4;
+            color: #f5f6fa;
+        }
+
+        /* Balloon Elements */
+        .balloon {
+            position: absolute;
+            bottom: -100px;
+            width: 100px;
+            height: 120px;
+            border-radius: 50% 50% 50% 50% / 40% 40% 60% 60%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 10px;
+            font-weight: bold;
+            font-size: 0.95rem;
+            color: #fff;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            cursor: pointer;
+            box-shadow: inset -10px -10px 20px rgba(0,0,0,0.3);
+            animation: floatUp linear forwards;
+        }
+
+        /* Balloon knot */
+        .balloon::after {
+            content: "";
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-bottom: 10px solid inherit;
+        }
+
+        @keyframes floatUp {
+            0% {
+                bottom: -120px;
+            }
+            100% {
+                bottom: 105vh;
+            }
+        }
+
+        /* Game Over Modal */
+        #game-over {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 200;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        #game-over h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            color: #00a8ff;
+        }
+
+        #game-over p {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+        }
+
+        #restart-btn {
+            padding: 12px 28px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            background-color: #4cd137;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        #restart-btn:hover {
+            background-color: #44bd32;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="command-center">
+        <div id="stats">
+            <div>Score: <span id="score">0</span></div>
+            <div>Time Left: <span id="timer">90</span>s</div>
+        </div>
+        <div id="target-definition">Loading definition...</div>
+    </div>
+
+    <div id="game-over">
+        <h1>Game Over!</h1>
+        <p>Your Final Score: <span id="final-score">0</span></p>
+        <button id="restart-btn" onclick="startGame()">Play Again</button>
+    </div>
+
+    <script>
+        const vocabulary = [
+            { word: "grip", def: "To hold tightly with your hands" },
+            { word: "adjustment", def: "A small change made to improve something" },
+            { word: "strain", def: "To make a large effort or stretch to the limit" },
+            { word: "flexible", def: "Able to bend easily without breaking" },
+            { word: "loosen", def: "To make something less tight" },
+            { word: "slightly", def: "To a small degree; a little bit" },
+            { word: "demonstrate", def: "To show or explain clearly how to do something" }
+        ];
+
+        const colors = ['#e84118', '#00a8ff', '#9c88ff', '#4cd137', '#fbc531', '#e1b12c', '#487eb0', '#e84393'];
+
+        let score = 0;
+        let timeLeft = 90;
+        let currentTarget = null;
+        let gameInterval = null;
+        let spawnInterval = null;
+
+        const scoreEl = document.getElementById('score');
+        const timerEl = document.getElementById('timer');
+        const defEl = document.getElementById('target-definition');
+        const gameOverEl = document.getElementById('game-over');
+        const finalScoreEl = document.getElementById('final-score');
+
+        function startGame() {
+            // Reset variables
+            score = 0;
+            timeLeft = 90;
+            scoreEl.textContent = score;
+            timerEl.textContent = timeLeft;
+            gameOverEl.style.display = 'none';
+
+            // Clear existing balloons
+            document.querySelectorAll('.balloon').forEach(b => b.remove());
+
+            // Set new target word
+            nextTarget();
+
+            // Start Timers
+            clearInterval(gameInterval);
+            clearInterval(spawnInterval);
+
+            gameInterval = setInterval(() => {
+                timeLeft--;
+                timerEl.textContent = timeLeft;
+                if (timeLeft <= 0) {
+                    endGame();
+                }
+            }, 1000);
+
+            // Spawn 1 balloon per second
+            spawnInterval = setInterval(spawnBalloon, 1000);
+        }
+
+        function nextTarget() {
+            const randomIndex = Math.floor(Math.random() * vocabulary.length);
+            currentTarget = vocabulary[randomIndex];
+            defEl.textContent = `Definition: "${currentTarget.def}"`;
+        }
+
+        function spawnBalloon() {
+            // Limit on-screen balloons to around 15-20 max
+            if (document.querySelectorAll('.balloon').length >= 18) return;
+
+            const balloon = document.createElement('div');
+            balloon.classList.add('balloon');
+
+            // Pick a random word from the list
+            const randomWordObj = vocabulary[Math.floor(Math.random() * vocabulary.length)];
+            balloon.textContent = randomWordObj.word;
+            balloon.dataset.word = randomWordObj.word;
+
+            // Random position and styling
+            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+            balloon.style.backgroundColor = randomColor;
+            balloon.style.left = Math.random() * (window.innerWidth - 120) + 'px';
+
+            // Random float speed (between 6 and 10 seconds)
+            const duration = Math.random() * 4 + 6;
+            balloon.style.animationDuration = duration + 's';
+
+            balloon.addEventListener('mousedown', () => handleBalloonClick(balloon));
+
+            // Clean up when balloon leaves screen
+            balloon.addEventListener('animationend', () => balloon.remove());
+
+            document.body.appendChild(balloon);
+        }
+
+        function handleBalloonClick(balloon) {
+            const word = balloon.dataset.word;
+
+            if (word === currentTarget.word) {
+                // Correct match
+                score += 10;
+                scoreEl.textContent = score;
+                balloon.remove();
+                nextTarget(); // Pick a new target definition
+            } else {
+                // Incorrect match
+                score -= 5;
+                scoreEl.textContent = score;
+                balloon.remove();
+                
+                // Trigger Screen Shake
+                document.body.classList.add('shake');
+                setTimeout(() => {
+                    document.body.classList.remove('shake');
+                }, 400);
+            }
+        }
+
+        function endGame() {
+            clearInterval(gameInterval);
+            clearInterval(spawnInterval);
+            document.querySelectorAll('.balloon').forEach(b => b.remove());
+            finalScoreEl.textContent = score;
+            gameOverEl.style.display = 'flex';
+        }
+
+        // Start game on load
+        window.onload = startGame;
+    </script>
+</body>
+</html>

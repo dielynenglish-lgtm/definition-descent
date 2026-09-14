@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vocabulary Master Quiz</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f4f7f6;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .game-container {
+      background-color: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+      width: 450px;
+      padding: 30px;
+      text-align: center;
+    }
+
+    h1 {
+      color: #2c3e50;
+      margin-bottom: 20px;
+    }
+
+    .question-box {
+      font-size: 1.1rem;
+      color: #34495e;
+      margin-bottom: 25px;
+      min-height: 50px;
+    }
+
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .btn {
+      background-color: #3498db;
+      color: white;
+      border: none;
+      padding: 12px 15px;
+      font-size: 0.95rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.2s ease, transform 0.1s ease;
+    }
+
+    .btn:hover {
+      background-color: #2980b9;
+      transform: translateY(-2px);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .feedback {
+      font-weight: bold;
+      margin-top: 15px;
+      min-height: 24px;
+    }
+
+    .feedback.correct {
+      color: #2ecc71;
+    }
+
+    .feedback.wrong {
+      color: #e74c3c;
+    }
+
+    .score {
+      margin-top: 15px;
+      font-size: 0.9rem;
+      color: #7f8c8d;
+    }
+
+    .restart-btn {
+      background-color: #2ecc71;
+      margin-top: 15px;
+      display: none;
+    }
+
+    .restart-btn:hover {
+      background-color: #27ae60;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="game-container">
+    <h1>Vocabulary Challenge</h1>
+    <div id="question" class="question-box">Loading question...</div>
+    <div id="options" class="options-grid"></div>
+    <div id="feedback" class="feedback"></div>
+    <div id="score" class="score">Score: 0</div>
+    <button id="next-btn" class="btn restart-btn" onclick="restartGame()">Play Again</button>
+  </div>
+
+  <script>
+    const quizData = [
+      {
+        question: "Which word means to achieve or complete something successfully?",
+        options: ["Accomplish", "Purchase", "Trigger", "Boost"],
+        answer: "Accomplish"
+      },
+      {
+        question: "Which word refers to the state of being firm, steady, and unlikely to change?",
+        options: ["Psychology", "Stability", "Presentation", "Trigger"],
+        answer: "Stability"
+      },
+      {
+        question: "Which word means to cause an event or situation to happen or exist?",
+        options: ["Boost", "Purchase", "Trigger", "Accomplish"],
+        answer: "Trigger"
+      },
+      {
+        question: "Which word means to increase or improve something?",
+        options: ["Boost", "Presentation", "Stability", "Psychology"],
+        answer: "Boost"
+      },
+      {
+        question: "Which word refers to the scientific study of the human mind and its functions?",
+        options: ["Stability", "Psychology", "Accomplish", "Presentation"],
+        answer: "Psychology"
+      },
+      {
+        question: "Which word means to buy or obtain something by paying for it?",
+        options: ["Trigger", "Boost", "Purchase", "Accomplish"],
+        answer: "Purchase"
+      },
+      {
+        question: "Which word refers to a speech or demonstration showing or explaining an idea to an audience?",
+        options: ["Presentation", "Stability", "Psychology", "Purchase"],
+        answer: "Presentation"
+      }
+    ];
+
+    let currentQuestionIndex = 0;
+    let score = 0;
+
+    const questionElement = document.getElementById('question');
+    const optionsElement = document.getElementById('options');
+    const feedbackElement = document.getElementById('feedback');
+    const scoreElement = document.getElementById('score');
+    const restartBtn = document.getElementById('next-btn');
+
+    function loadQuestion() {
+      feedbackElement.textContent = '';
+      const currentQuiz = quizData[currentQuestionIndex];
+      questionElement.textContent = `${currentQuestionIndex + 1}. ${currentQuiz.question}`;
+      optionsElement.innerHTML = '';
+
+      currentQuiz.options.forEach(option => {
+        const button = document.createElement('button');
+        button.textContent = option;
+        button.classList.add('btn');
+        button.onclick = () => selectOption(option, button);
+        optionsElement.appendChild(button);
+      });
+    }
+
+    function selectOption(selectedOption, button) {
+      const currentQuiz = quizData[currentQuestionIndex];
+      const buttons = optionsElement.querySelectorAll('.btn');
+      buttons.forEach(btn => btn.disabled = true);
+
+      if (selectedOption === currentQuiz.answer) {
+        score++;
+        feedbackElement.textContent = 'Correct!';
+        feedbackElement.className = 'feedback correct';
+      } else {
+        feedbackElement.textContent = `Incorrect! Correct answer: ${currentQuiz.answer}`;
+        feedbackElement.className = 'feedback wrong';
+      }
+
+      scoreElement.textContent = `Score: ${score}`;
+
+      setTimeout(() => {
+        currentQuestionIndex++;
+        if (currentQuestionIndex < quizData.length) {
+          loadQuestion();
+        } else {
+          showFinalScore();
+        }
+      }, 1500);
+    }
+
+    function showFinalScore() {
+      questionElement.textContent = `Quiz Finished! You scored ${score} out of ${quizData.length}.`;
+      optionsElement.innerHTML = '';
+      feedbackElement.textContent = '';
+      restartBtn.style.display = 'inline-block';
+    }
+
+    function restartGame() {
+      currentQuestionIndex = 0;
+      score = 0;
+      scoreElement.textContent = `Score: ${score}`;
+      restartBtn.style.display = 'none';
+      loadQuestion();
+    }
+
+    loadQuestion();
+  </script>
+</body>
+</html>

@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Hidden Vault: Vocabulary Mystery</title>
+    <style>
+        :root {
+            --bg-color: #1a1e29;
+            --vault-color: #a8b2c1;
+            --vault-dark: #687482;
+            --gold: #ffd700;
+            --accent: #4a90e2;
+            --danger: #e74c3c;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .game-container {
+            width: 90%;
+            max-width: 800px;
+            background: #252b3b;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            text-align: center;
+            position: relative;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 10px 20px;
+            background: #151821;
+            border-radius: 8px;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        .clue-tablet {
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            border: 2px solid #5dade2;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.3);
+        }
+
+        /* Vault Display */
+        .vault-wrapper {
+            position: relative;
+            width: 160px;
+            height: 160px;
+            margin: 0 auto 20px;
+            perspective: 1000px;
+        }
+
+        .vault {
+            width: 100%;
+            height: 100%;
+            background: var(--vault-color);
+            border: 8px solid var(--vault-dark);
+            border-radius: 20px;
+            position: relative;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: transform 0.3s ease;
+        }
+
+        .vault-door {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(145deg, #cbd5e1, #94a3b8);
+            border-radius: 12px;
+            position: absolute;
+            top: 0;
+            left: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transform-origin: left;
+            transition: transform 0.6s ease-in-out;
+            box-sizing: border-box;
+            border: 4px solid #64748b;
+        }
+
+        .vault-wheel {
+            width: 60px;
+            height: 60px;
+            border: 6px solid #475569;
+            border-radius: 50%;
+            position: relative;
+        }
+
+        .vault-wheel::before, .vault-wheel::after {
+            content: '';
+            position: absolute;
+            background: #475569;
+        }
+
+        .vault-wheel::before {
+            width: 100%;
+            height: 6px;
+            top: 21px;
+            left: 0;
+        }
+
+        .vault-wheel::after {
+            width: 6px;
+            height: 100%;
+            left: 21px;
+            top: 0;
+        }
+
+        .vault-interior {
+            width: 100%;
+            height: 100%;
+            background: #000;
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 3rem;
+        }
+
+        /* Vault Animations */
+        .vault.open .vault-door {
+            transform: rotateY(-110deg);
+        }
+
+        .vault.shake {
+            animation: shake 0.5s;
+            box-shadow: 0 0 20px var(--danger);
+            border-color: var(--danger);
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-10px); }
+            40%, 80% { transform: translateX(10px); }
+        }
+
+        /* Gold Coins Animation */
+        .coin {
+            position: absolute;
+            font-size: 1.5rem;
+            animation: fall 1s ease-out forwards;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        @keyframes fall {
+            0% { opacity: 1; transform: translateY(-20px) scale(0.5); }
+            100% { opacity: 0; transform: translateY(100px) scale(1.2); }
+        }
+
+        /* Options Grid */
+        .chests-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .chest-btn {
+            background: linear-gradient(145deg, #8e5229, #5c3217);
+            border: 3px solid #d4af37;
+            border-radius: 10px;
+            padding: 15px;
+            color: #fff;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.1s, background-color 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .chest-btn:hover {
+            transform: translateY(-2px);
+            background: linear-gradient(145deg, #a05d2f, #6e3c1c);
+        }
+
+        .chest-btn:active {
+            transform: translateY(1px);
+        }
+
+        /* Overlay Screens */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(21, 24, 33, 0.95);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .overlay h1 { font-size: 2.2rem; margin-bottom: 10px; color: var(--gold); }
+        .overlay p { font-size: 1.1rem; margin-bottom: 20px; line-height: 1.5; max-width: 500px; }
+
+        .btn-action {
+            background: #27ae60;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .btn-action:hover { background: #2ecc71; transform: scale(1.05); }
+
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="game-container">
+    <!-- Header Controls -->
+    <div class="header">
+        <div>SCORE: <span id="score-display">0</span></div>
+        <div>TIME: <span id="timer-display">60</span>s</div>
+    </div>
+
+    <!-- Clue Tablet -->
+    <div class="clue-tablet" id="clue-display">
+        Definition will appear here...
+    </div>
+
+    <!-- Central Vault -->
+    <div class="vault-wrapper">
+        <div class="vault" id="vault">
+            <div class="vault-interior">💰</div>
+            <div class="vault-door">
+                <div class="vault-wheel"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Options (Treasure Chests) -->
+    <div class="chests-grid">
+        <button class="chest-btn" onclick="checkAnswer(0)">🧰 <span id="opt0">Option 1</span></button>
+        <button class="chest-btn" onclick="checkAnswer(1)">🧰 <span id="opt1">Option 2</span></button>
+        <button class="chest-btn" onclick="checkAnswer(2)">🧰 <span id="opt2">Option 3</span></button>
+        <button class="chest-btn" onclick="checkAnswer(3)">🧰 <span id="opt3">Option 4</span></button>
+    </div>
+
+    <!-- Mission Start Overlay -->
+    <div class="overlay" id="start-overlay">
+        <h1>THE HIDDEN VAULT</h1>
+        <p>Infiltrate the vault by decoding secret language clues! Match the definitions to the correct vocabulary word within 60 seconds to open the chest and claim the treasure.</p>
+        <button class="btn-action" onclick="startGame()">MISSION START</button>
+    </div>
+
+    <!-- Mission Complete Overlay -->
+    <div class="overlay hidden" id="end-overlay">
+        <h1>MISSION COMPLETE</h1>
+        <p>Time's up! You successfully cracked the codes and collected your reward.</p>
+        <p>FINAL SCORE: <strong id="final-score" style="color: var(--gold); font-size: 1.5rem;">0</strong></p>
+        <button class="btn-action" onclick="startGame()">TRY AGAIN</button>
+    </div>
+</div>
+
+<script>
+    const vocabularyList = [
+        { word: "Disqualify", def: "To officially prevent someone from taking part in something due to a rule violation." },
+        { word: "Revise", def: "To alter, edit, or re-examine written material to make corrections or improvements." },
+        { word: "Aerospace", def: "The industry concerned with the design, building, and flight of aircraft and spacecraft." },
+        { word: "Surgeon", def: "A specialized doctor qualified to perform medical operations." },
+        { word: "Candidate", def: "A person who applies for a job or is nominated for an election or award." },
+        { word: "Applicant", def: "A person who formally submits a request or application for something, such as a job." },
+        { word: "Launch", def: "To set an action, project, or object (like a rocket) into motion or process." },
+        { word: "Reservation", def: "An arrangement to secure a seat, room, or service at a specific time in advance." },
+        { word: "Linguistic", def: "Relating to language, speech, or the scientific study of human languages." },
+        { word: "Astronaut", def: "A person trained by a human spaceflight program to command, pilot, or serve as a crew member." }
+    ];
+
+    let currentQuestion = 0;
+    let score = 0;
+    let timeLeft = 60;
+    let timerInterval = null;
+    let currentCorrectIndex = 0;
+    let isAnimating = false;
+
+    function startGame() {
+        score = 0;
+        timeLeft = 60;
+        document.getElementById("score-display").textContent = score;
+        document.getElementById("timer-display").textContent = timeLeft;
+        document.getElementById("start-overlay").classList.add("hidden");
+        document.getElementById("end-overlay").classList.add("hidden");
+
+        // Shuffle vocabulary words for fresh gameplay
+        shuffleArray(vocabularyList);
+        currentQuestion = 0;
+        
+        loadQuestion();
+        
+        clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            document.getElementById("timer-display").textContent = timeLeft;
+            if (timeLeft <= 0) {
+                endGame();
+            }
+        }, 1000);
+    }
+
+    function loadQuestion() {
+        if (currentQuestion >= vocabularyList.length) {
+            shuffleArray(vocabularyList); // Cycle again if user answers all quickly
+            currentQuestion = 0;
+        }
+
+        const item = vocabularyList[currentQuestion];
+        document.getElementById("clue-display").textContent = item.def;
+
+        // Generate options (1 correct, 3 wrong)
+        let options = [item.word];
+        let distractors = vocabularyList.filter(v => v.word !== item.word);
+        shuffleArray(distractors);
+
+        for (let i = 0; i < 3; i++) {
+            options.push(distractors[i].word);
+        }
+
+        shuffleArray(options);
+        currentCorrectIndex = options.indexOf(item.word);
+
+        for (let i = 0; i < 4; i++) {
+            document.getElementById(`opt${i}`).textContent = options[i];
+        }
+    }
+
+    function checkAnswer(selectedIndex) {
+        if (isAnimating) return;
+
+        const vaultEl = document.getElementById("vault");
+
+        if (selectedIndex === currentCorrectIndex) {
+            isAnimating = true;
+            score += 10;
+            document.getElementById("score-display").textContent = score;
+
+            // Trigger Vault Open and Coin Animation
+            vaultEl.classList.add("open");
+            triggerGoldRain();
+
+            setTimeout(() => {
+                vaultEl.classList.remove("open");
+                currentQuestion++;
+                loadQuestion();
+                isAnimating = false;
+            }, 1000);
+
+        } else {
+            isAnimating = true;
+            // Trigger Shake animation
+            vaultEl.classList.add("shake");
+
+            setTimeout(() => {
+                vaultEl.classList.remove("shake");
+                isAnimating = false;
+            }, 500);
+        }
+    }
+
+    function triggerGoldRain() {
+        const container = document.querySelector(".vault-wrapper");
+        for (let i = 0; i < 8; i++) {
+            const coin = document.createElement("div");
+            coin.className = "coin";
+            coin.textContent = "🪙";
+            coin.style.left = `${Math.random() * 80 + 10}%`;
+            coin.style.top = `${Math.random() * 20 + 40}%`;
+            container.appendChild(coin);
+
+            setTimeout(() => coin.remove(), 1000);
+        }
+    }
+
+    function endGame() {
+        clearInterval(timerInterval);
+        document.getElementById("final-score").textContent = score;
+        document.getElementById("end-overlay").classList.remove("hidden");
+    }
+
+    function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+    }
+</script>
+
+</body>
+</html>

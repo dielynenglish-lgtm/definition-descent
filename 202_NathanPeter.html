@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocab Galaga: AI Game Builder Edition</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            background-color: #0d0e15;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        #game-container {
+            position: relative;
+            box-shadow: 0 0 30px rgba(0, 242, 254, 0.3);
+            border-radius: 10px;
+            overflow: hidden;
+            border: 2px solid #00f2fe;
+        }
+        canvas {
+            background: radial-gradient(circle at center, #111827 0%, #030712 100%);
+            display: block;
+        }
+        .ui-panel {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(5px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            pointer-events: none;
+        }
+        .ui-text {
+            font-size: 18px;
+            font-weight: bold;
+            text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+        }
+        #prompt-box {
+            position: absolute;
+            top: 70px;
+            width: 100%;
+            text-align: center;
+            pointer-events: none;
+        }
+        #definition-card {
+            display: inline-block;
+            background: rgba(30, 41, 59, 0.85);
+            border: 1px solid #4f46e5;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 16px;
+            color: #38bdf8;
+            box-shadow: 0 0 15px rgba(79, 70, 229, 0.4);
+            max-width: 80%;
+        }
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(3, 7, 18, 0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+        .btn {
+            background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.5);
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 20px;
+        }
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 25px rgba(6, 182, 212, 0.8);
+        }
+        h1 {
+            font-size: 36px;
+            margin-bottom: 10px;
+            background: linear-gradient(to right, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        p {
+            color: #94a3b8;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div class="ui-panel">
+        <div class="ui-text" id="score-display">SCORE: 0</div>
+        <div class="ui-text" id="lives-display">LIVES: ❤️ ❤️ ❤️</div>
+    </div>
+    
+    <div id="prompt-box">
+        <div id="definition-card">Target Definition Loading...</div>
+    </div>
+
+    <div id="overlay">
+        <h1 id="overlay-title">VOCAB GALAGA</h1>
+        <p id="overlay-msg">Defend the grid by destroying ships with correct vocabulary!</p>
+        <p style="font-size: 13px; color: #64748b; margin-top: 10px;">Controls: Left/Right Arrows to Move | Spacebar to Shoot</p>
+        <button class="btn" id="start-btn" onclick="startGame()">START GAME</button>
+    </div>
+
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// Vocabulary Dataset tailored for High School Grade 1 & AI Game Builder Theme
+const vocabData = [
+    { word: "encounter", def: "An unexpected meeting, challenge, or sudden test of skill." },
+    { word: "feast", def: "A plentiful supply or rich display of impressive content." },
+    { word: "merge", def: "To combine multiple code branches or ideas into one whole." },
+    { word: "distinct", def: "Recognizably different in nature from anything else." },
+    { word: "endure", def: "To persist through tough code debugging or challenges." },
+    { word: "reminder", def: "A visual or prompt signal designed to assist memory." }
+];
+
+let score = 0;
+let lives = 3;
+let gameState = "MENU"; // MENU, PLAYING, GAMEOVER
+let currentTarget = null;
+let enemies = [];
+let projectiles = [];
+let stars = [];
+let keys = {};
+
+// Player Ship Object
+const player = {
+    x: canvas.width / 2 - 25,
+    y: canvas.height - 60,
+    width: 50,
+    height: 30,
+    speed: 7,
+    dx: 0
+};
+
+// Initialize Background Starfield
+for (let i = 0; i < 80; i++) {
+    stars.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        size: Math.random() * 2,
+        speed: Math.random() * 1.5 + 0.5
+    });
+}
+
+// Input Listeners
+window.addEventListener('keydown', e => {
+    if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys['left'] = true;
+    if (e.code === 'ArrowRight' || e.code === 'KeyD') keys['right'] = true;
+    if (e.code === 'Space' && gameState === "PLAYING") {
+        e.preventDefault();
+        fireProjectile();
+    }
+});
+
+window.addEventListener('keyup', e => {
+    if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys['left'] = false;
+    if (e.code === 'ArrowRight' || e.code === 'KeyD') keys['right'] = false;
+});
+
+function fireProjectile() {
+    // Limit firing rate
+    if (projectiles.length < 3) {
+        projectiles.push({
+            x: player.x + player.width / 2 - 3,
+            y: player.y,
+            width: 6,
+            height: 16,
+            speed: 10
+        });
+    }
+}
+
+function spawnWave() {
+    enemies = [];
+    // Pick target word
+    const randomIndex = Math.floor(Math.random() * vocabData.length);
+    currentTarget = vocabData[randomIndex];
+    document.getElementById('definition-card').innerText = `TARGET: "${currentTarget.def}"`;
+
+    // Pick 3 additional distinct decoy words
+    let choices = [currentTarget.word];
+    while (choices.length < 4) {
+        let randomWord = vocabData[Math.floor(Math.random() * vocabData.length)].word;
+        if (!choices.includes(randomWord)) {
+            choices.push(randomWord);
+        }
+    }
+
+    // Shuffle choices array
+    choices.sort(() => Math.random() - 0.5);
+
+    // Spawn 4 alien ships across top
+    const spacing = canvas.width / 4;
+    for (let i = 0; i < 4; i++) {
+        enemies.push({
+            word: choices[i],
+            x: spacing * i + (spacing / 2) - 45,
+            y: 120,
+            width: 90,
+            height: 40,
+            isCorrect: choices[i] === currentTarget.word,
+            isDiving: false,
+            vx: 0,
+            vy: 0
+        });
+    }
+}
+
+function startGame() {
+    score = 0;
+    lives = 3;
+    player.x = canvas.width / 2 - 25;
+    projectiles = [];
+    gameState = "PLAYING";
+    
+    document.getElementById('overlay').style.display = 'none';
+    updateUI();
+    spawnWave();
+}
+
+function gameOver() {
+    gameState = "GAMEOVER";
+    document.getElementById('overlay-title').innerText = "SYSTEM FAILURE";
+    document.getElementById('overlay-msg').innerText = `Final Score: ${score} points`;
+    document.getElementById('start-btn').innerText = "RETRY MISSION";
+    document.getElementById('overlay').style.display = 'flex';
+}
+
+function updateUI() {
+    document.getElementById('score-display').innerText = `SCORE: ${score}`;
+    let hearts = "";
+    for (let i = 0; i < lives; i++) hearts += "❤️ ";
+    document.getElementById('lives-display').innerText = `LIVES: ${hearts}`;
+}
+
+function triggerDiveBomb(enemy) {
+    enemy.isDiving = true;
+    const angle = Math.atan2(player.y - enemy.y, player.x - enemy.x);
+    enemy.vx = Math.cos(angle) * 6;
+    enemy.vy = Math.sin(angle) * 6;
+}
+
+function update() {
+    if (gameState !== "PLAYING") return;
+
+    // Player Movement
+    if (keys['left'] && player.x > 0) player.x -= player.speed;
+    if (keys['right'] && player.x < canvas.width - player.width) player.x += player.speed;
+
+    // Starfield Movement
+    stars.forEach(star => {
+        star.y += star.speed;
+        if (star.y > canvas.height) star.y = 0;
+    });
+
+    // Projectile Movement & Collision
+    for (let pIdx = projectiles.length - 1; pIdx >= 0; pIdx--) {
+        let p = projectiles[pIdx];
+        p.y -= p.speed;
+
+        if (p.y < 0) {
+            projectiles.splice(pIdx, 1);
+            continue;
+        }
+
+        // Check hit against enemies
+        for (let eIdx = enemies.length - 1; eIdx >= 0; eIdx--) {
+            let e = enemies[eIdx];
+            if (p.x < e.x + e.width && p.x + p.width > e.x &&
+                p.y < e.y + e.height && p.y + p.height > e.y) {
+                
+                projectiles.splice(pIdx, 1);
+
+                if (e.isCorrect) {
+                    // Correct Target Hit!
+                    score += 100;
+                    updateUI();
+                    spawnWave();
+                } else {
+                    // Incorrect Target Hit! Dive-bomb!
+                    if (!e.isDiving) {
+                        triggerDiveBomb(e);
+                    }
+                }
+                break;
+            }
+        }
+    }
+
+    // Enemy Dynamics
+    enemies.forEach(e => {
+        if (e.isDiving) {
+            e.x += e.vx;
+            e.y += e.vy;
+
+            // Player Collision Check during dive
+            if (e.x < player.x + player.width && e.x + e.width > player.x &&
+                e.y < player.y + player.height && e.y + e.height > player.y) {
+                
+                lives--;
+                updateUI();
+                if (lives <= 0) {
+                    gameOver();
+                } else {
+                    spawnWave();
+                }
+            }
+
+            // Screen Bounds Check
+            if (e.y > canvas.height || e.x < -100 || e.x > canvas.width + 100) {
+                // Reset wave if rogue dive completes
+                lives--;
+                updateUI();
+                if (lives <= 0) gameOver();
+                else spawnWave();
+            }
+        }
+    });
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw Stars
+    ctx.fillStyle = "#ffffff";
+    stars.forEach(star => {
+        ctx.fillRect(star.x, star.y, star.size, star.size);
+    });
+
+    if (gameState === "PLAYING") {
+        // Draw Player Ship
+        ctx.fillStyle = "#00f2fe";
+        ctx.beginPath();
+        ctx.moveTo(player.x + player.width / 2, player.y);
+        ctx.lineTo(player.x + player.width, player.y + player.height);
+        ctx.lineTo(player.x, player.y + player.height);
+        ctx.closePath();
+        ctx.fill();
+
+        // Ship Core Glow
+        ctx.fillStyle = "#38bdf8";
+        ctx.fillRect(player.x + player.width / 2 - 4, player.y + 12, 8, 12);
+
+        // Draw Projectiles
+        ctx.fillStyle = "#f43f5e";
+        projectiles.forEach(p => {
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = "#f43f5e";
+            ctx.fillRect(p.x, p.y, p.width, p.height);
+            ctx.shadowBlur = 0;
+        });
+
+        // Draw Enemies
+        enemies.forEach(e => {
+            // Alien Hull
+            ctx.fillStyle = e.isDiving ? "#ef4444" : "#1e293b";
+            ctx.strokeStyle = e.isDiving ? "#f87171" : "#818cf8";
+            ctx.lineWidth = 2;
+
+            ctx.fillRect(e.x, e.y, e.width, e.height);
+            ctx.strokeRect(e.x, e.y, e.width, e.height);
+
+            // Word Label
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 13px 'Segoe UI', sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText(e.word, e.x + e.width / 2, e.y + 25);
+        });
+    }
+
+    requestAnimationFrame(gameLoop);
+}
+
+function gameLoop() {
+    update();
+    draw();
+}
+
+gameLoop();
+</script>
+</body>
+</html>

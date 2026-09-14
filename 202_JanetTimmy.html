@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>High School Vocabulary Master</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .game-container {
+            background-color: #1e293b;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+
+        h1 {
+            color: #38bdf8;
+            margin-bottom: 8px;
+        }
+
+        p.subtitle {
+            color: #94a3b8;
+            font-size: 14px;
+            margin-bottom: 24px;
+        }
+
+        .score-board {
+            font-size: 18px;
+            font-weight: bold;
+            color: #facc15;
+            margin-bottom: 20px;
+        }
+
+        .scrambled-word {
+            font-size: 32px;
+            font-weight: bold;
+            letter-spacing: 6px;
+            color: #4ade80;
+            background-color: #334155;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            word-break: break-all;
+        }
+
+        .hint-box {
+            font-style: italic;
+            color: #cbd5e1;
+            margin-bottom: 20px;
+            min-height: 48px;
+        }
+
+        input[type="text"] {
+            width: 80%;
+            padding: 12px;
+            font-size: 16px;
+            border-radius: 6px;
+            border: 2px solid #475569;
+            background-color: #0f172a;
+            color: #ffffff;
+            text-align: center;
+            outline: none;
+            margin-bottom: 15px;
+        }
+
+        input[type="text"]:focus {
+            border-color: #38bdf8;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        button {
+            padding: 12px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .submit-btn {
+            background-color: #38bdf8;
+            color: #0f172a;
+        }
+
+        .submit-btn:hover {
+            background-color: #0284c7;
+            color: #ffffff;
+        }
+
+        .skip-btn {
+            background-color: #475569;
+            color: #ffffff;
+        }
+
+        .skip-btn:hover {
+            background-color: #64748b;
+        }
+
+        .message {
+            margin-top: 15px;
+            font-size: 16px;
+            font-weight: bold;
+            min-height: 24px;
+        }
+
+        .correct { color: #4ade80; }
+        .wrong { color: #f87171; }
+    </style>
+</head>
+<body>
+
+<div class="game-container">
+    <h1>Vocab Master</h1>
+    <p class="subtitle">High School Advanced Vocabulary Challenge</p>
+    
+    <div class="score-board">Score: <span id="score">0</span></div>
+    
+    <div class="scrambled-word" id="scrambled-word">LOADING...</div>
+    <div class="hint-box" id="hint">Definition: Loading definition...</div>
+
+    <input type="text" id="user-input" placeholder="Type your answer..." autocomplete="off">
+    
+    <div class="btn-group">
+        <button class="submit-btn" onclick="checkAnswer()">Submit</button>
+        <button class="skip-btn" onclick="nextWord()">Skip</button>
+    </div>
+
+    <div class="message" id="message"></div>
+</div>
+
+<script>
+    // High School Vocabulary List with Definitions
+    const vocabList = [
+        { word: "EPHEMERAL", hint: "Lasting for a very short time; fleeting." },
+        { word: "PRAGMATIC", hint: "Dealing with things sensibly and realistically." },
+        { word: "BENEVOLENT", hint: "Well-meaning and kindly; serving a charitable purpose." },
+        { word: "METICULOUS", hint: "Showing great attention to detail; very careful and precise." },
+        { word: "UBIQUITOUS", hint: "Present, appearing, or found everywhere." },
+        { word: "ESTRANGED", hint: "No longer close or affectionate to someone; alienated." },
+        { word: "LOQUACIOUS", hint: "Tending to talk a great deal; talkative." },
+        { word: "RESILIENT", hint: "Able to withstand or recover quickly from difficult conditions." }
+    ];
+
+    let currentWordIndex = 0;
+    let score = 0;
+    let currentWordObj = {};
+
+    function shuffleWord(word) {
+        let array = word.split('');
+        for (let i = array.length - 1; i > 0; i--) {
+            let j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        let scrambled = array.join('');
+        // Prevent scrambled word from being identical to original
+        return scrambled === word ? shuffleWord(word) : scrambled;
+    }
+
+    function loadNextWord() {
+        if (vocabList.length === 0) return;
+        
+        // Pick a random word from the list
+        currentWordIndex = Math.floor(Math.random() * vocabList.length);
+        currentWordObj = vocabList[currentWordIndex];
+
+        document.getElementById("scrambled-word").innerText = shuffleWord(currentWordObj.word);
+        document.getElementById("hint").innerText = "Definition: " + currentWordObj.hint;
+        document.getElementById("user-input").value = "";
+        document.getElementById("message").innerText = "";
+    }
+
+    function checkAnswer() {
+        const userGuess = document.getElementById("user-input").value.trim().toUpperCase();
+        const messageElement = document.getElementById("message");
+
+        if (userGuess === currentWordObj.word) {
+            score += 10;
+            document.getElementById("score").innerText = score;
+            messageElement.className = "message correct";
+            messageElement.innerText = "Correct! +10 Points";
+            setTimeout(loadNextWord, 1200);
+        } else {
+            messageElement.className = "message wrong";
+            messageElement.innerText = "Try again!";
+        }
+    }
+
+    function nextWord() {
+        document.getElementById("message").className = "message wrong";
+        document.getElementById("message").innerText = "Skipped! Word was: " + currentWordObj.word;
+        setTimeout(loadNextWord, 1500);
+    }
+
+    // Allow pressing "Enter" key to submit
+    document.getElementById("user-input").addEventListener("keypress", function(event) {
+        if (event.key === "Enter") {
+            checkAnswer();
+        }
+    });
+
+    // Start Game
+    loadNextWord();
+</script>
+
+</body>
+</html>

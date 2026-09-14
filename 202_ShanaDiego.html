@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocabulary Money Ladder Game Show</title>
+    <style>
+        :root {
+            --bg-dark: #030a16;
+            --panel-blue: #0a192f;
+            --card-blue: #112240;
+            --gold: #ffd700;
+            --gold-light: #fff099;
+            --gold-dark: #b8860b;
+            --text-light: #f0f4f8;
+            --correct: #2a9d8f;
+            --wrong: #e63946;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .game-container {
+            width: 100%;
+            max-width: 950px;
+            background: var(--panel-blue);
+            border: 3px solid var(--gold);
+            border-radius: 12px;
+            box-shadow: 0 0 25px rgba(255, 215, 0, 0.25);
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--gold-dark);
+            padding-bottom: 15px;
+        }
+
+        .title {
+            color: var(--gold);
+            font-size: 1.8rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 8px rgba(255, 215, 0, 0.5);
+        }
+
+        .timer-box {
+            background: var(--card-blue);
+            border: 2px solid var(--gold);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--gold-light);
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .quiz-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .question-box {
+            background: var(--card-blue);
+            border: 2px solid var(--gold-dark);
+            border-radius: 8px;
+            padding: 20px;
+            min-height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-size: 1.2rem;
+            line-height: 1.5;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .option-btn {
+            background: var(--card-blue);
+            color: var(--text-light);
+            border: 2px solid var(--gold);
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: left;
+        }
+
+        .option-btn:hover {
+            background: var(--gold);
+            color: var(--bg-dark);
+            box-shadow: 0 0 10px var(--gold);
+        }
+
+        .ladder-panel {
+            background: var(--card-blue);
+            border: 2px solid var(--gold-dark);
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column-reverse;
+            gap: 6px;
+        }
+
+        .ladder-step {
+            padding: 8px 12px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            font-size: 0.95rem;
+            background: rgba(255, 255, 255, 0.05);
+            color: #88a0c0;
+        }
+
+        .ladder-step.active {
+            background: var(--gold);
+            color: var(--bg-dark);
+            box-shadow: 0 0 12px var(--gold);
+            font-size: 1.05rem;
+        }
+
+        .ladder-step.completed {
+            color: var(--gold-light);
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(3, 10, 22, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .modal-content {
+            background: var(--panel-blue);
+            border: 3px solid var(--gold);
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            max-width: 450px;
+            width: 90%;
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.4);
+        }
+
+        .modal-title {
+            font-size: 2rem;
+            color: var(--gold);
+            margin-bottom: 15px;
+        }
+
+        .modal-message {
+            font-size: 1.2rem;
+            margin-bottom: 25px;
+        }
+
+        .action-btn {
+            background: var(--gold);
+            color: var(--bg-dark);
+            border: none;
+            padding: 12px 30px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: transform 0.2s, background-color 0.2s;
+        }
+
+        .action-btn:hover {
+            background: var(--gold-light);
+            transform: scale(1.05);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <div class="header">
+            <h1 class="title">Money Ladder</h1>
+            <div class="timer-box">TIME: <span id="timer">60</span>s</div>
+        </div>
+
+        <div class="main-content">
+            <div class="quiz-panel">
+                <div class="question-box" id="question-text">
+                    Loading question...
+                </div>
+                <div class="options-grid" id="options-container">
+                    <!-- Buttons inserted dynamically -->
+                </div>
+            </div>
+
+            <div class="ladder-panel" id="ladder">
+                <!-- Money steps inserted dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Game End Modal -->
+    <div class="modal hidden" id="game-modal">
+        <div class="modal-content">
+            <h2 class="modal-title" id="modal-title">GAME OVER</h2>
+            <p class="modal-message" id="modal-msg">You walked away with $0</p>
+            <button class="action-btn" onclick="startGame()">TRY AGAIN</button>
+        </div>
+    </div>
+
+    <script>
+        const vocabularyData = [
+            {
+                word: "miraculous",
+                question: "Which word means extraodinary, surprising, or seeming like a miracle?",
+                options: ["Miraculous", "Ordinary", "Dangerous", "Frequent"],
+                answer: 0
+            },
+            {
+                word: "massive",
+                question: "Which word describes something extremely large, heavy, or huge?",
+                options: ["Tiny", "Massive", "Hollow", "Silent"],
+                answer: 1
+            },
+            {
+                word: "vomit",
+                question: "Which word refers to involuntarily ejecting stomach contents through the mouth?",
+                options: ["Swallow", "Inhale", "Vomit", "Digest"],
+                answer: 2
+            },
+            {
+                word: "physician",
+                question: "Which term is another formal title for a qualified medical doctor?",
+                options: ["Physician", "Physicist", "Pharmacist", "Philosopher"],
+                answer: 0
+            },
+            {
+                word: "dose",
+                question: "Which word means a measured quantity of medicine taken at one time?",
+                options: ["Draft", "Dose", "Diagnosis", "Diet"],
+                answer: 1
+            },
+            {
+                word: "established",
+                question: "If a company or rule has been set up permanently and accepted, it is:",
+                options: ["Temporary", "Uncertain", "Established", "Disputed"],
+                answer: 2
+            },
+            {
+                word: "undergo",
+                question: "Which word means to experience, endure, or go through a process?",
+                options: ["Avoid", "Undergo", "Overlook", "Prevent"],
+                answer: 1
+            }
+        ];
+
+        const prizeLadder = [
+            "$1,000",
+            "$5,000",
+            "$10,000",
+            "$25,000",
+            "$50,000",
+            "$100,000",
+            "$1,000,000"
+        ];
+
+        let currentQuestions = [];
+        let currentStep = 0;
+        let timeLeft = 60;
+        let timerInterval = null;
+
+        function shuffle(array) {
+            let shuffled = [...array];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
+
+        function buildLadder() {
+            const ladderEl = document.getElementById("ladder");
+            ladderEl.innerHTML = "";
+            prizeLadder.forEach((prize, index) => {
+                const step = document.createElement("div");
+                step.className = "ladder-step";
+                step.id = `step-${index}`;
+                step.innerHTML = `<span>${index + 1}</span> <span>${prize}</span>`;
+                ladderEl.appendChild(step);
+            });
+        }
+
+        function updateLadderUI() {
+            prizeLadder.forEach((_, index) => {
+                const step = document.getElementById(`step-${index}`);
+                step.classList.remove("active", "completed");
+                if (index === currentStep) {
+                    step.classList.add("active");
+                } else if (index < currentStep) {
+                    step.classList.add("completed");
+                }
+            });
+        }
+
+        function startGame() {
+            document.getElementById("game-modal").classList.add("hidden");
+            currentQuestions = shuffle(vocabularyData);
+            currentStep = 0;
+            timeLeft = 60;
+            
+            buildLadder();
+            updateLadderUI();
+            loadQuestion();
+
+            clearInterval(timerInterval);
+            document.getElementById("timer").textContent = timeLeft;
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                document.getElementById("timer").textContent = timeLeft;
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    endGame(false, "Time ran out!");
+                }
+            }, 1000);
+        }
+
+        function loadQuestion() {
+            if (currentStep >= currentQuestions.length) {
+                endGame(true, "Congratulations! You won the top prize of $1,000,000!");
+                return;
+            }
+
+            updateLadderUI();
+            const q = currentQuestions[currentStep];
+            document.getElementById("question-text").textContent = q.question;
+
+            const optionsContainer = document.getElementById("options-container");
+            optionsContainer.innerHTML = "";
+
+            q.options.forEach((opt, idx) => {
+                const btn = document.createElement("button");
+                btn.className = "option-btn";
+                btn.textContent = `${String.fromCharCode(65 + idx)}: ${opt}`;
+                btn.onclick = () => checkAnswer(idx);
+                optionsContainer.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(selectedIndex) {
+            const q = currentQuestions[currentStep];
+            if (selectedIndex === q.answer) {
+                currentStep++;
+                if (currentStep === prizeLadder.length) {
+                    endGame(true, "PERFECT SCORE! You reached the top of the Money Ladder!");
+                } else {
+                    loadQuestion();
+                }
+            } else {
+                const wonAmount = currentStep > 0 ? prizeLadder[currentStep - 1] : "$0";
+                endGame(false, `Wrong answer! You walk away with ${wonAmount}.`);
+            }
+        }
+
+        function endGame(isWin, message) {
+            clearInterval(timerInterval);
+            const modal = document.getElementById("game-modal");
+            const title = document.getElementById("modal-title");
+            const msg = document.getElementById("modal-msg");
+
+            title.textContent = isWin ? "GRAND PRIZE WINNER!" : "GAME OVER";
+            title.style.color = isWin ? "#ffd700" : "#e63946";
+            msg.textContent = message;
+
+            modal.classList.remove("hidden");
+        }
+
+        window.onload = startGame;
+    </script>
+</body>
+</html>

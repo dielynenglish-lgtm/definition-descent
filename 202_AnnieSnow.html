@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyberpunk Snake-Definition Hunt</title>
+    <style>
+        body {
+            background-color: #0d0e15;
+            color: #00ffcc;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #ui-container {
+            width: 600px;
+            background: #161925;
+            border: 2px solid #00ffcc;
+            box-shadow: 0 0 15px #00ffcc;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+        #definition-box {
+            font-size: 1.1rem;
+            color: #ff007f;
+            margin-top: 5px;
+            font-weight: bold;
+            min-height: 48px;
+        }
+
+        #score-board {
+            display: flex;
+            justify-content: space-between;
+            font-size: 1rem;
+            color: #fff;
+            margin-bottom: 5px;
+        }
+
+        #game-wrapper {
+            position: relative;
+        }
+
+        canvas {
+            background-color: #05050a;
+            border: 2px solid #ff007f;
+            box-shadow: 0 0 20px #ff007f;
+            display: block;
+        }
+
+        #game-over-screen {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 600px;
+            height: 400px;
+            background: rgba(13, 14, 21, 0.95);
+            color: #ff007f;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-sizing: border-box;
+        }
+
+        #game-over-screen h1 {
+            font-size: 3rem;
+            text-shadow: 0 0 10px #ff007f;
+            margin: 0 0 10px 0;
+        }
+
+        button {
+            background: #00ffcc;
+            color: #0d0e15;
+            border: none;
+            padding: 10px 20px;
+            font-family: inherit;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 0 10px #00ffcc;
+            border-radius: 4px;
+            transition: 0.2s;
+        }
+
+        button:hover {
+            background: #fff;
+            box-shadow: 0 0 15px #fff;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-container">
+        <div id="score-board">
+            <span>SCORE: <span id="score">0</span></span>
+            <span id="status" style="color: #00ffcc;">SYSTEM ACTIVE</span>
+        </div>
+        <div>TARGET DEFINITION:</div>
+        <div id="definition-box">Loading target...</div>
+    </div>
+
+    <div id="game-wrapper">
+        <canvas id="gameCanvas" width="600" height="400"></canvas>
+        <div id="game-over-screen">
+            <h1>GAME OVER</h1>
+            <p id="final-score" style="color: #fff; margin-bottom: 20px;"></p>
+            <button onclick="resetGame()">REBOOT SYSTEM</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        const GRID_SIZE = 20;
+        const TILE_COUNT_X = canvas.width / GRID_SIZE;
+        const TILE_COUNT_Y = canvas.height / GRID_SIZE;
+
+        const vocabData = [
+            { word: "luxurious", def: "Extremely comfortable, elegant, or enjoyable, especially in a way that involves great expense." },
+            { word: "innovation", def: "A new method, idea, product, or a new way of doing something." },
+            { word: "surgery", def: "Medical treatment involving cutting open a person's body to repair or remove damaged parts." },
+            { word: "terrifying", def: "Causing extreme fear or dread." },
+            { word: "physically", def: "Relating to the body rather than the mind." },
+            { word: "procedure", def: "An established or official way of doing something step-by-step." },
+            { word: "agony", def: "Extreme physical or mental suffering." }
+        ];
+
+        let snake = [];
+        let dx = GRID_SIZE;
+        let dy = 0;
+        let score = 0;
+        let currentTarget = null;
+        let pellets = [];
+        let controlsLocked = false;
+        let gameLoopId = null;
+        let gameActive = true;
+
+        function initSnake() {
+            snake = [
+                { x: 10 * GRID_SIZE, y: 10 * GRID_SIZE },
+                { x: 9 * GRID_SIZE, y: 10 * GRID_SIZE },
+                { x: 8 * GRID_SIZE, y: 10 * GRID_SIZE }
+            ];
+            dx = GRID_SIZE;
+            dy = 0;
+        }
+
+        function setRandomTarget() {
+            const randomIndex = Math.floor(Math.random() * vocabData.length);
+            currentTarget = vocabData[randomIndex];
+            document.getElementById("definition-box").innerText = `"${currentTarget.def}"`;
+            spawnPellets();
+        }
+
+        function getRandomPosition() {
+            return {
+                x: Math.floor(Math.random() * TILE_COUNT_X) * GRID_SIZE,
+                y: Math.floor(Math.random() * TILE_COUNT_Y) * GRID_SIZE
+            };
+        }
+
+        function spawnPellets() {
+            pellets = [];
+            
+            // Get distractor words
+            let distractors = vocabData.filter(v => v.word !== currentTarget.word);
+            distractors = distractors.sort(() => 0.5 - Math.random()).slice(0, 2);
+
+            let chosenWords = [
+                { word: currentTarget.word, isCorrect: true },
+                { word: distractors[0].word, isCorrect: false },
+                { word: distractors[1].word, isCorrect: false }
+            ];
+
+            // Shuffle pellet layout order
+            chosenWords.sort(() => 0.5 - Math.random());
+
+            chosenWords.forEach(item => {
+                let pos;
+                let collision;
+                do {
+                    collision = false;
+                    pos = getRandomPosition();
+
+                    // Check overlap with snake body
+                    for (let segment of snake) {
+                        if (segment.x === pos.x && segment.y === pos.y) {
+                            collision = true;
+                            break;
+                        }
+                    }
+
+                    // Check overlap with existing pellets
+                    for (let pellet of pellets) {
+                        if (pellet.x === pos.x && pellet.y === pos.y) {
+                            collision = true;
+                            break;
+                        }
+                    }
+                } while (collision);
+
+                pellets.push({
+                    x: pos.x,
+                    y: pos.y,
+                    word: item.word,
+                    isCorrect: item.isCorrect
+                });
+            });
+        }
+
+        document.addEventListener("keydown", changeDirection);
+
+        function changeDirection(event) {
+            if (controlsLocked || !gameActive) return;
+
+            const keyPressed = event.key;
+            const goingUp = dy === -GRID_SIZE;
+            const goingDown = dy === GRID_SIZE;
+            const goingRight = dx === GRID_SIZE;
+            const goingLeft = dx === -GRID_SIZE;
+
+            if ((keyPressed === "ArrowLeft" || keyPressed === "a") && !goingRight) {
+                dx = -GRID_SIZE;
+                dy = 0;
+            } else if ((keyPressed === "ArrowUp" || keyPressed === "w") && !goingDown) {
+                dx = 0;
+                dy = -GRID_SIZE;
+            } else if ((keyPressed === "ArrowRight" || keyPressed === "d") && !goingLeft) {
+                dx = GRID_SIZE;
+                dy = 0;
+            } else if ((keyPressed === "ArrowDown" || keyPressed === "s") && !goingUp) {
+                dx = 0;
+                dy = GRID_SIZE;
+            }
+        }
+
+        function update() {
+            if (!gameActive) return;
+
+            // Move Snake Head
+            const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+
+            // Wall Collision Check
+            if (head.x < 0 || head.x >= canvas.width || head.y < 0 || head.y >= canvas.height) {
+                triggerGameOver();
+                return;
+            }
+
+            // Self Collision Check
+            for (let i = 0; i < snake.length; i++) {
+                if (head.x === snake[i].x && head.y === snake[i].y) {
+                    triggerGameOver();
+                    return;
+                }
+            }
+
+            snake.unshift(head);
+
+            // Pellet Collision Check
+            let eatenIndex = -1;
+            for (let i = 0; i < pellets.length; i++) {
+                if (head.x === pellets[i].x && head.y === pellets[i].y) {
+                    eatenIndex = i;
+                    break;
+                }
+            }
+
+            if (eatenIndex !== -1) {
+                const consumed = pellets[eatenIndex];
+                if (consumed.isCorrect) {
+                    // Correct Target
+                    score += 10;
+                    document.getElementById("score").innerText = score;
+                    setRandomTarget();
+                } else {
+                    // Poison / Incorrect Target
+                    snake.pop(); // Remove regular length update segment
+                    
+                    // Chop off up to 2 tail segments
+                    if (snake.length > 1) snake.pop();
+                    if (snake.length > 1) snake.pop();
+
+                    lockMovement();
+                    spawnPellets();
+                }
+            } else {
+                snake.pop();
+            }
+
+            draw();
+        }
+
+        function lockMovement() {
+            controlsLocked = true;
+            const statusEl = document.getElementById("status");
+            statusEl.innerText = "SYSTEM MALFUNCTION: MOVEMENT LOCKED!";
+            statusEl.style.color = "#ff007f";
+
+            setTimeout(() => {
+                controlsLocked = false;
+                statusEl.innerText = "SYSTEM ACTIVE";
+                statusEl.style.color = "#00ffcc";
+            }, 1500);
+        }
+
+        function drawGrid() {
+            ctx.strokeStyle = "#121526";
+            ctx.lineWidth = 1;
+            for (let x = 0; x < canvas.width; x += GRID_SIZE) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += GRID_SIZE) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+        }
+
+        function draw() {
+            // Clear screen
+            ctx.fillStyle = "#05050a";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            drawGrid();
+
+            // Draw Snake
+            snake.forEach((segment, index) => {
+                ctx.fillStyle = index === 0 ? "#00ffcc" : "#00aa88";
+                ctx.shadowBlur = index === 0 ? 10 : 0;
+                ctx.shadowColor = "#00ffcc";
+                ctx.fillRect(segment.x + 1, segment.y + 1, GRID_SIZE - 2, GRID_SIZE - 2);
+            });
+            ctx.shadowBlur = 0; // Reset canvas shadow
+
+            // Draw Word Pellets
+            pellets.forEach(pellet => {
+                ctx.fillStyle = "#ff007f";
+                ctx.fillRect(pellet.x + 1, pellet.y + 1, GRID_SIZE - 2, GRID_SIZE - 2);
+
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "10px Courier New";
+                ctx.textAlign = "center";
+                ctx.fillText(pellet.word, pellet.x + (GRID_SIZE / 2), pellet.y - 4);
+            });
+        }
+
+        function triggerGameOver() {
+            gameActive = false;
+            clearInterval(gameLoopId);
+            document.getElementById("final-score").innerText = `FINAL SCORE: ${score}`;
+            document.getElementById("game-over-screen").style.display = "flex";
+        }
+
+        function resetGame() {
+            score = 0;
+            document.getElementById("score").innerText = score;
+            document.getElementById("game-over-screen").style.display = "none";
+            gameActive = true;
+            controlsLocked = false;
+            document.getElementById("status").innerText = "SYSTEM ACTIVE";
+            document.getElementById("status").style.color = "#00ffcc";
+            
+            initSnake();
+            setRandomTarget();
+            
+            clearInterval(gameLoopId);
+            gameLoopId = setInterval(update, 120);
+        }
+
+        // Start Game
+        initSnake();
+        setRandomTarget();
+        gameLoopId = setInterval(update, 120);
+    </script>
+</body>
+</html>

@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocabulary Defender: Senior High Edition</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            background-color: #0d0e15;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        #game-container {
+            width: 800px;
+            height: 600px;
+            background: radial-gradient(circle at center, #1b2735 0%, #090a0f 100%);
+            border: 3px solid #00e5ff;
+            box-shadow: 0 0 20px rgba(0, 229, 255, 0.4);
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+        #hud {
+            position: absolute;
+            top: 10px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 18px;
+            font-weight: bold;
+            color: #00e5ff;
+            z-index: 10;
+        }
+        #briefing-box {
+            position: absolute;
+            top: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            background: rgba(0, 0, 0, 0.75);
+            border: 2px solid #ff007f;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 18px;
+            color: #fff;
+            box-shadow: 0 0 10px rgba(255, 0, 127, 0.5);
+            z-index: 10;
+        }
+        #briefing-box span {
+            color: #ffe600;
+            font-weight: bold;
+        }
+        .alien {
+            position: absolute;
+            padding: 8px 14px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid #00ff66;
+            border-radius: 6px;
+            color: #00ff66;
+            font-weight: bold;
+            font-size: 16px;
+            text-shadow: 0 0 5px #00ff66;
+            box-shadow: 0 0 10px rgba(0, 255, 102, 0.3);
+            user-select: none;
+            transition: transform 0.1s;
+        }
+        #player {
+            position: absolute;
+            bottom: 20px;
+            left: 380px;
+            width: 40px;
+            height: 40px;
+            background-color: #00e5ff;
+            clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+            box-shadow: 0 0 15px #00e5ff;
+        }
+        .laser {
+            position: absolute;
+            width: 4px;
+            height: 15px;
+            background-color: #ff0055;
+            box-shadow: 0 0 8px #ff0055;
+        }
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+        }
+        #overlay h1 {
+            font-size: 42px;
+            color: #00e5ff;
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px #00e5ff;
+        }
+        #overlay p {
+            font-size: 18px;
+            margin-bottom: 20px;
+            max-width: 600px;
+            text-align: center;
+            line-height: 1.5;
+        }
+        #start-btn {
+            padding: 12px 30px;
+            font-size: 20px;
+            background: #ff007f;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            box-shadow: 0 0 15px #ff007f;
+            transition: 0.2s;
+        }
+        #start-btn:hover {
+            background: #ff3399;
+            transform: scale(1.05);
+        }
+        .glitch {
+            animation: shake 0.2s infinite;
+            filter: hue-rotate(90deg);
+        }
+        @keyframes shake {
+            0% { transform: translate(2px, 2px); }
+            50% { transform: translate(-2px, -2px); }
+            100% { transform: translate(2px, -2px); }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="hud">
+            <div>SCORE: <span id="score">0</span></div>
+            <div>TIME: <span id="timer">60</span>s</div>
+        </div>
+        
+        <div id="briefing-box">
+            MISSION BRIEFING: Match target definition -> <span id="target-def">Loading...</span>
+        </div>
+
+        <div id="player"></div>
+
+        <div id="overlay">
+            <h1 id="overlay-title">SPACE INVADERS: VOCAB EDITION</h1>
+            <p id="overlay-msg">
+                Use <b>LEFT / RIGHT Arrows</b> (or A/D) to move.<br>
+                Press <b>SPACEBAR</b> to shoot.<br><br>
+                Blast the alien ship carrying the word that matches the <b>Mission Briefing</b>!
+            </p>
+            <button id="start-btn" onclick="startGame()">START MISSION</button>
+        </div>
+    </div>
+
+    <script>
+        const vocabData = [
+            { word: "Recipe", def: "A set of instructions for preparing a culinary dish" },
+            { word: "Pasta", def: "An Italian dish made from dough of flour and water" },
+            { word: "Variation", def: "A change or slight difference in condition or amount" },
+            { word: "Ultimately", def: "Finally, in the end, or at the most basic level" },
+            { word: "Combination", def: "A joining or merging of different parts or qualities" },
+            { word: "Generation", def: "All of the people born and living at about the same time" },
+            { word: "Deserve", def: "To be worthy of or entitled to something" },
+            { word: "Distractor", def: "An incorrect choice designed to test recall or skill" },
+            { word: "Reflex", def: "An involuntary, automatic movement in response to stimulus" },
+            { word: "Crown", def: "To declare someone a champion or give a top honor" }
+        ];
+
+        let score = 0;
+        let timeLeft = 60;
+        let gameActive = false;
+        let currentTarget = null;
+        let aliens = [];
+        let lasers = [];
+        let keys = {};
+        let playerX = 380;
+        let isStunned = false;
+        let timerInterval, gameLoopId, alienSpawnInterval;
+
+        const container = document.getElementById('game-container');
+        const player = document.getElementById('player');
+        const scoreEl = document.getElementById('score');
+        const timerEl = document.getElementById('timer');
+        const targetDefEl = document.getElementById('target-def');
+        const overlay = document.getElementById('overlay');
+
+        document.addEventListener('keydown', (e) => keys[e.code] = true);
+        document.addEventListener('keyup', (e) => keys[e.code] = false);
+
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && gameActive && !isStunned) {
+                shootLaser();
+            }
+        });
+
+        function startGame() {
+            score = 0;
+            timeLeft = 60;
+            gameActive = true;
+            aliens.forEach(a => a.element.remove());
+            lasers.forEach(l => l.element.remove());
+            aliens = [];
+            lasers = [];
+            scoreEl.innerText = score;
+            timerEl.innerText = timeLeft;
+            overlay.style.display = 'none';
+
+            pickNewTarget();
+
+            clearInterval(timerInterval);
+            clearInterval(alienSpawnInterval);
+            
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timerEl.innerText = timeLeft;
+                if (timeLeft <= 0) endGame();
+            }, 1000);
+
+            alienSpawnInterval = setInterval(spawnAliens, 3000);
+            spawnAliens();
+
+            requestAnimationFrame(updateLoop);
+        }
+
+        function pickNewTarget() {
+            currentTarget = vocabData[Math.floor(Math.random() * vocabData.length)];
+            targetDefEl.innerText = `"${currentTarget.def}"`;
+        }
+
+        function spawnAliens() {
+            if (!gameActive) return;
+
+            aliens.forEach(a => a.element.remove());
+            aliens = [];
+
+            // Select target + 3 distractors
+            let choices = [currentTarget];
+            while (choices.length < 4) {
+                let randomItem = vocabData[Math.floor(Math.random() * vocabData.length)];
+                if (!choices.includes(randomItem)) choices.push(randomItem);
+            }
+            choices.sort(() => Math.random() - 0.5);
+
+            choices.forEach((item, index) => {
+                let el = document.createElement('div');
+                el.className = 'alien';
+                el.innerText = item.word;
+                let startX = 50 + index * 180;
+                let startY = 110;
+                el.style.left = startX + 'px';
+                el.style.top = startY + 'px';
+                container.appendChild(el);
+
+                aliens.push({
+                    element: el,
+                    word: item.word,
+                    x: startX,
+                    y: startY,
+                    speedX: (Math.random() - 0.5) * 2,
+                    speedY: 0.2 + (60 - timeLeft) * 0.01 // descend faster over time
+                });
+            });
+        }
+
+        function shootLaser() {
+            let el = document.createElement('div');
+            el.className = 'laser';
+            let x = playerX + 18;
+            let y = 540;
+            el.style.left = x + 'px';
+            el.style.top = y + 'px';
+            container.appendChild(el);
+            lasers.push({ element: el, x: x, y: y });
+        }
+
+        function updateLoop() {
+            if (!gameActive) return;
+
+            // Player movement
+            if (!isStunned) {
+                if ((keys['ArrowLeft'] || keys['KeyA']) && playerX > 10) playerX -= 6;
+                if ((keys['ArrowRight'] || keys['KeyD']) && playerX < 750) playerX += 6;
+                player.style.left = playerX + 'px';
+            }
+
+            // Move lasers
+            lasers.forEach((laser, lIndex) => {
+                laser.y -= 8;
+                laser.element.style.top = laser.y + 'px';
+
+                // Check laser collision with aliens
+                aliens.forEach((alien, aIndex) => {
+                    if (laser.x >= alien.x && laser.x <= alien.x + 120 &&
+                        laser.y >= alien.y && laser.y <= alien.y + 40) {
+                        
+                        // Hit logic
+                        if (alien.word === currentTarget.word) {
+                            score += 100;
+                            scoreEl.innerText = score;
+                            pickNewTarget();
+                            spawnAliens();
+                        } else {
+                            score = Math.max(0, score - 50);
+                            scoreEl.innerText = score;
+                            triggerStun();
+                        }
+
+                        // Remove laser
+                        laser.element.remove();
+                        lasers.splice(lIndex, 1);
+                    }
+                });
+
+                // Remove off-screen lasers
+                if (laser.y < 0) {
+                    laser.element.remove();
+                    lasers.splice(lIndex, 1);
+                }
+            });
+
+            // Move aliens
+            aliens.forEach(alien => {
+                alien.x += alien.speedX;
+                alien.y += alien.speedY;
+
+                if (alien.x <= 10 || alien.x >= 670) alien.speedX *= -1;
+                
+                alien.element.style.left = alien.x + 'px';
+                alien.element.style.top = alien.y + 'px';
+
+                // Check if aliens reach bottom
+                if (alien.y > 500) {
+                    spawnAliens();
+                }
+            });
+
+            requestAnimationFrame(updateLoop);
+        }
+
+        function triggerStun() {
+            isStunned = true;
+            container.classList.add('glitch');
+            setTimeout(() => {
+                container.classList.remove('glitch');
+                isStunned = false;
+            }, 2000);
+        }
+
+        function endGame() {
+            gameActive = false;
+            clearInterval(timerInterval);
+            clearInterval(alienSpawnInterval);
+            overlay.style.display = 'flex';
+            document.getElementById('overlay-title').innerText = "MISSION COMPLETE!";
+            document.getElementById('overlay-msg').innerHTML = 
+                `Your final score is: <b>${score}</b> points!<br><br>` +
+                (score >= 500 ? "👑 You are crowned the <b>Ultimate Galactic Ace</b>!" : "Keep practicing to master your high-stakes vocabulary reflexes!");
+            document.getElementById('start-btn').innerText = "PLAY AGAIN";
+        }
+    </script>
+</body>
+</html>

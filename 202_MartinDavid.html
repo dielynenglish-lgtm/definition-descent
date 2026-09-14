@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Breakout Word-Wall Builder</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: #1e1e2f;
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        #game-container {
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border-radius: 8px;
+            overflow: hidden;
+            background: #111;
+        }
+        canvas {
+            display: block;
+            background: #0d0f18;
+            cursor: none;
+        }
+        #ui-bar {
+            width: 800px;
+            background: #16192b;
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 18px;
+            font-weight: bold;
+            border-bottom: 2px solid #333;
+        }
+        .modal {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 30px;
+            text-align: center;
+            z-index: 10;
+        }
+        .modal.active { display: flex; }
+        .modal h2 { color: #4eef91; margin-bottom: 15px; font-size: 24px; }
+        .modal p { font-size: 18px; margin-bottom: 25px; line-height: 1.4; color: #ddd; max-width: 600px; }
+        .btn-group { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 400px; }
+        .choice-btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+        .choice-btn:hover { background: #2563eb; transform: translateY(-2px); }
+        #restart-btn {
+            margin-top: 20px;
+            padding: 10px 25px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="ui-bar">
+        <div>Score: <span id="score">0</span></div>
+        <div>Smashed: <span id="smashed">0</span></div>
+        <div>Lives: <span id="lives">3</span></div>
+    </div>
+    <canvas id="gameCanvas" width="800" height="500"></canvas>
+
+    <!-- Quiz Modal -->
+    <div id="quiz-modal" class="modal">
+        <h2>WORD LAYER SHATTERED!</h2>
+        <p id="quiz-definition">Definition goes here...</p>
+        <div class="btn-group" id="choices-container"></div>
+    </div>
+
+    <!-- Game Over / Victory Modal -->
+    <div id="end-modal" class="modal">
+        <h2 id="end-title">GAME OVER</h2>
+        <p id="end-message"></p>
+        <button id="restart-btn" onclick="initGame()">Play Again</button>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+const vocabData = [
+    { word: "PARTICIPANT", def: "A person who takes part in an activity or event." },
+    { word: "IMPLICATION", def: "A possible future effect or result of an action or decision." },
+    { word: "MOTIVATION", def: "The reason or desire behind someone's actions." },
+    { word: "POLISHED", def: "Refined, sophisticated, or made smooth and shiny." },
+    { word: "OUTFIT", def: "A set of clothes worn together for a particular occasion." },
+    { word: "REINFORCE", def: "To strengthen or support an existing structure, idea, or habit." },
+    { word: "ACCESSIBLE", def: "Easy to approach, reach, enter, speak with, or understand." }
+];
+
+let score = 0;
+let smashedBlocks = 0;
+let lives = 3;
+let isPaused = false;
+let animationId;
+
+// Paddle
+const paddle = {
+    x: canvas.width / 2 - 60,
+    y: canvas.height - 25,
+    width: 120,
+    height: 12,
+    minWidth: 50,
+    speed: 0
+};
+
+// Balls
+let balls = [];
+
+function createBall(x, y, dx, dy) {
+    return { x, y, dx, dy, radius: 7, speed: 5 };
+}
+
+// Bricks
+const rowCount = vocabData.length;
+const colCount = 10;
+const brickPadding = 4;
+const brickOffsetTop = 20;
+const brickOffsetLeft = 20;
+const brickWidth = (canvas.width - (brickOffsetLeft * 2) - (brickPadding * (colCount - 1))) / colCount;
+const brickHeight = 22;
+
+let bricks = [];
+
+function initBricks() {
+    bricks = [];
+    for (let r = 0; r < rowCount; r++) {
+        bricks[r] = [];
+        const word = vocabData[r].word;
+        for (let c = 0; c < colCount; c++) {
+            // Distribute letters evenly or fill with hint chars
+            const char = word[c % word.length];
+            bricks[r][c] = {
+                x: 0,
+                y: 0,
+                status: 1, // 1: intact, 0: destroyed
+                char: char,
+                showHintUntil: 0
+            };
+        }
+    }
+}
+
+// Track mouse for paddle movement
+canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    paddle.x = mouseX - paddle.width / 2;
+    if (paddle.x < 0) paddle.x = 0;
+    if (paddle.x + paddle.width > canvas.width) paddle.x = canvas.width - paddle.width;
+});
+
+function initGame() {
+    score = 0;
+    smashedBlocks = 0;
+    lives = 3;
+    paddle.width = 120;
+    isPaused = false;
+    
+    document.getElementById('quiz-modal').classList.remove('active');
+    document.getElementById('end-modal').classList.remove('active');
+    
+    updateUI();
+    initBricks();
+    resetBalls();
+    
+    if (animationId) cancelAnimationFrame(animationId);
+    gameLoop();
+}
+
+function resetBalls() {
+    balls = [createBall(canvas.width / 2, canvas.height - 40, 3, -4)];
+}
+
+function updateUI() {
+    document.getElementById('score').textContent = score;
+    document.getElementById('smashed').textContent = smashedBlocks;
+    document.getElementById('lives').textContent = lives;
+}
+
+// Core Vector Reflection Math & Physics
+function updateBalls() {
+    for (let i = balls.length - 1; i >= 0; i--) {
+        let b = balls[i];
+        
+        b.x += b.dx;
+        b.y += b.dy;
+
+        // Wall Collisions (Vector reflection via component inversion)
+        if (b.x + b.radius > canvas.width || b.x - b.radius < 0) {
+            b.dx = -b.dx;
+        }
+        if (b.y - b.radius < 0) {
+            b.dy = -b.dy;
+        }
+
+        // Paddle Collision (Angle adjustment based on impact point)
+        if (
+            b.y + b.radius >= paddle.y &&
+            b.y - b.radius <= paddle.y + paddle.height &&
+            b.x >= paddle.x &&
+            b.x <= paddle.x + paddle.width &&
+            b.dy > 0
+        ) {
+            let hitPoint = (b.x - (paddle.x + paddle.width / 2)) / (paddle.width / 2);
+            let angle = hitPoint * (Math.PI / 3); // Max 60 degree deflection
+            let speed = Math.hypot(b.dx, b.dy);
+            
+            b.dx = speed * Math.sin(angle);
+            b.dy = -speed * Math.cos(angle);
+        }
+
+        // Brick Collisions
+        checkBrickCollision(b);
+
+        // Bottom Wall (Ball Loss)
+        if (b.y - b.radius > canvas.height) {
+            balls.splice(i, 1);
+        }
+    }
+
+    if (balls.length === 0) {
+        lives--;
+        updateUI();
+        if (lives <= 0) {
+            endGame(false);
+        } else {
+            resetBalls();
+        }
+    }
+}
+
+function checkBrickCollision(b) {
+    const now = Date.now();
+    for (let r = 0; r < rowCount; r++) {
+        for (let c = 0; c < colCount; c++) {
+            let brick = bricks[r][c];
+            if (brick.status === 1) {
+                let bx = brickOffsetLeft + c * (brickWidth + brickPadding);
+                let by = brickOffsetTop + r * (brickHeight + brickPadding);
+                brick.x = bx;
+                brick.y = by;
+
+                if (
+                    b.x > bx &&
+                    b.x < bx + brickWidth &&
+                    b.y > by &&
+                    b.y < by + brickHeight
+                ) {
+                    b.dy = -b.dy;
+                    brick.status = 0;
+                    brick.showHintUntil = now + 1000; // Crack effect / reveal
+                    score += 10;
+                    smashedBlocks++;
+                    updateUI();
+
+                    checkRowCompletion(r);
+                    return;
+                }
+            }
+        }
+    }
+}
+
+function checkRowCompletion(rowIndex) {
+    let rowCleared = bricks[rowIndex].every(brick => brick.status === 0);
+    if (rowCleared) {
+        isPaused = true;
+        triggerQuiz(rowIndex);
+    }
+}
+
+function triggerQuiz(rowIndex) {
+    const target = vocabData[rowIndex];
+    document.getElementById('quiz-definition').textContent = `"${target.def}"`;
+    
+    // Pick options
+    let choices = [target.word];
+    let available = vocabData.filter(v => v.word !== target.word);
+    available.sort(() => 0.5 - Math.random());
+    choices.push(available[0].word, available[1].word);
+    choices.sort(() => 0.5 - Math.random());
+
+    const container = document.getElementById('choices-container');
+    container.innerHTML = '';
+
+    choices.forEach(choice => {
+        const btn = document.createElement('button');
+        btn.className = 'choice-btn';
+        btn.textContent = choice;
+        btn.onclick = () => handleQuizAnswer(choice === target.word);
+        container.appendChild(btn);
+    });
+
+    document.getElementById('quiz-modal').classList.add('active');
+}
+
+function handleQuizAnswer(isCorrect) {
+    document.getElementById('quiz-modal').classList.remove('active');
+    
+    if (isCorrect) {
+        // Power-up: Multiball
+        score += 50;
+        let mainBall = balls[0] || { x: canvas.width / 2, y: canvas.height - 40 };
+        balls.push(createBall(mainBall.x, mainBall.y, -3, -4));
+        balls.push(createBall(mainBall.x, mainBall.y, 2, -5));
+    } else {
+        // Penalty: Shrink Paddle
+        paddle.width = Math.max(paddle.minWidth, paddle.width - 25);
+    }
+    
+    updateUI();
+    isPaused = false;
+    
+    // Check total victory condition
+    let allCleared = bricks.every(row => row.every(b => b.status === 0));
+    if (allCleared) {
+        endGame(true);
+    } else {
+        gameLoop();
+    }
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw Bricks
+    const colors = ['#f87171', '#fb923c', '#facc15', '#4ade80', '#38bdf8', '#818cf8', '#c084fc'];
+    for (let r = 0; r < rowCount; r++) {
+        for (let c = 0; c < colCount; c++) {
+            let b = bricks[r][c];
+            let bx = brickOffsetLeft + c * (brickWidth + brickPadding);
+            let by = brickOffsetTop + r * (brickHeight + brickPadding);
+
+            if (b.status === 1) {
+                ctx.fillStyle = colors[r % colors.length];
+                ctx.fillRect(bx, by, brickWidth, brickHeight);
+                
+                // Draw letter hint on brick
+                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                ctx.font = '12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(b.char, bx + brickWidth / 2, by + 15);
+            }
+        }
+    }
+
+    // Draw Paddle
+    ctx.fillStyle = '#60a5fa';
+    ctx.beginPath();
+    ctx.roundRect(paddle.x, paddle.y, paddle.width, paddle.height, 6);
+    ctx.fill();
+
+    // Draw Balls
+    ctx.fillStyle = '#f43f5e';
+    balls.forEach(b => {
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.closePath();
+    });
+}
+
+function gameLoop() {
+    if (isPaused) return;
+    updateBalls();
+    draw();
+    animationId = requestAnimationFrame(gameLoop);
+}
+
+function endGame(isWin) {
+    isPaused = true;
+    const modal = document.getElementById('end-modal');
+    document.getElementById('end-title').textContent = isWin ? "VICTORY!" : "GAME OVER";
+    document.getElementById('end-message').textContent = isWin 
+        ? `Fantastic job! You completed all vocabulary layers with a score of ${score}!` 
+        : `Nice try! You scored ${score} points and smashed ${smashedBlocks} bricks.`;
+    modal.classList.add('active');
+}
+
+// Start game on load
+initGame();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vocab Pac-Maze</title>
+  <style>
+    body {
+      background-color: #111;
+      color: #fff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: 0;
+      padding: 20px;
+    }
+
+    #game-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: #222;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.8);
+    }
+
+    #info-panel {
+      width: 100%;
+      max-width: 560px;
+      text-align: center;
+      margin-bottom: 15px;
+    }
+
+    #definition-box {
+      background: #333;
+      border: 2px solid #555;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 1.1rem;
+      color: #ffd700;
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #stats {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 10px;
+      font-size: 1.2rem;
+      font-weight: bold;
+    }
+
+    canvas {
+      border: 4px solid #333;
+      background-color: #000;
+      border-radius: 4px;
+    }
+
+    #message {
+      margin-top: 10px;
+      font-size: 1rem;
+      height: 24px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+<div id="game-container">
+  <div id="info-panel">
+    <h2>Vocab Pac-Maze</h2>
+    <div id="definition-box">Loading target definition...</div>
+    <div id="stats">
+      <span>Score: <span id="score">0</span></span>
+      <span>Status: <span id="status">Normal</span></span>
+    </div>
+  </div>
+  <canvas id="maze" width="560" height="560"></canvas>
+  <div id="message">Use Arrow Keys to Navigate!</div>
+</div>
+
+<script>
+const canvas = document.getElementById('maze');
+const ctx = canvas.getContext('2d');
+
+const GRID_SIZE = 14;
+const TILE_SIZE = 40;
+
+// 1 = Wall, 0 = Path
+const map = [
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  [1,0,0,0,0,0,1,1,0,0,0,0,0,1],
+  [1,0,1,1,0,1,1,1,1,0,1,1,0,1],
+  [1,0,1,0,0,0,0,0,0,0,0,1,0,1],
+  [1,0,0,0,1,1,0,0,1,1,0,0,0,1],
+  [1,1,1,0,1,0,0,0,0,1,0,1,1,1],
+  [1,0,0,0,0,0,1,1,0,0,0,0,0,1],
+  [1,0,1,1,0,1,1,1,1,0,1,1,0,1],
+  [1,0,0,1,0,0,0,0,0,0,1,0,0,1],
+  [1,1,0,1,0,1,1,1,1,0,1,0,1,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,1,1,0,1,1,1,1,0,1,1,0,1],
+  [1,0,0,0,0,0,1,1,0,0,0,0,0,1],
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+];
+
+// Vocabulary List
+const vocabList = [
+  { word: "formula", def: "A mathematical rule or expression expressed in symbols." },
+  { word: "equation", def: "A statement that the values of two mathematical expressions are equal." },
+  { word: "orbit", def: "The curved path of a celestial object or spacecraft around a star or planet." },
+  { word: "abstract", def: "Existing in thought or as an idea but not having a physical existence." },
+  { word: "contribution", def: "A gift or payment to a common fund or effort." },
+  { word: "forge", def: "To make or shape a metal object by heating and hammering, or to create gradually." },
+  { word: "generate", def: "To cause something to arise or come into being." },
+  { word: "code", def: "A system of words, letters, or symbols used to represent others, especially for computer programming." },
+  { word: "prompt", def: "An act of assisting or encouraging a person, or an instruction given to a computer program." },
+  { word: "words", def: "Units of language, consisting of one or more spoken sounds or written representations." }
+];
+
+let score = 0;
+let targetVocab = null;
+let activePellets = [];
+
+// Game state timers
+let powerModeTimer = null;
+let speedModeTimer = null;
+let isVulnerable = false;
+let isEnraged = false;
+
+// Player Setup
+const player = {
+  x: 1,
+  y: 1,
+  dx: 0,
+  dy: 0,
+  color: '#ffeb3b'
+};
+
+// Ghosts Setup
+const ghosts = [
+  { x: 12, y: 1, color: '#ff5252', defaultColor: '#ff5252' },
+  { x: 12, y: 12, color: '#ff4081', defaultColor: '#ff4081' }
+];
+
+let ghostSpeedInterval = 400; // Normal ghost movement speed in ms
+let ghostTimer = null;
+
+// Corner spawn coordinates for pellets
+const pelletPositions = [
+  {x: 1, y: 12},
+  {x: 12, y: 1},
+  {x: 12, y: 12},
+  {x: 1, y: 3},
+  {x: 12, y: 10}
+];
+
+function selectNewTarget() {
+  // Pick random target word
+  targetVocab = vocabList[Math.floor(Math.random() * vocabList.length)];
+  document.getElementById('definition-box').innerText = targetVocab.def;
+
+  // Pick 2 wrong words
+  let wrongWords = vocabList.filter(v => v.word !== targetVocab.word);
+  wrongWords = wrongWords.sort(() => 0.5 - Math.random()).slice(0, 2);
+
+  let currentWords = [targetVocab, wrongWords[0], wrongWords[1]];
+  currentWords = currentWords.sort(() => 0.5 - Math.random());
+
+  // Assign to pellets
+  const availablePositions = [...pelletPositions].sort(() => 0.5 - Math.random());
+  activePellets = currentWords.map((item, index) => ({
+    word: item.word,
+    x: availablePositions[index].x,
+    y: availablePositions[index].y
+  }));
+}
+
+function drawMap() {
+  for (let r = 0; r < GRID_SIZE; r++) {
+    for (let c = 0; c < GRID_SIZE; c++) {
+      if (map[r][c] === 1) {
+        ctx.fillStyle = '#1e88e5';
+        ctx.fillRect(c * TILE_SIZE, r * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+      } else {
+        ctx.fillStyle = '#000';
+        ctx.fillRect(c * TILE_SIZE, r * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+      }
+    }
+  }
+}
+
+function drawPellets() {
+  activePellets.forEach(pellet => {
+    ctx.fillStyle = '#00e676';
+    ctx.beginPath();
+    ctx.arc(pellet.x * TILE_SIZE + TILE_SIZE / 2, pellet.y * TILE_SIZE + TILE_SIZE / 2, 10, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Draw word labels
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 12px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(pellet.word, pellet.x * TILE_SIZE + TILE_SIZE / 2, pellet.y * TILE_SIZE - 5);
+  });
+}
+
+function drawPlayer() {
+  ctx.fillStyle = player.color;
+  ctx.beginPath();
+  ctx.arc(player.x * TILE_SIZE + TILE_SIZE / 2, player.y * TILE_SIZE + TILE_SIZE / 2, 14, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawGhosts() {
+  ghosts.forEach(ghost => {
+    ctx.fillStyle = isVulnerable ? '#00b0ff' : ghost.color;
+    ctx.beginPath();
+    ctx.arc(ghost.x * TILE_SIZE + TILE_SIZE / 2, ghost.y * TILE_SIZE + TILE_SIZE / 2, 14, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+function movePlayer() {
+  const nextX = player.x + player.dx;
+  const nextY = player.y + player.dy;
+
+  if (map[nextY] && map[nextY][nextX] === 0) {
+    player.x = nextX;
+    player.y = nextY;
+  }
+  
+  checkPelletCollision();
+  checkGhostCollision();
+}
+
+function checkPelletCollision() {
+  const eatenIndex = activePellets.findIndex(p => p.x === player.x && p.y === player.y);
+  
+  if (eatenIndex !== -1) {
+    const eatenPellet = activePellets[eatenIndex];
+    
+    if (eatenPellet.word === targetVocab.word) {
+      // Correct pellet eaten
+      score += 50;
+      triggerPowerMode();
+      document.getElementById('message').innerText = "Correct! Ghosts are vulnerable!";
+      document.getElementById('message').style.color = "#00e676";
+    } else {
+      // Incorrect pellet eaten
+      triggerSpeedMode();
+      document.getElementById('message').innerText = "Wrong word! Ghosts are enraged!";
+      document.getElementById('message').style.color = "#ff5252";
+    }
+
+    document.getElementById('score').innerText = score;
+    selectNewTarget();
+  }
+}
+
+function triggerPowerMode() {
+  clearTimeout(powerModeTimer);
+  isVulnerable = true;
+  document.getElementById('status').innerText = "Power Mode (Ghosts Vulnerable)";
+  document.getElementById('status').style.color = "#00b0ff";
+
+  powerModeTimer = setTimeout(() => {
+    isVulnerable = false;
+    updateStatusLabel();
+  }, 8000);
+}
+
+function triggerSpeedMode() {
+  clearTimeout(speedModeTimer);
+  isEnraged = true;
+  restartGhostMovement(300); // 25% faster (400ms -> 300ms)
+  document.getElementById('status').innerText = "Enraged! (Ghosts 25% Faster)";
+  document.getElementById('status').style.color = "#ff5252";
+
+  speedModeTimer = setTimeout(() => {
+    isEnraged = false;
+    restartGhostMovement(400);
+    updateStatusLabel();
+  }, 5000);
+}
+
+function updateStatusLabel() {
+  if (!isVulnerable && !isEnraged) {
+    document.getElementById('status').innerText = "Normal";
+    document.getElementById('status').style.color = "#ffffff";
+  }
+}
+
+function moveGhosts() {
+  ghosts.forEach(ghost => {
+    const directions = [
+      {x: 0, y: -1},
+      {x: 0, y: 1},
+      {x: -1, y: 0},
+      {x: 1, y: 0}
+    ];
+
+    const validMoves = directions.filter(d => {
+      const nx = ghost.x + d.x;
+      const ny = ghost.y + d.y;
+      return map[ny] && map[ny][nx] === 0;
+    });
+
+    if (validMoves.length > 0) {
+      const move = validMoves[Math.floor(Math.random() * validMoves.length)];
+      ghost.x += move.x;
+      ghost.y += move.y;
+    }
+  });
+
+  checkGhostCollision();
+}
+
+function checkGhostCollision() {
+  ghosts.forEach(ghost => {
+    if (ghost.x === player.x && ghost.y === player.y) {
+      if (isVulnerable) {
+        // Defeat ghost
+        score += 100;
+        document.getElementById('score').innerText = score;
+        ghost.x = 6;
+        ghost.y = 6; // Respawn in center
+        document.getElementById('message').innerText = "You ate a ghost! +100pts";
+      } else {
+        // Player caught
+        alert(`Game Over! Final Score: ${score}`);
+        resetGame();
+      }
+    }
+  });
+}
+
+function resetGame() {
+  score = 0;
+  player.x = 1;
+  player.y = 1;
+  player.dx = 0;
+  player.dy = 0;
+  ghosts[0].x = 12; ghosts[0].y = 1;
+  ghosts[1].x = 12; ghosts[1].y = 12;
+  document.getElementById('score').innerText = score;
+  selectNewTarget();
+}
+
+function restartGhostMovement(interval) {
+  clearInterval(ghostTimer);
+  ghostTimer = setInterval(() => {
+    moveGhosts();
+    render();
+  }, interval);
+}
+
+document.addEventListener('keydown', (e) => {
+  switch (e.key) {
+    case 'ArrowUp': player.dx = 0; player.dy = -1; break;
+    case 'ArrowDown': player.dx = 0; player.dy = 1; break;
+    case 'ArrowLeft': player.dx = -1; player.dy = 0; break;
+    case 'ArrowRight': player.dx = 1; player.dy = 0; break;
+  }
+  movePlayer();
+  render();
+});
+
+function render() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawMap();
+  drawPellets();
+  drawPlayer();
+  drawGhosts();
+}
+
+// Start Game
+selectNewTarget();
+restartGhostMovement(ghostSpeedInterval);
+render();
+</script>
+
+</body>
+</html>

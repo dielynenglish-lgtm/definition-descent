@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Endless Runner: Definition Gates (Hearts & Shield Edition)</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #1a1a2e;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 450px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        canvas {
+            background: #0f3460;
+            display: block;
+        }
+
+        #ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px 20px;
+            background: rgba(22, 33, 62, 0.85);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #e94560;
+        }
+
+        #definition-bar {
+            position: absolute;
+            top: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            background: rgba(15, 52, 96, 0.95);
+            padding: 12px;
+            border-radius: 5px;
+            text-align: center;
+            font-size: 16px;
+            font-weight: bold;
+            color: #e94560;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            display: none;
+            z-index: 5;
+        }
+
+        .stat-box {
+            font-size: 16px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        #hearts-container {
+            font-size: 20px;
+            color: #e94560;
+            letter-spacing: 2px;
+        }
+
+        #shield-bar-container {
+            width: 80px;
+            height: 15px;
+            background-color: #555;
+            border-radius: 10px;
+            overflow: hidden;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        #shield-bar {
+            width: 100%;
+            height: 100%;
+            background-color: #4eacc5;
+            transition: width 0.2s, background-color 0.2s;
+        }
+
+        #game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 18px;
+            background-color: #e94560;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background-color: #0f3460;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="ui-overlay">
+        <div class="stat-box">Distance: <span id="score">0</span>m</div>
+        <div class="stat-box">
+            Hearts: <span id="hearts-container">❤️❤️❤️</span>
+        </div>
+        <div class="stat-box">
+            Shield: 
+            <div id="shield-bar-container">
+                <div id="shield-bar"></div>
+            </div>
+        </div>
+        <div class="stat-box">Level: <span id="level-display">1</span></div>
+    </div>
+
+    <div id="definition-bar">TARGET DEFINITION: <span id="definition-text">...</span></div>
+
+    <canvas id="gameCanvas" width="800" height="450"></canvas>
+
+    <div id="game-over-screen">
+        <h1 id="game-title">Endless Runner: Definition Gates</h1>
+        <p id="game-message">Use Left/Right arrow keys to switch lanes, and Up arrow to jump!</p>
+        <button id="start-btn" onclick="startGame()">Start Game</button>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+const scoreEl = document.getElementById('score');
+const shieldBar = document.getElementById('shield-bar');
+const heartsContainer = document.getElementById('hearts-container');
+const levelDisplay = document.getElementById('level-display');
+const defBar = document.getElementById('definition-bar');
+const defText = document.getElementById('definition-text');
+const gameOverScreen = document.getElementById('game-over-screen');
+const startBtn = document.getElementById('start-btn');
+const gameTitle = document.getElementById('game-title');
+const gameMessage = document.getElementById('game-message');
+
+const vocabulary = [
+    { word: 'version', definition: 'A particular form or edition of something.' },
+    { word: 'vast', definition: 'Of very great extent or size; immense.' },
+    { word: 'undertake', definition: 'To commit oneself to and begin an enterprise or responsibility.' },
+    { word: 'extraordinary', definition: 'Very unusual or remarkable.' },
+    { word: 'landscape', definition: 'All the visible features of an area of countryside or land.' },
+    { word: 'dusty', definition: 'Covered with, full of, or resembling fine dry powder.' },
+    { word: 'diverse', definition: 'Showing a great deal of variety; very different.' },
+    { word: 'ancient', definition: 'Belonging to the very distant past.' },
+    { word: 'navigate', definition: 'To plan and direct the route or course of a vehicle.' },
+    { word: 'excursion', definition: 'A short journey or trip, especially one engaged in as a leisure activity.' }
+];
+
+let gameRunning = false;
+let score = 0;
+let baseSpeed = 5.5;
+let speed = baseSpeed;
+let shield = 100;
+let hearts = 3;
+let distance = 0;
+let level = 1;
+
+let lanes = [200, 400, 600]; // Left, Center, Right lane X positions
+let player = {
+    lane: 1, // Start at center lane
+    x: 400,
+    y: 350,
+    width: 40,
+    height: 40,
+    yOffset: 0,
+    jumpSpeed: 0,
+    isJumping: false
+};
+
+let obstacles = [];
+let gateTimer = 0;
+let activeGate = null;
+
+document.addEventListener('keydown', (e) => {
+    if (!gameRunning) return;
+    
+    if ((e.key === 'ArrowLeft' || e.key === 'a') && player.lane > 0) {
+        player.lane--;
+    } else if ((e.key === 'ArrowRight' || e.key === 'd') && player.lane < 2) {
+        player.lane++;
+    } else if ((e.key === 'ArrowUp' || e.key === 'w' || e.key === ' ') && !player.isJumping) {
+        player.isJumping = true;
+        player.jumpSpeed = 12;
+    }
+});
+
+function startGame() {
+    gameRunning = true;
+    score = 0;
+    baseSpeed = 5.5;
+    speed = baseSpeed;
+    shield = 100;
+    hearts = 3;
+    distance = 0;
+    level = 1;
+    obstacles = [];
+    gateTimer = 0;
+    activeGate = null;
+    player.lane = 1;
+    player.isJumping = false;
+    player.yOffset = 0;
+    
+    gameOverScreen.style.display = 'none';
+    defBar.style.display = 'none';
+    updateHeartsUI();
+    
+    requestAnimationFrame(gameLoop);
+}
+
+function updateHeartsUI() {
+    let heartStr = '';
+    for (let i = 0; i < hearts; i++) {
+        heartStr += '❤️';
+    }
+    heartsContainer.innerText = heartStr || '💀';
+}
+
+function takeDamage(shieldDamage) {
+    if (shield > 0) {
+        shield -= shieldDamage;
+        if (shield < 0) {
+            // Leftover damage spills over into breaking a heart
+            shield = 0;
+            hearts--;
+        }
+    } else {
+        // Shield is already broken (0), direct damage to Hearts!
+        hearts--;
+    }
+    
+    updateHeartsUI();
+    if (hearts <= 0) {
+        gameOver();
+    }
+}
+
+function spawnObstacle() {
+    let lane = Math.floor(Math.random() * 3);
+    obstacles.push({
+        lane: lane,
+        y: -50,
+        width: 60,
+        height: 30
+    });
+}
+
+function spawnGateSystem() {
+    let correctIdx = Math.floor(Math.random() * vocabulary.length);
+    let wrongIdx;
+    do {
+        wrongIdx = Math.floor(Math.random() * vocabulary.length);
+    } while (wrongIdx === correctIdx);
+
+    let correctItem = vocabulary[correctIdx];
+    let wrongItem = vocabulary[wrongIdx];
+
+    let correctLane = Math.random() < 0.5 ? 0 : 2;
+
+    activeGate = {
+        definition: correctItem.definition,
+        correctLane: correctLane,
+        wordA: correctLane === 0 ? correctItem.word : wrongItem.word,
+        wordB: correctLane === 2 ? correctItem.word : wrongItem.word,
+        y: -350,
+        passed: false
+    };
+
+    defText.innerText = activeGate.definition;
+    defBar.style.display = 'block';
+}
+
+function update() {
+    distance += speed * 0.05;
+    score = Math.floor(distance);
+    
+    level = Math.floor(distance / 200) + 1;
+    
+    scoreEl.innerText = score;
+    levelDisplay.innerText = level;
+    shieldBar.style.width = shield + '%';
+
+    // Player Movement
+    player.x += (lanes[player.lane] - player.x) * 0.2;
+
+    // Handle Jumping
+    if (player.isJumping) {
+        player.yOffset += player.jumpSpeed;
+        player.jumpSpeed -= 0.8; // Gravity
+        if (player.yOffset <= 0) {
+            player.yOffset = 0;
+            player.isJumping = false;
+        }
+    }
+
+    // Continuous Obstacle Spawning
+    let spawnChance = Math.min(0.01 + (level * 0.002), 0.025); 
+    if (Math.random() < spawnChance) {
+        spawnObstacle();
+    }
+
+    for (let i = obstacles.length - 1; i >= 0; i--) {
+        let obs = obstacles[i];
+        obs.y += speed;
+
+        // Collision Check
+        let obsX = lanes[obs.lane];
+        if (
+            Math.abs(player.x - obsX) < 30 &&
+            obs.y > player.y - 20 && obs.y < player.y + 20 &&
+            player.yOffset < 20
+        ) {
+            // Hit obstacle: 50 shield damage (breaks shield in 2 hits, then damages hearts)
+            takeDamage(50);
+            obstacles.splice(i, 1);
+            continue;
+        }
+
+        if (obs.y > canvas.height + 50) {
+            obstacles.splice(i, 1);
+        }
+    }
+
+    // Handle Gates System
+    gateTimer += 1 / 60;
+    let currentGateInterval = Math.max(6, 11 - level);
+    if (gateTimer >= currentGateInterval && !activeGate) {
+        spawnGateSystem();
+        gateTimer = 0;
+    }
+
+    if (activeGate) {
+        activeGate.y += Math.max(3, speed * 0.6);
+
+        // Player reaches gate
+        if (activeGate.y >= player.y - 20 && !activeGate.passed) {
+            activeGate.passed = true;
+            if (player.lane === activeGate.correctLane) {
+                // Correct Gate! Restores shield
+                shield = Math.min(100, shield + 35);
+            } else {
+                // Wrong Gate! Inflicts 60 shield damage and speeds up
+                speed += 3.5;
+                takeDamage(60);
+            }
+            setTimeout(() => {
+                defBar.style.display = 'none';
+                activeGate = null;
+            }, 500);
+        }
+    }
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw Track Lanes
+    ctx.strokeStyle = '#222831';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(300, 0); ctx.lineTo(300, canvas.height);
+    ctx.moveTo(500, 0); ctx.lineTo(500, canvas.height);
+    ctx.stroke();
+
+    // Draw Ground Obstacles
+    ctx.fillStyle = '#e94560';
+    obstacles.forEach(obs => {
+        ctx.fillRect(lanes[obs.lane] - obs.width / 2, obs.y, obs.width, obs.height);
+    });
+
+    // Draw Gates
+    if (activeGate) {
+        // Gate Archway A (Lane 0)
+        ctx.fillStyle = '#0f3460';
+        ctx.fillRect(lanes[0] - 75, activeGate.y, 150, 25);
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 16px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText("Gate A: " + activeGate.wordA, lanes[0], activeGate.y - 10);
+
+        // Gate Archway B (Lane 2)
+        ctx.fillStyle = '#0f3460';
+        ctx.fillRect(lanes[2] - 75, activeGate.y, 150, 25);
+        ctx.fillStyle = '#fff';
+        ctx.fillText("Gate B: " + activeGate.wordB, lanes[2], activeGate.y - 10);
+    }
+
+    // Draw Player
+    ctx.fillStyle = '#4eacc5';
+    let drawY = player.y - player.yOffset;
+    ctx.fillRect(player.x - player.width / 2, drawY, player.width, player.height);
+}
+
+function gameLoop() {
+    if (!gameRunning) return;
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+function gameOver() {
+    gameRunning = false;
+    gameTitle.innerText = "Game Over!";
+    gameMessage.innerText = `You reached Level ${level} and ran ${score} meters!`;
+    startBtn.innerText = "Play Again";
+    gameOverScreen.style.display = 'flex';
+}
+</script>
+
+</body>
+</html>

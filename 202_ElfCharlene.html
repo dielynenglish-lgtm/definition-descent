@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Defend the Castle - Spellcaster</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #090d16;
+      color: #fff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    #game-wrapper {
+      position: relative;
+      width: 850px;
+      height: 480px;
+      box-shadow: 0 12px 36px rgba(0,0,0,0.8);
+      border-radius: 12px;
+      overflow: hidden;
+      border: 3px solid #3b82f6;
+    }
+
+    canvas {
+      display: block;
+      background: linear-gradient(to bottom, #0f172a 0%, #1e293b 65%, #14532d 65%, #064e3b 100%);
+    }
+
+    /* Floating UI above Castle */
+    #spell-card {
+      position: absolute;
+      top: 15px;
+      right: 120px;
+      width: 290px;
+      background: rgba(15, 23, 42, 0.92);
+      border: 2px solid #f59e0b;
+      border-radius: 8px;
+      padding: 10px 14px;
+      text-align: center;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+      z-index: 10;
+    }
+
+    #spell-card h3 {
+      color: #f59e0b;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+
+    #def-display {
+      font-size: 12px;
+      color: #cbd5e1;
+      min-height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1.3;
+    }
+
+    #word-input {
+      width: 100%;
+      margin-top: 6px;
+      padding: 6px 10px;
+      border-radius: 4px;
+      border: 2px solid #3b82f6;
+      background: #020617;
+      color: #38bdf8;
+      font-size: 15px;
+      font-weight: bold;
+      text-align: center;
+      outline: none;
+      letter-spacing: 1px;
+    }
+
+    #word-input:disabled {
+      border-color: #334155;
+      background: #0f172a;
+      color: #64748b;
+    }
+
+    /* Overlay Screens */
+    .screen-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.88);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+    }
+
+    .screen-overlay h1 {
+      font-size: 32px;
+      margin-bottom: 10px;
+      color: #f8fafc;
+    }
+
+    .screen-overlay p {
+      font-size: 14px;
+      color: #94a3b8;
+      max-width: 420px;
+      text-align: center;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+
+    .btn {
+      padding: 10px 24px;
+      font-size: 16px;
+      font-weight: bold;
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn:hover { background: #1d4ed8; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <div id="game-wrapper">
+    <canvas id="gameCanvas" width="850" height="480"></canvas>
+
+    <!-- Floating Target Box -->
+    <div id="spell-card">
+      <h3>Target Definition</h3>
+      <div id="def-display">Click an incoming enemy monster to target it!</div>
+      <input type="text" id="word-input" placeholder="TYPE VOCABULARY WORD..." disabled autocomplete="off">
+    </div>
+
+    <!-- Start Overlay -->
+    <div id="start-screen" class="screen-overlay">
+      <h1>Defend the Castle</h1>
+      <p>Click incoming monsters to read their definitions, then type the matching vocabulary word to launch AoE blast spells!</p>
+      <button class="btn" onclick="startGame()">Start Defense</button>
+    </div>
+
+    <!-- Game Over Overlay -->
+    <div id="game-over-screen" class="screen-overlay hidden">
+      <h1 style="color: #ef4444;">Castle Defeated!</h1>
+      <p>Monsters breached your defenses and damaged the wall.</p>
+      <button class="btn" onclick="restartGame()">Try Again</button>
+    </div>
+
+    <!-- Victory Overlay -->
+    <div id="victory-screen" class="screen-overlay hidden">
+      <h1 style="color: #22c55e;">Victory!</h1>
+      <p>You protected the castle using your scientific vocabulary!</p>
+      <button class="btn" onclick="restartGame()">Play Again</button>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const defDisplay = document.getElementById('def-display');
+    const wordInput = document.getElementById('word-input');
+
+    // 10 Science & Lab Vocabulary Words
+    const vocabulary = [
+      { word: "BREAKTHROUGH", def: "A sudden, dramatic, and important discovery or development." },
+      { word: "LABORATORY", def: "A room or building equipped for scientific experiments." },
+      { word: "WORKSHOP", def: "A room or building where tools are used to build or repair." },
+      { word: "CALCULATION", def: "A mathematical determination of a value or amount." },
+      { word: "ENVISION", def: "To imagine or visualize a future possibility." },
+      { word: "STRIKING", def: "Attracting attention by being unusual or prominent." },
+      { word: "INSIGHT", def: "An accurate and deep understanding of a complex problem." },
+      { word: "HYPOTHESIS", def: "A proposed explanation made on limited evidence." },
+      { word: "EXPERIMENT", def: "A test under controlled conditions to test a hypothesis." },
+      { word: "ANALYSIS", def: "Detailed examination of the elements or structure of something." }
+    ];
+
+    let castleHP = 100;
+    let wave = 0;
+    let enemies = [];
+    let particles = [];
+    let floatingTexts = [];
+    let selectedEnemy = null;
+    let animationId = null;
+
+    // Canvas click detection
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      let found = false;
+      for (let enemy of enemies) {
+        const dist = Math.hypot(enemy.x - mouseX, enemy.y - mouseY);
+        if (dist <= enemy.radius + 10) {
+          selectedEnemy = enemy;
+          defDisplay.textContent = `"${enemy.data.def}"`;
+          wordInput.disabled = false;
+          wordInput.value = '';
+          wordInput.focus();
+          found = true;
+          break;
+        }
+      }
+    });
+
+    // Input verification
+    wordInput.addEventListener('input', () => {
+      if (!selectedEnemy) return;
+      const typed = wordInput.value.trim().toUpperCase();
+      if (typed === selectedEnemy.data.word) {
+        triggerAoESpell(selectedEnemy);
+      }
+    });
+
+    function triggerAoESpell(target) {
+      addFloatingText("Correct!", target.x, target.y, "#22c55e");
+      createParticles(target.x, target.y, "#f59e0b", 40);
+
+      const aoeRadius = 140;
+      const remainingEnemies = [];
+
+      enemies.forEach(enemy => {
+        const dist = Math.hypot(enemy.x - target.x, enemy.y - target.y);
+        if (dist <= aoeRadius) {
+          createParticles(enemy.x, enemy.y, "#ef4444", 25);
+          addFloatingText("Defended!", enemy.x, enemy.y, "#f59e0b");
+        } else {
+          remainingEnemies.push(enemy);
+        }
+      });
+
+      enemies = remainingEnemies;
+      selectedEnemy = null;
+      wordInput.value = '';
+      wordInput.disabled = true;
+      defDisplay.textContent = "Click an incoming enemy monster to target it!";
+
+      setTimeout(() => {
+        if (castleHP > 0) nextWave();
+      }, 800);
+    }
+
+    function startGame() {
+      document.getElementById('start-screen').classList.add('hidden');
+      document.getElementById('game-over-screen').classList.add('hidden');
+      document.getElementById('victory-screen').classList.add('hidden');
+
+      castleHP = 100;
+      wave = 0;
+      enemies = [];
+      particles = [];
+      floatingTexts = [];
+      selectedEnemy = null;
+
+      nextWave();
+      if (animationId) cancelAnimationFrame(animationId);
+      gameLoop();
+    }
+
+    function restartGame() {
+      wordInput.value = '';
+      wordInput.disabled = true;
+      defDisplay.textContent = "Click an incoming enemy monster to target it!";
+      startGame();
+    }
+
+    function nextWave() {
+      if (wave >= vocabulary.length) {
+        document.getElementById('victory-screen').classList.remove('hidden');
+        return;
+      }
+
+      wave++;
+      const wordData = vocabulary[wave - 1];
+      const spawnY = Math.floor(Math.random() * 120) + 330;
+
+      enemies.push({
+        x: -30,
+        y: spawnY,
+        radius: 20,
+        speed: 0.6 + (wave * 0.08),
+        data: wordData
+      });
+    }
+
+    function update() {
+      const castleX = 750;
+
+      // Update Enemies
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        let enemy = enemies[i];
+        enemy.x += enemy.speed;
+
+        if (enemy.x >= castleX - enemy.radius) {
+          castleHP = Math.max(0, castleHP - 20);
+          addFloatingText("-20 HP!", castleX - 30, enemy.y, "#ef4444");
+          createParticles(enemy.x, enemy.y, "#ef4444", 20);
+
+          if (selectedEnemy === enemy) {
+            selectedEnemy = null;
+            wordInput.value = '';
+            wordInput.disabled = true;
+            defDisplay.textContent = "Click an incoming enemy monster to target it!";
+          }
+
+          enemies.splice(i, 1);
+
+          if (castleHP <= 0) {
+            document.getElementById('game-over-screen').classList.remove('hidden');
+          } else if (enemies.length === 0) {
+            setTimeout(nextWave, 800);
+          }
+        }
+      }
+
+      // Update Particles
+      for (let i = particles.length - 1; i >= 0; i--) {
+        let p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.alpha -= 0.02;
+        if (p.alpha <= 0) particles.splice(i, 1);
+      }
+
+      // Update Floating Text
+      for (let i = floatingTexts.length - 1; i >= 0; i--) {
+        let ft = floatingTexts[i];
+        ft.y -= 1;
+        ft.alpha -= 0.015;
+        if (ft.alpha <= 0) floatingTexts.splice(i, 1);
+      }
+    }
+
+    function render() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw Ground
+      ctx.fillStyle = "#15803d";
+      ctx.fillRect(0, 310, canvas.width, 170);
+
+      // Draw Castle Wall
+      ctx.fillStyle = "#475569";
+      ctx.fillRect(750, 0, 100, canvas.height);
+      ctx.fillStyle = "#334155";
+      ctx.fillRect(740, 0, 10, canvas.height);
+
+      // HUD: Wave Counter
+      ctx.fillStyle = "rgba(0,0,0,0.6)";
+      ctx.fillRect(15, 15, 140, 36);
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 14px Segoe UI";
+      ctx.fillText(`Wave: ${wave} / 10`, 25, 38);
+
+      // HUD: Castle Health Bar
+      ctx.fillStyle = "rgba(0,0,0,0.6)";
+      ctx.fillRect(15, 60, 180, 42);
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 12px Segoe UI";
+      ctx.fillText(`Castle Health: ${castleHP}%`, 25, 76);
+
+      ctx.fillStyle = "#334155";
+      ctx.fillRect(25, 82, 160, 10);
+      ctx.fillStyle = castleHP > 30 ? "#22c55e" : "#ef4444";
+      ctx.fillRect(25, 82, (castleHP / 100) * 160, 10);
+
+      // Draw Enemies
+      enemies.forEach(enemy => {
+        ctx.beginPath();
+        ctx.arc(enemy.x, enemy.y, enemy.radius, 0, Math.PI * 2);
+        ctx.fillStyle = (enemy === selectedEnemy) ? "#f59e0b" : "#ef4444";
+        ctx.fill();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "#ffffff";
+        ctx.stroke();
+
+        ctx.fillStyle = "#fff";
+        ctx.font = "14px Segoe UI";
+        ctx.textAlign = "center";
+        ctx.fillText("👾", enemy.x, enemy.y + 5);
+      });
+
+      // Draw Particles
+      particles.forEach(p => {
+        ctx.save();
+        ctx.globalAlpha = p.alpha;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+
+      // Draw Floating Text
+      floatingTexts.forEach(ft => {
+        ctx.save();
+        ctx.globalAlpha = ft.alpha;
+        ctx.fillStyle = ft.color;
+        ctx.font = "bold 16px Segoe UI";
+        ctx.textAlign = "center";
+        ctx.fillText(ft.text, ft.x, ft.y);
+        ctx.restore();
+      });
+    }
+
+    function gameLoop() {
+      update();
+      render();
+      animationId = requestAnimationFrame(gameLoop);
+    }
+
+    function createParticles(x, y, color, count) {
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x: x, y: y,
+          vx: (Math.random() - 0.5) * 8,
+          vy: (Math.random() - 0.5) * 8,
+          size: Math.random() * 5 + 2,
+          color: color,
+          alpha: 1
+        });
+      }
+    }
+
+    function addFloatingText(text, x, y, color) {
+      floatingTexts.push({ text: text, x: x, y: y, color: color, alpha: 1 });
+    }
+  </script>
+</body>
+</html>

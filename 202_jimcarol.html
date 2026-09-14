@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Vocabulary Marble Popper</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #1e1e2e;
+      color: #ffffff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    #game-container {
+      position: relative;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      border-radius: 12px;
+      overflow: hidden;
+      background: #252538;
+    }
+    canvas {
+      display: block;
+      background: #11111b;
+    }
+    #ui-overlay {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      right: 15px;
+      display: flex;
+      justify-content: space-between;
+      pointer-events: none;
+      font-size: 18px;
+      font-weight: bold;
+    }
+    .hud-element {
+      background: rgba(0, 0, 0, 0.6);
+      padding: 8px 16px;
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    #target-box {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.85);
+      padding: 12px 24px;
+      border-radius: 30px;
+      border: 2px solid #89b4fa;
+      text-align: center;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+      max-width: 80%;
+    }
+    #target-box label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #89b4fa;
+      display: block;
+      margin-bottom: 4px;
+    }
+    #target-definition {
+      font-size: 16px;
+      color: #cdd6f4;
+    }
+    #game-over-screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 800px;
+      height: 600px;
+      background: rgba(0, 0, 0, 0.85);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+    #game-over-screen h1 {
+      font-size: 48px;
+      margin-bottom: 10px;
+      color: #f38ba8;
+    }
+    #game-over-screen p {
+      font-size: 20px;
+      margin-bottom: 20px;
+    }
+    button {
+      background: #89b4fa;
+      color: #11111b;
+      border: none;
+      padding: 12px 28px;
+      font-size: 16px;
+      font-weight: bold;
+      border-radius: 25px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    button:hover {
+      background: #b4befe;
+      transform: scale(1.05);
+    }
+  </style>
+</head>
+<body>
+
+<div id="game-container">
+  <div id="ui-overlay">
+    <div class="hud-element" id="score-display">Score: 0</div>
+    <div class="hud-element" id="status-display">Marbles Left: 0</div>
+  </div>
+  
+  <div id="target-box">
+    <label>Launcher Target Definition</label>
+    <div id="target-definition">Loading definition...</div>
+  </div>
+
+  <div id="game-over-screen">
+    <h1 id="over-title">Game Over</h1>
+    <p id="final-score">Your Score: 0</p>
+    <button onclick="restartGame()">Play Again</button>
+  </div>
+
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
+</div>
+
+<script>
+// --- VOCABULARY DATA ---
+const VOCABULARY = [
+  { word: "ban", def: "To officially prohibit or forbid something." },
+  { word: "welfare", def: "The health, happiness, and fortunes of a person or group." },
+  { word: "controversy", def: "Disagreement, typically when prolonged, public, and heated." },
+  { word: "rear", def: "The back part of something, or to raise/bring up." },
+  { word: "sniff", def: "To draw in air audibly through the nose to smell." },
+  { word: "dignity", def: "The state or quality of being worthy of honor or respect." },
+  { word: "intact", def: "Not damaged or impaired; kept whole and complete." },
+  { word: "assemble", def: "To gather together in one place for a common purpose." },
+  { word: "mount", def: "To climb up or organize/set in motion." }
+];
+
+const COLORS = [
+  "#f38ba8", "#fab387", "#f9e2af", "#a6e3a1", 
+  "#94e2d5", "#89b4fa", "#cba6f7", "#f5c2e7", "#b4befe"
+];
+
+// Map word to dedicated color
+const WORD_COLORS = {};
+VOCABULARY.forEach((item, index) => {
+  WORD_COLORS[item.word] = COLORS[index % COLORS.length];
+});
+
+// --- CANVAS SETUP ---
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const MARBLE_RADIUS = 18;
+
+// --- PATHFINDING & CURVED TRACK SETUP ---
+// Pre-calculated cubic Bezier curve points for smooth track motion
+function generateTrackPoints() {
+  const points = [];
+  const controlPoints = [
+    {x: 50, y: 50},
+    {x: 750, y: 50},
+    {x: 750, y: 300},
+    {x: 100, y: 300},
+    {x: 100, y: 520},
+    {x: 700, y: 520}
+  ];
+  
+  // Interpolate along control segments
+  for (let i = 0; i < controlPoints.length - 1; i++) {
+    const p0 = controlPoints[i];
+    const p1 = controlPoints[i+1];
+    const dist = Math.hypot(p1.x - p0.x, p1.y - p0.y);
+    const steps = Math.floor(dist / 2); // High-density points for smooth tracking
+    
+    for (let t = 0; t <= steps; t++) {
+      const factor = t / steps;
+      points.push({
+        x: p0.x + (p1.x - p0.x) * factor,
+        y: p0.y + (p1.y - p0.y) * factor
+      });
+    }
+  }
+  return points;
+}
+
+const trackPoints = generateTrackPoints();
+const DANGER_PIT = trackPoints[trackPoints.length - 1];
+
+// --- GAME STATE ---
+let trackMarbles = [];
+let shotMarbles = [];
+let launcherTarget = null;
+let mousePos = { x: 400, y: 300 };
+let score = 0;
+let gameOver = false;
+let gameSpeed = 0.5;
+
+const LAUNCHER = { x: 400, y: 220 };
+
+// --- CLASSES ---
+class TrackMarble {
+  constructor(wordObj, distanceAlongTrack) {
+    this.word = wordObj.word;
+    this.def = wordObj.def;
+    this.color = WORD_COLORS[this.word];
+    this.dist = distanceAlongTrack; // Distance index along trackPoints
+  }
+
+  getPosition() {
+    const idx = Math.min(Math.floor(this.dist), trackPoints.length - 1);
+    return trackPoints[Math.max(0, idx)];
+  }
+
+  draw() {
+    const pos = this.getPosition();
+    if (!pos) return;
+
+    // Draw Marble Shadow
+    ctx.beginPath();
+    ctx.arc(pos.x + 3, pos.y + 3, MARBLE_RADIUS, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(0,0,0,0.3)";
+    ctx.fill();
+
+    // Draw Marble Base
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, MARBLE_RADIUS, 0, Math.PI * 2);
+    ctx.fillStyle = this.color;
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#ffffff";
+    ctx.stroke();
+
+    // Draw Word Text
+    ctx.fillStyle = "#11111b";
+    ctx.font = "bold 10px Segoe UI";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(this.word, pos.x, pos.y);
+  }
+}
+
+class ShotMarble {
+  constructor(x, y, vx, vy, wordObj) {
+    this.x = x;
+    this.y = y;
+    this.vx = vx;
+    this.vy = vy;
+    this.word = wordObj.word;
+    this.def = wordObj.def;
+    this.color = WORD_COLORS[this.word];
+    this.radius = MARBLE_RADIUS;
+  }
+
+  update() {
+    this.x += this.vx;
+    this.y += this.vy;
+  }
+
+  draw() {
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    ctx.fillStyle = this.color;
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#ffffff";
+    ctx.stroke();
+
+    ctx.fillStyle = "#11111b";
+    ctx.font = "bold 10px Segoe UI";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(this.word, this.x, this.y);
+  }
+}
+
+// --- INITIALIZATION ---
+function initGame() {
+  score = 0;
+  gameOver = false;
+  shotMarbles = [];
+  trackMarbles = [];
+  document.getElementById("game-over-screen").style.display = "none";
+
+  // Build train of marbles
+  const totalMarbles = 18;
+  const spacing = MARBLE_RADIUS * 2 + 4;
+  for (let i = 0; i < totalMarbles; i++) {
+    const randomVocab = VOCABULARY[Math.floor(Math.random() * VOCABULARY.length)];
+    trackMarbles.push(new TrackMarble(randomVocab, -i * spacing));
+  }
+
+  pickNewTarget();
+  updateHUD();
+}
+
+function pickNewTarget() {
+  if (trackMarbles.length === 0) return;
+  // Choose target from existing track marbles
+  const available = trackMarbles.map(m => VOCABULARY.find(v => v.word === m.word));
+  launcherTarget = available[Math.floor(Math.random() * available.length)];
+  document.getElementById("target-definition").innerText = `"${launcherTarget.def}"`;
+}
+
+// --- GAME LOGIC & COLLISION ---
+function update() {
+  if (gameOver) return;
+
+  // Move train along path
+  let trainFrontHitEnd = false;
+  for (let i = 0; i < trackMarbles.length; i++) {
+    trackMarbles[i].dist += gameSpeed;
+
+    // Maintain minimum distance between sequential marbles
+    if (i > 0) {
+      const minDistance = trackMarbles[i-1].dist - (MARBLE_RADIUS * 2);
+      if (trackMarbles[i].dist > minDistance) {
+        trackMarbles[i].dist = minDistance;
+      }
+    }
+
+    if (trackMarbles[i].dist >= trackPoints.length - 1) {
+      trainFrontHitEnd = true;
+    }
+  }
+
+  // Check Game Over Condition: Reached Danger Pit
+  if (trainFrontHitEnd) {
+    triggerGameOver(false);
+    return;
+  }
+
+  // Update shot marbles & check collisions with track
+  for (let sIdx = shotMarbles.length - 1; sIdx >= 0; sIdx--) {
+    const sm = shotMarbles[sIdx];
+    sm.update();
+
+    // Out of bounds check
+    if (sm.x < 0 || sm.x > canvas.width || sm.y < 0 || sm.y > canvas.height) {
+      shotMarbles.splice(sIdx, 1);
+      continue;
+    }
+
+    // Collision Interpolation with moving track marbles
+    for (let tIdx = 0; tIdx < trackMarbles.length; tIdx++) {
+      const tm = trackMarbles[tIdx];
+      const pos = tm.getPosition();
+      if (!pos || tm.dist < 0) continue;
+
+      const dist = Math.hypot(sm.x - pos.x, sm.y - pos.y);
+      if (dist < MARBLE_RADIUS * 2) {
+        // Collision detected: Insert marble into track chain
+        const insertedMarble = new TrackMarble(
+          { word: sm.word, def: sm.def },
+          tm.dist
+        );
+
+        // Shift existing marbles backwards to make space
+        for (let k = tIdx; k < trackMarbles.length; k++) {
+          trackMarbles[k].dist -= (MARBLE_RADIUS * 2);
+        }
+
+        trackMarbles.splice(tIdx, 0, insertedMarble);
+        shotMarbles.splice(sIdx, 1);
+
+        // Check for definition matches & clusters
+        checkMatches(tIdx);
+        pickNewTarget();
+        break;
+      }
+    }
+  }
+
+  // Win condition check
+  if (trackMarbles.length === 0) {
+    triggerGameOver(true);
+  }
+
+  updateHUD();
+}
+
+function checkMatches(insertedIdx) {
+  const targetWord = trackMarbles[insertedIdx].word;
+
+  // Find contiguous matching words (cluster) around the insertion index
+  let start = insertedIdx;
+  let end = insertedIdx;
+
+  while (start > 0 && trackMarbles[start - 1].word === targetWord) {
+    start--;
+  }
+  while (end < trackMarbles.length - 1 && trackMarbles[end + 1].word === targetWord) {
+    end++;
+  }
+
+  const clusterSize = (end - start) + 1;
+
+  // Check if inserted marble matches the target definition definition
+  if (targetWord === launcherTarget.word && clusterSize >= 2) {
+    // Pop cluster!
+    const removed = trackMarbles.splice(start, clusterSize);
+    score += removed.length * 100;
+  }
+}
+
+function updateHUD() {
+  document.getElementById("score-display").innerText = `Score: ${score}`;
+  document.getElementById("status-display").innerText = `Marbles Left: ${trackMarbles.length}`;
+}
+
+function triggerGameOver(isWin) {
+  gameOver = true;
+  const screen = document.getElementById("game-over-screen");
+  const title = document.getElementById("over-title");
+  const scoreText = document.getElementById("final-score");
+
+  if (isWin) {
+    title.innerText = "You Win!";
+    title.style.color = "#a6e3a1";
+  } else {
+    title.innerText = "Game Over";
+    title.style.color = "#f38ba8";
+  }
+
+  scoreText.innerText = `Final Score: ${score}`;
+  screen.style.display = "flex";
+}
+
+function restartGame() {
+  initGame();
+}
+
+// --- RENDER LOOP ---
+function drawTrack() {
+  // Draw track path line
+  ctx.beginPath();
+  ctx.moveTo(trackPoints[0].x, trackPoints[0].y);
+  for (let i = 1; i < trackPoints.length; i++) {
+    ctx.lineTo(trackPoints[i].x, trackPoints[i].y);
+  }
+  ctx.lineWidth = 40;
+  ctx.strokeStyle = "#313244";
+  ctx.lineCap = "round";
+  ctx.stroke();
+
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = "#45475a";
+  ctx.stroke();
+
+  // Draw Danger Pit
+  ctx.beginPath();
+  ctx.arc(DANGER_PIT.x, DANGER_PIT.y, 25, 0, Math.PI * 2);
+  ctx.fillStyle = "#f38ba8";
+  ctx.fill();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = "#11111b";
+  ctx.stroke();
+}
+
+function drawLauncher() {
+  const angle = Math.atan2(mousePos.y - LAUNCHER.y, mousePos.x - LAUNCHER.x);
+
+  // Draw Pointer Line/Turret
+  ctx.save();
+  ctx.translate(LAUNCHER.x, LAUNCHER.y);
+  ctx.rotate(angle);
+
+  ctx.fillStyle = "#89b4fa";
+  ctx.fillRect(0, -10, 35, 20);
+
+  ctx.restore();
+
+  // Draw Central Hub
+  ctx.beginPath();
+  ctx.arc(LAUNCHER.x, LAUNCHER.y, 24, 0, Math.PI * 2);
+  ctx.fillStyle = "#313244";
+  ctx.fill();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = "#89b4fa";
+  ctx.stroke();
+
+  // Draw Current Marble in Launcher
+  if (launcherTarget) {
+    ctx.beginPath();
+    ctx.arc(LAUNCHER.x, LAUNCHER.y, MARBLE_RADIUS, 0, Math.PI * 2);
+    ctx.fillStyle = WORD_COLORS[launcherTarget.word];
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#ffffff";
+    ctx.stroke();
+
+    ctx.fillStyle = "#11111b";
+    ctx.font = "bold 10px Segoe UI";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(launcherTarget.word, LAUNCHER.x, LAUNCHER.y);
+  }
+}
+
+function render() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  drawTrack();
+
+  // Draw Marbles on track
+  trackMarbles.forEach(m => m.draw());
+
+  // Draw Flying Shot Marbles
+  shotMarbles.forEach(sm => sm.draw());
+
+  drawLauncher();
+
+  update();
+  requestAnimationFrame(render);
+}
+
+// --- EVENT LISTENERS ---
+canvas.addEventListener("mousemove", (e) => {
+  const rect = canvas.getBoundingClientRect();
+  mousePos.x = e.clientX - rect.left;
+  mousePos.y = e.clientY - rect.top;
+});
+
+canvas.addEventListener("click", () => {
+  if (gameOver || !launcherTarget) return;
+
+  const angle = Math.atan2(mousePos.y - LAUNCHER.y, mousePos.x - LAUNCHER.x);
+  const speed = 9;
+  const vx = Math.cos(angle) * speed;
+  const vy = Math.sin(angle) * speed;
+
+  shotMarbles.push(new ShotMarble(LAUNCHER.x, LAUNCHER.y, vx, vy, launcherTarget));
+});
+
+// Start Game
+initGame();
+render();
+</script>
+</body>
+</html>
