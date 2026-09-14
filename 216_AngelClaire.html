@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vocabulary Money Ladder Game Show</title>
+  <style>
+    :root {
+      --bg-blue: #0a1128;
+      --card-blue: #001f54;
+      --gold: #ffd700;
+      --gold-hover: #ffae00;
+      --text-light: #f4f4f9;
+      --correct: #28a745;
+      --wrong: #dc3545;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg-blue);
+      color: var(--text-light);
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+
+    .game-container {
+      display: flex;
+      flex-direction: row;
+      gap: 20px;
+      max-width: 900px;
+      width: 100%;
+      background: var(--card-blue);
+      border: 3px solid var(--gold);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 0 25px rgba(255, 215, 0, 0.3);
+    }
+
+    .main-panel {
+      flex: 2;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid var(--gold);
+      padding-bottom: 10px;
+      margin-bottom: 20px;
+    }
+
+    .timer-box {
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: var(--gold);
+      background: rgba(0, 0, 0, 0.4);
+      padding: 8px 15px;
+      border-radius: 6px;
+      border: 1px solid var(--gold);
+    }
+
+    .question-box {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--gold);
+      padding: 20px;
+      border-radius: 8px;
+      font-size: 1.2rem;
+      text-align: center;
+      min-height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .btn-option {
+      background: var(--bg-blue);
+      color: var(--gold);
+      border: 2px solid var(--gold);
+      padding: 15px;
+      border-radius: 6px;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-option:hover {
+      background: var(--gold);
+      color: var(--bg-blue);
+      box-shadow: 0 0 10px var(--gold);
+    }
+
+    .ladder-panel {
+      flex: 1;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--gold);
+      border-radius: 8px;
+      padding: 15px;
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 8px;
+    }
+
+    .ladder-step {
+      padding: 8px 12px;
+      border-radius: 4px;
+      text-align: center;
+      font-weight: bold;
+      color: var(--gold);
+      border: 1px solid rgba(255, 215, 0, 0.3);
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .ladder-step.active {
+      background: var(--gold);
+      color: var(--bg-blue);
+      box-shadow: 0 0 10px var(--gold);
+      font-scale: 1.05;
+    }
+
+    .ladder-step.completed {
+      color: #28a745;
+      border-color: #28a745;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.85);
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+    }
+
+    .modal-content {
+      background: var(--card-blue);
+      border: 3px solid var(--gold);
+      padding: 30px;
+      border-radius: 12px;
+      text-align: center;
+      max-width: 400px;
+    }
+
+    .modal-content h2 {
+      color: var(--gold);
+      margin-top: 0;
+    }
+
+    .restart-btn {
+      background: var(--gold);
+      color: var(--bg-blue);
+      border: none;
+      padding: 12px 24px;
+      font-size: 1rem;
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 15px;
+    }
+
+    .restart-btn:hover {
+      background: var(--gold-hover);
+    }
+
+    @media (max-width: 650px) {
+      .game-container {
+        flex-direction: column;
+      }
+      .options-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="game-container">
+  <div class="main-panel">
+    <div class="header-bar">
+      <h2>VOCAB TRIVIA</h2>
+      <div class="timer-box">⏱️ <span id="time-display">60</span>s</div>
+    </div>
+    
+    <div class="question-box" id="question-text">Loading question...</div>
+    
+    <div class="options-grid" id="options-container">
+      <!-- Dynamic Buttons -->
+    </div>
+  </div>
+
+  <div class="ladder-panel" id="ladder-container">
+    <!-- Dynamic Ladder Steps -->
+  </div>
+</div>
+
+<div class="modal" id="game-over-modal">
+  <div class="modal-content">
+    <h2 id="modal-title">GAME OVER</h2>
+    <p id="modal-message">You made a mistake on the ladder!</p>
+    <button class="restart-btn" onclick="startGame()">Play Again</button>
+  </div>
+</div>
+
+<script>
+  const rawQuestions = [
+    {
+      word: "imaginative",
+      question: "Which word means having or showing creativity or inventive thought?",
+      options: ["imaginative", "professional", "architecture", "gallery"],
+      answer: "imaginative"
+    },
+    {
+      word: "artistic",
+      question: "Which word refers to showing natural creative skill or beauty?",
+      options: ["atmosphere", "artistic", "professional", "imaginative"],
+      answer: "artistic"
+    },
+    {
+      word: "atmosphere",
+      question: "Which word describes the pervading tone or mood of a place or situation?",
+      options: ["gallery", "architecture", "atmosphere", "artistic"],
+      answer: "atmosphere"
+    },
+    {
+      word: "gallery",
+      question: "Which word refers to a room or building for the display or sale of works of art?",
+      options: ["gallery", "architecture", "professional", "atmosphere"],
+      answer: "gallery"
+    },
+    {
+      word: "architecture",
+      question: "Which word means the art or practice of designing and constructing buildings?",
+      options: ["imaginative", "architecture", "artistic", "gallery"],
+      answer: "architecture"
+    },
+    {
+      word: "professional",
+      question: "Which word describes relating to or belonging to a qualified, specialized profession?",
+      options: ["atmosphere", "artistic", "professional", "imaginative"],
+      answer: "professional"
+    }
+  ];
+
+  const moneyValues = ["$1,000", "$5,000", "$10,000", "$25,000", "$50,000", "$100,000"];
+
+  let activeQuestions = [];
+  let currentStep = 0;
+  let timeLeft = 60;
+  let timerInterval = null;
+
+  function shuffleArray(array) {
+    const arr = [...array];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  function startGame() {
+    // Reset State
+    currentStep = 0;
+    timeLeft = 60;
+    activeQuestions = shuffleArray(rawQuestions);
+    
+    document.getElementById("game-over-modal").style.display = "none";
+    document.getElementById("time-display").innerText = timeLeft;
+
+    // Build Ladder UI
+    renderLadder();
+
+    // Start Timer
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      timeLeft--;
+      document.getElementById("time-display").innerText = timeLeft;
+      if (timeLeft <= 0) {
+        endGame(false, "Time's up! You ran out of time.");
+      }
+    }, 1000);
+
+    // Load First Question
+    loadQuestion();
+  }
+
+  function renderLadder() {
+    const ladderContainer = document.getElementById("ladder-container");
+    ladderContainer.innerHTML = "";
+    
+    moneyValues.forEach((val, idx) => {
+      const stepEl = document.createElement("div");
+      stepEl.className = "ladder-step";
+      stepEl.id = `step-${idx}`;
+      stepEl.innerText = `${idx + 1}. ${val}`;
+      ladderContainer.appendChild(stepEl);
+    });
+
+    updateLadderUI();
+  }
+
+  function updateLadderUI() {
+    moneyValues.forEach((_, idx) => {
+      const stepEl = document.getElementById(`step-${idx}`);
+      stepEl.classList.remove("active", "completed");
+      
+      if (idx < currentStep) {
+        stepEl.classList.add("completed");
+      } else if (idx === currentStep) {
+        stepEl.classList.add("active");
+      }
+    });
+  }
+
+  function loadQuestion() {
+    updateLadderUI();
+    const qData = activeQuestions[currentStep];
+    document.getElementById("question-text").innerText = qData.question;
+
+    const optionsContainer = document.getElementById("options-container");
+    optionsContainer.innerHTML = "";
+
+    const shuffledOptions = shuffleArray(qData.options);
+
+    shuffledOptions.forEach(option => {
+      const btn = document.createElement("button");
+      btn.className = "btn-option";
+      btn.innerText = option;
+      btn.onclick = () => handleAnswer(option, qData.answer);
+      optionsContainer.appendChild(btn);
+    });
+  }
+
+  function handleAnswer(selected, correct) {
+    if (selected === correct) {
+      currentStep++;
+      if (currentStep >= activeQuestions.length) {
+        endGame(true, "CONGRATULATIONS! You reached the top of the Money Ladder!");
+      } else {
+        loadQuestion();
+      }
+    } else {
+      endGame(false, `Wrong answer! The correct word was "${correct}".`);
+    }
+  }
+
+  function endGame(isWin, message) {
+    clearInterval(timerInterval);
+    const modal = document.getElementById("game-over-modal");
+    document.getElementById("modal-title").innerText = isWin ? "YOU WIN!" : "GAME OVER";
+    document.getElementById("modal-message").innerText = message;
+    modal.style.display = "flex";
+  }
+
+  // Start game on load
+  window.onload = startGame;
+</script>
+
+</body>
+</html>

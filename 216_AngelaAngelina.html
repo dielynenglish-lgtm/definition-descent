@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocab Pac-Maze</title>
+    <style>
+        body {
+            background-color: #111;
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+
+        #game-container {
+            text-align: center;
+        }
+
+        #definition-box {
+            background-color: #222;
+            border: 2px solid #ff0;
+            padding: 15px;
+            border-radius: 8px;
+            width: 560px;
+            margin-bottom: 10px;
+            min-height: 50px;
+        }
+
+        #definition-text {
+            font-size: 1.1rem;
+            color: #4df;
+            margin-top: 5px;
+        }
+
+        #ui-bar {
+            display: flex;
+            justify-content: space-between;
+            width: 590px;
+            font-weight: bold;
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+        }
+
+        canvas {
+            border: 4px solid #33f;
+            background-color: #000;
+            box-shadow: 0 0 20px rgba(51, 51, 255, 0.5);
+        }
+
+        #status-msg {
+            height: 25px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="definition-box">
+        <strong>TARGET DEFINITION:</strong>
+        <div id="definition-text">Loading...</div>
+    </div>
+
+    <div id="ui-bar">
+        <span>SCORE: <span id="score">0</span></span>
+        <span id="status-msg"></span>
+    </div>
+
+    <canvas id="canvas" width="592" height="592"></canvas>
+</div>
+
+<script>
+const vocabData = [
+    { word: "luxurious", def: "Extremely comfortable, elegant, or enjoyable, especially in a way that involves great expense." },
+    { word: "innovation", def: "A new method, idea, product, or feature introduced into a field." },
+    { word: "surgery", def: "A medical procedure involving an incision with instruments to treat injury or disease." },
+    { word: "terrifying", def: "Causing extreme fear or terror." },
+    { word: "physically", def: "In a manner relating to the body rather than the mind." },
+    { word: "procedure", def: "An established or official way of doing something, step-by-step." },
+    { word: "agony", def: "Extreme physical or mental suffering." }
+];
+
+const GRID_SIZE = 16;
+const TILE_SIZE = 37;
+
+// 1 = Wall, 0 = Dot, 2 = Empty, 3 = Corner/Pellet Spawn
+const mazeLayout = [
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,3,0,0,0,0,1,1,1,1,0,0,0,0,3,1],
+    [1,0,1,1,0,0,0,0,0,0,0,0,1,1,0,1],
+    [1,0,1,1,0,1,1,1,1,1,1,0,1,1,0,1],
+    [1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1],
+    [1,0,1,1,0,1,0,0,0,0,1,0,1,1,0,1],
+    [1,0,0,0,0,1,2,2,2,2,1,0,0,0,0,1],
+    [1,1,1,0,0,1,2,2,2,2,1,0,0,1,1,1],
+    [1,1,1,0,0,1,2,2,2,2,1,0,0,1,1,1],
+    [1,0,0,0,0,1,1,1,1,1,1,0,0,0,0,1],
+    [1,0,1,1,0,0,0,0,0,0,0,0,1,1,0,1],
+    [1,0,0,1,0,1,1,1,1,1,1,0,1,0,0,1],
+    [1,1,0,1,0,0,0,1,1,0,0,0,1,0,1,1],
+    [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1],
+    [1,3,1,1,1,1,0,1,1,0,1,1,1,1,3,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+];
+
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+let score = 0;
+let currentTarget = null;
+let wordPellets = [];
+let powerTimer = null;
+let speedTimer = null;
+let ghostsVulnerable = false;
+let ghostsSpeedUp = false;
+
+const cornerSpawns = [
+    {x: 1, y: 1},
+    {x: 14, y: 1},
+    {x: 1, y: 14},
+    {x: 14, y: 14}
+];
+
+const player = {
+    x: 8, y: 10,
+    dirX: 0, dirY: 0,
+    nextDirX: 0, nextDirY: 0
+};
+
+const ghosts = [
+    { x: 7, y: 7, dirX: 1, dirY: 0, color: 'red' },
+    { x: 8, y: 7, dirX: -1, dirY: 0, color: 'pink' }
+];
+
+let map = JSON.parse(JSON.stringify(mazeLayout));
+
+function initRound() {
+    // Select target word
+    currentTarget = vocabData[Math.floor(Math.random() * vocabData.length)];
+    document.getElementById("definition-text").innerText = currentTarget.def;
+
+    // Pick 3 unique words (including target)
+    let available = vocabData.filter(v => v.word !== currentTarget.word);
+    available.sort(() => 0.5 - Math.random());
+    let selectedWords = [currentTarget.word, available[0].word, available[1].word];
+    selectedWords.sort(() => 0.5 - Math.random());
+
+    // Assign to 3 corner locations
+    let availableCorners = [...cornerSpawns].sort(() => 0.5 - Math.random());
+    wordPellets = [];
+    for (let i = 0; i < 3; i++) {
+        wordPellets.push({
+            x: availableCorners[i].x,
+            y: availableCorners[i].y,
+            word: selectedWords[i]
+        });
+    }
+}
+
+function handleInput(e) {
+    if (e.key === "ArrowUp")    { player.nextDirX = 0;  player.nextDirY = -1; }
+    if (e.key === "ArrowDown")  { player.nextDirX = 0;  player.nextDirY = 1;  }
+    if (e.key === "ArrowLeft")  { player.nextDirX = -1; player.nextDirY = 0;  }
+    if (e.key === "ArrowRight") { player.nextDirX = 1;  player.nextDirY = 0;  }
+}
+
+function isWall(x, y) {
+    return map[y] && map[y][x] === 1;
+}
+
+function updatePlayer() {
+    if (!isWall(player.x + player.nextDirX, player.y + player.nextDirY)) {
+        player.dirX = player.nextDirX;
+        player.dirY = player.nextDirY;
+    }
+
+    if (!isWall(player.x + player.dirX, player.y + player.dirY)) {
+        player.x += player.dirX;
+        player.y += player.dirY;
+    }
+
+    // Eat regular dot
+    if (map[player.y][player.x] === 0) {
+        map[player.y][player.x] = 2;
+        score += 10;
+    }
+
+    // Check pellet collision
+    let pelletIndex = wordPellets.findIndex(p => p.x === player.x && p.y === player.y);
+    if (pelletIndex !== -1) {
+        let eaten = wordPellets[pelletIndex];
+        if (eaten.word === currentTarget.word) {
+            // Correct Pellet!
+            score += 100;
+            triggerPowerPellet();
+            setStatus("CORRECT! Hunt the ghosts!", "#0f0");
+        } else {
+            // Wrong Pellet!
+            triggerGhostSpeedup();
+            setStatus("WRONG WORD! Ghosts speed up!", "#f00");
+        }
+        initRound();
+    }
+}
+
+function triggerPowerPellet() {
+    ghostsVulnerable = true;
+    clearTimeout(powerTimer);
+    powerTimer = setTimeout(() => {
+        ghostsVulnerable = false;
+        setStatus("", "#fff");
+    }, 8000);
+}
+
+function triggerGhostSpeedup() {
+    ghostsSpeedUp = true;
+    clearTimeout(speedTimer);
+    speedTimer = setTimeout(() => {
+        ghostsSpeedUp = false;
+        setStatus("", "#fff");
+    }, 5000);
+}
+
+function setStatus(msg, color) {
+    const el = document.getElementById("status-msg");
+    el.innerText = msg;
+    el.style.color = color;
+}
+
+function updateGhosts() {
+    ghosts.forEach(g => {
+        let possibleDirs = [
+            {x: 1, y: 0}, {x: -1, y: 0},
+            {x: 0, y: 1}, {x: 0, y: -1}
+        ].filter(d => !isWall(g.x + d.x, g.y + d.y));
+
+        if (possibleDirs.length > 0) {
+            let choice = possibleDirs[Math.floor(Math.random() * possibleDirs.length)];
+            g.x += choice.x;
+            g.y += choice.y;
+        }
+
+        // Collision with player
+        if (g.x === player.x && g.y === player.y) {
+            if (ghostsVulnerable) {
+                score += 200;
+                g.x = 8; g.y = 7; // Reset ghost
+            } else {
+                alert("Caught by a ghost! Game Over. Final Score: " + score);
+                document.location.reload();
+            }
+        }
+    });
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw Map
+    for (let r = 0; r < GRID_SIZE; r++) {
+        for (let c = 0; c < GRID_SIZE; c++) {
+            if (map[r][c] === 1) {
+                ctx.fillStyle = "#1919a6";
+                ctx.fillRect(c * TILE_SIZE, r * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+            } else if (map[r][c] === 0) {
+                ctx.fillStyle = "#ffb8ae";
+                ctx.beginPath();
+                ctx.arc(c * TILE_SIZE + TILE_SIZE/2, r * TILE_SIZE + TILE_SIZE/2, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+    }
+
+    // Draw Power Pellets with Word Labels
+    wordPellets.forEach(p => {
+        ctx.fillStyle = "#ffb8ff";
+        ctx.beginPath();
+        ctx.arc(p.x * TILE_SIZE + TILE_SIZE/2, p.y * TILE_SIZE + TILE_SIZE/2, 8, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#ffff00";
+        ctx.font = "bold 11px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(p.word, p.x * TILE_SIZE + TILE_SIZE/2, p.y * TILE_SIZE - 4);
+    });
+
+    // Draw Player
+    ctx.fillStyle = "#ffff00";
+    ctx.beginPath();
+    ctx.arc(player.x * TILE_SIZE + TILE_SIZE/2, player.y * TILE_SIZE + TILE_SIZE/2, 12, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Draw Ghosts
+    ghosts.forEach(g => {
+        ctx.fillStyle = ghostsVulnerable ? "#0000ff" : g.color;
+        ctx.beginPath();
+        ctx.arc(g.x * TILE_SIZE + TILE_SIZE/2, g.y * TILE_SIZE + TILE_SIZE/2, 12, 0, Math.PI * 2);
+        ctx.fill();
+    });
+
+    document.getElementById("score").innerText = score;
+}
+
+let tickCount = 0;
+function gameLoop() {
+    tickCount++;
+
+    // Player moves every 10 ticks
+    if (tickCount % 10 === 0) {
+        updatePlayer();
+    }
+
+    // Ghosts speed up conditionally (every 8 ticks vs 12 ticks)
+    let ghostRate = ghostsSpeedUp ? 8 : 12;
+    if (tickCount % ghostRate === 0) {
+        updateGhosts();
+    }
+
+    draw();
+    setTimeout(gameLoop, 25);
+}
+
+window.addEventListener("keydown", handleInput);
+initRound();
+gameLoop();
+</script>
+</body>
+</html>

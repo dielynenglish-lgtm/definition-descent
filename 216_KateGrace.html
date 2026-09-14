@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Space Invaders: Vocab Edition</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: #050510;
+      color: #fff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+    #game-container {
+      position: relative;
+      width: 800px;
+      height: 600px;
+      background: radial-gradient(circle at center, #0f0c29, #302b63, #24243e);
+      border: 3px solid #00f3ff;
+      box-shadow: 0 0 20px #00f3ff;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    #ui-bar {
+      position: absolute;
+      top: 0; left: 0; width: 100%;
+      padding: 10px 20px;
+      background: rgba(0, 0, 0, 0.75);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10;
+      border-bottom: 2px solid #00f3ff;
+    }
+    .hud-text { font-size: 18px; font-weight: bold; color: #00f3ff; }
+    #briefing-panel {
+      position: absolute;
+      top: 55px; left: 50%;
+      transform: translateX(-50%);
+      width: 90%;
+      background: rgba(10, 20, 50, 0.9);
+      border: 2px solid #ff007f;
+      border-radius: 6px;
+      padding: 10px;
+      text-align: center;
+      z-index: 10;
+      box-shadow: 0 0 10px #ff007f;
+    }
+    #briefing-panel h3 { font-size: 14px; color: #ff007f; text-transform: uppercase; margin-bottom: 4px; }
+    #definition-text { font-size: 16px; color: #ffffff; }
+    canvas { display: block; }
+    #overlay {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 20;
+    }
+    #overlay h1 { font-size: 36px; color: #00f3ff; margin-bottom: 15px; text-shadow: 0 0 10px #00f3ff; }
+    #overlay p { font-size: 16px; max-width: 600px; text-align: center; margin-bottom: 20px; line-height: 1.5; }
+    .btn {
+      padding: 12px 28px;
+      font-size: 18px;
+      color: #fff;
+      background: linear-gradient(45deg, #ff007f, #7928ca);
+      border: none;
+      border-radius: 25px;
+      cursor: pointer;
+      box-shadow: 0 0 15px #ff007f;
+      transition: transform 0.2s;
+    }
+    .btn:hover { transform: scale(1.05); }
+  </style>
+</head>
+<body>
+
+<div id="game-container">
+  <div id="ui-bar">
+    <div class="hud-text">SCORE: <span id="score-val">0</span></div>
+    <div class="hud-text">TIME: <span id="timer-val">60</span>s</div>
+  </div>
+
+  <div id="briefing-panel">
+    <h3>Mission Briefing - Target Definition</h3>
+    <div id="definition-text">Loading target definition...</div>
+  </div>
+
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+  <div id="overlay">
+    <h1 id="overlay-title">Space Invaders: Vocab Edition</h1>
+    <p id="overlay-msg">
+      Defend Earth from the invading alien word-ships! Read the Mission Briefing definition at the top, then maneuver your ship using <b>LEFT / RIGHT ARROWS</b> (or A/D) and press <b>SPACEBAR</b> to shoot the matching word ship.<br><br>
+      Correct Hits: +100 PTS | Wrong Hits: -50 PTS & 2s Laser Lock
+    </p>
+    <button class="btn" id="start-btn" onclick="startGame()">START MISSION</button>
+  </div>
+</div>
+
+<script>
+const vocabData = [
+  { word: "version", def: "A particular form or variant of something differing in certain details from an original." },
+  { word: "vast", def: "Of very great extent, size, quantity, or degree; immense." },
+  { word: "undertake", def: "To commit oneself to and begin a formal enterprise, task, or responsibility." },
+  { word: "extraordinary", def: "Very unusual or remarkable; far beyond what is ordinary or expected." },
+  { word: "landscape", def: "All the visible features of an area of countryside or land, often considered for aesthetic appeal." },
+  { word: "dusty", def: "Covered with, full of, or resembling fine, dry powder or earth." },
+  { word: "diverse", def: "Showing a great deal of variety; very different or distinct in kind." }
+];
+
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+let score = 0;
+let timeLeft = 60;
+let gameInterval, timerInterval;
+let isPlaying = false;
+let currentTarget = null;
+let laserStunnedUntil = 0;
+
+const player = { x: 375, y: 520, width: 50, height: 30, speed: 7 };
+let keys = {};
+let bullets = [];
+let aliens = [];
+
+window.addEventListener("keydown", (e) => keys[e.code] = true);
+window.addEventListener("keyup", (e) => keys[e.code] = false);
+
+function selectNewTarget() {
+  const randomIndex = Math.floor(Math.random() * vocabData.length);
+  currentTarget = vocabData[randomIndex];
+  document.getElementById("definition-text").innerText = `"${currentTarget.def}"`;
+  spawnAlienWave();
+}
+
+function spawnAlienWave() {
+  aliens = [];
+  const activeWords = [currentTarget.word];
+  
+  // Pick 3 distractor words
+  while (activeWords.length < Math.min(4, vocabData.length)) {
+    const randomWord = vocabData[Math.floor(Math.random() * vocabData.length)].word;
+    if (!activeWords.includes(randomWord)) {
+      activeWords.push(randomWord);
+    }
+  }
+
+  // Shuffle word order
+  activeWords.sort(() => Math.random() - 0.5);
+
+  const startY = 160;
+  const spacing = 180;
+  activeWords.forEach((word, index) => {
+    aliens.push({
+      word: word,
+      x: 60 + index * spacing,
+      y: startY,
+      width: 140,
+      height: 40,
+      dir: 1,
+      speed: 1.5
+    });
+  });
+}
+
+function startGame() {
+  score = 0;
+  timeLeft = 60;
+  bullets = [];
+  isPlaying = true;
+  document.getElementById("score-val").innerText = score;
+  document.getElementById("timer-val").innerText = timeLeft;
+  document.getElementById("overlay").style.display = "none";
+
+  selectNewTarget();
+
+  clearInterval(gameInterval);
+  clearInterval(timerInterval);
+
+  gameInterval = setInterval(updateGame, 1000 / 60);
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    document.getElementById("timer-val").innerText = timeLeft;
+    if (timeLeft <= 0) endGame();
+  }, 1000);
+}
+
+function updateGame() {
+  // Player movement
+  if ((keys["ArrowLeft"] || keys["KeyA"]) && player.x > 10) player.x -= player.speed;
+  if ((keys["ArrowRight"] || keys["KeyD"]) && player.x < canvas.width - player.width - 10) player.x += player.speed;
+
+  // Firing logic
+  if (keys["Space"]) {
+    const now = Date.now();
+    if (now > laserStunnedUntil && (bullets.length === 0 || bullets[bullets.length - 1].y < player.y - 40)) {
+      bullets.push({ x: player.x + player.width / 2 - 3, y: player.y, width: 6, height: 15 });
+    }
+  }
+
+  // Update Bullets
+  bullets.forEach((b, i) => {
+    b.y -= 9;
+    if (b.y < 120) bullets.splice(i, 1);
+  });
+
+  // Update Aliens
+  let changeDir = false;
+  aliens.forEach(alien => {
+    alien.x += alien.speed * alien.dir;
+    if (alien.x <= 10 || alien.x + alien.width >= canvas.width - 10) changeDir = true;
+  });
+
+  if (changeDir) {
+    aliens.forEach(alien => {
+      alien.dir *= -1;
+      alien.y += 15;
+    });
+  }
+
+  // Collision Detection
+  bullets.forEach((bullet, bIndex) => {
+    aliens.forEach((alien) => {
+      if (
+        bullet.x < alien.x + alien.width &&
+        bullet.x + bullet.width > alien.x &&
+        bullet.y < alien.y + alien.height &&
+        bullet.y + bullet.height > alien.y
+      ) {
+        bullets.splice(bIndex, 1);
+        if (alien.word === currentTarget.word) {
+          score += 100;
+          document.getElementById("score-val").innerText = score;
+          selectNewTarget();
+        } else {
+          score = Math.max(0, score - 50);
+          document.getElementById("score-val").innerText = score;
+          laserStunnedUntil = Date.now() + 2000; // 2s lock
+        }
+      }
+    });
+  });
+
+  draw();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Draw Player Ship
+  ctx.fillStyle = Date.now() < laserStunnedUntil ? "#ff3333" : "#00f3ff";
+  ctx.beginPath();
+  ctx.moveTo(player.x + player.width / 2, player.y);
+  ctx.lineTo(player.x, player.y + player.height);
+  ctx.lineTo(player.x + player.width, player.y + player.height);
+  ctx.closePath();
+  ctx.fill();
+
+  // Draw Bullets
+  ctx.fillStyle = "#ff007f";
+  bullets.forEach(b => ctx.fillRect(b.x, b.y, b.width, b.height));
+
+  // Draw Aliens
+  aliens.forEach(alien => {
+    ctx.fillStyle = "rgba(20, 30, 70, 0.85)";
+    ctx.strokeStyle = "#ff007f";
+    ctx.lineWidth = 2;
+    ctx.fillRect(alien.x, alien.y, alien.width, alien.height);
+    ctx.strokeRect(alien.x, alien.y, alien.width, alien.height);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 15px 'Segoe UI', sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(alien.word, alien.x + alien.width / 2, alien.y + 25);
+  });
+}
+
+function endGame() {
+  isPlaying = false;
+  clearInterval(gameInterval);
+  clearInterval(timerInterval);
+
+  document.getElementById("overlay-title").innerText = "MISSION COMPLETED";
+  document.getElementById("overlay-msg").innerHTML = `Final Score: <b>${score} Points</b><br>Great work defending Earth and expanding your vocabulary!`;
+  document.getElementById("start-btn").innerText = "PLAY AGAIN";
+  document.getElementById("overlay").style.display = "flex";
+}
+</script>
+</body>
+</html>

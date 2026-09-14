@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vocab Galaga: Intercept Shield</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background-color: #050510;
+      color: #fff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+    #game-container {
+      position: relative;
+      border: 3px solid #00f0ff;
+      border-radius: 8px;
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
+      background: #000;
+    }
+    canvas {
+      display: block;
+      background: radial-gradient(circle at center, #0b0b26 0%, #020208 100%);
+    }
+    #hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+      box-sizing: border-box;
+    }
+    .hud-element {
+      font-size: 18px;
+      font-weight: bold;
+      text-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+    }
+    #lives-container {
+      color: #ff3366;
+      font-size: 22px;
+    }
+    #prompt-banner {
+      position: absolute;
+      top: 50px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90%;
+      background: rgba(10, 20, 50, 0.85);
+      border: 2px solid #ffcc00;
+      border-radius: 6px;
+      padding: 10px 15px;
+      text-align: center;
+      box-shadow: 0 0 12px rgba(255, 204, 0, 0.3);
+      pointer-events: none;
+    }
+    #prompt-banner .label {
+      font-size: 11px;
+      color: #ffcc00;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-bottom: 3px;
+    }
+    #prompt-banner .definition {
+      font-size: 16px;
+      color: #ffffff;
+      font-weight: 600;
+    }
+    #game-over-screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+    }
+    #game-over-screen h1 {
+      font-size: 42px;
+      color: #ff3366;
+      margin-bottom: 10px;
+      text-shadow: 0 0 10px #ff3366;
+    }
+    #game-over-screen p {
+      font-size: 20px;
+      margin-bottom: 20px;
+    }
+    button {
+      padding: 10px 25px;
+      font-size: 18px;
+      font-weight: bold;
+      background: #00f0ff;
+      color: #000;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      box-shadow: 0 0 10px #00f0ff;
+      transition: all 0.2s;
+    }
+    button:hover {
+      background: #fff;
+      box-shadow: 0 0 15px #fff;
+      transform: scale(1.05);
+    }
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="game-container">
+    <div id="hud">
+      <div class="hud-element" id="score-display">SCORE: 0</div>
+      <div class="hud-element" id="lives-container">❤️❤️❤️</div>
+    </div>
+
+    <div id="prompt-banner">
+      <div class="label">TARGET DEFINITION</div>
+      <div class="definition" id="def-text">Loading target...</div>
+    </div>
+
+    <canvas id="gameCanvas" width="600" height="700"></canvas>
+
+    <div id="game-over-screen" class="hidden">
+      <h1 id="game-title">GAME OVER</h1>
+      <p id="final-score">Final Score: 0</p>
+      <button id="restart-btn" onclick="resetGame()">PLAY AGAIN</button>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // --- Vocabulary Data ---
+    const vocabData = [
+      { word: "grip", def: "To hold tightly with your hand" },
+      { word: "adjustment", def: "A small change made to improve something" },
+      { word: "strain", def: "Force or pressure that causes stress or damage" },
+      { word: "flexible", def: "Able to bend easily without breaking" },
+      { word: "loosen", def: "To make less tight or rigid" },
+      { word: "slightly", def: "To a small degree; a little bit" },
+      { word: "demonstrate", def: "To show clearly by giving proof or an example" },
+      { word: "intercept", def: "To obstruct or prevent someone or something from reaching a destination" },
+      { word: "velocity", def: "The speed of something in a given direction" },
+      { word: "trajectory", def: "The curved path of an object moving through space" }
+    ];
+
+    // --- Game State Variables ---
+    let score = 0;
+    let lives = 3;
+    let gameOver = false;
+    let currentTargetWord = "";
+    let projectiles = [];
+    let aliens = [];
+    let particles = [];
+    let stars = [];
+
+    // Keys state
+    const keys = { Left: false, Right: false, Space: false, spacePressed: false };
+
+    // --- Player Object (Smooth Physics) ---
+    const player = {
+      x: canvas.width / 2,
+      y: canvas.height - 50,
+      width: 40,
+      height: 30,
+      vx: 0,
+      ax: 1.2,
+      friction: 0.88,
+      maxSpeed: 8,
+      draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        
+        // Ship Body
+        ctx.fillStyle = '#00f0ff';
+        ctx.beginPath();
+        ctx.moveTo(0, -this.height / 2);
+        ctx.lineTo(this.width / 2, this.height / 2);
+        ctx.lineTo(0, this.height / 4);
+        ctx.lineTo(-this.width / 2, this.height / 2);
+        ctx.closePath();
+        ctx.fill();
+
+        // Thruster Glow
+        ctx.fillStyle = '#ffaa00';
+        ctx.beginPath();
+        ctx.moveTo(-8, this.height / 2);
+        ctx.lineTo(0, this.height / 2 + 10 + Math.random() * 5);
+        ctx.lineTo(8, this.height / 2);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.restore();
+      },
+      update() {
+        if (keys.Left) this.vx -= this.ax;
+        if (keys.Right) this.vx += this.ax;
+
+        this.vx *= this.friction;
+        if (this.vx > this.maxSpeed) this.vx = this.maxSpeed;
+        if (this.vx < -this.maxSpeed) this.vx = -this.maxSpeed;
+
+        this.x += this.vx;
+
+        // Wall collisions
+        if (this.x - this.width / 2 < 0) {
+          this.x = this.width / 2;
+          this.vx = 0;
+        }
+        if (this.x + this.width / 2 > canvas.width) {
+          this.x = canvas.width - this.width / 2;
+          this.vx = 0;
+        }
+      }
+    };
+
+    // --- Starfield Background ---
+    for (let i = 0; i < 60; i++) {
+      stars.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        size: Math.random() * 2,
+        speed: Math.random() * 1.5 + 0.5
+      });
+    }
+
+    // --- Alien Class ---
+    class Alien {
+      constructor(x, y, word, isCorrect) {
+        this.homeX = x;
+        this.homeY = y;
+        this.x = x;
+        this.y = y;
+        this.width = 110;
+        this.height = 40;
+        this.word = word;
+        this.isCorrect = isCorrect;
+        
+        // Motion state
+        this.state = "HOVER"; // "HOVER" or "DIVE"
+        this.vx = 0;
+        this.vy = 0;
+        this.hoverOffset = Math.random() * Math.PI * 2;
+      }
+
+      draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        // Alien Body
+        ctx.fillStyle = this.state === "DIVE" ? '#ff3366' : '#a855f7';
+        ctx.beginPath();
+        ctx.roundRect(-this.width/2, -this.height/2, this.width, this.height, 8);
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#ffffff';
+        ctx.stroke();
+
+        // Cockpit
+        ctx.fillStyle = '#00f0ff';
+        ctx.beginPath();
+        ctx.arc(0, -this.height/4, 12, Math.PI, 0);
+        ctx.fill();
+
+        // Vocabulary Text
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 14px Segoe UI, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(this.word, 0, 5);
+
+        ctx.restore();
+      }
+
+      update() {
+        if (this.state === "HOVER") {
+          this.hoverOffset += 0.04;
+          this.y = this.homeY + Math.sin(this.hoverOffset) * 8;
+        } else if (this.state === "DIVE") {
+          // Smooth dive-bombing physics towards player
+          let dx = player.x - this.x;
+          let dy = player.y - this.y;
+          let angle = Math.atan2(dy, dx);
+          
+          this.vx += Math.cos(angle) * 0.4;
+          this.vy += Math.sin(angle) * 0.4;
+
+          // Cap dive speed
+          let speed = Math.hypot(this.vx, this.vy);
+          if (speed > 7) {
+            this.vx = (this.vx / speed) * 7;
+            this.vy = (this.vy / speed) * 7;
+          }
+
+          this.x += this.vx;
+          this.y += this.vy;
+
+          // If it goes off-screen during dive, reset back to top
+          if (this.y > canvas.height + 50) {
+            this.x = this.homeX;
+            this.y = -50;
+            this.vx = 0;
+            this.vy = 0;
+            this.state = "HOVER";
+          }
+        }
+      }
+
+      triggerDive() {
+        this.state = "DIVE";
+      }
+    }
+
+    // --- Explosions & Effects ---
+    function createExplosion(x, y, color = '#ff3366') {
+      for (let i = 0; i < 20; i++) {
+        particles.push({
+          x: x,
+          y: y,
+          vx: (Math.random() - 0.5) * 8,
+          vy: (Math.random() - 0.5) * 8,
+          radius: Math.random() * 4 + 1,
+          color: color,
+          life: 30
+        });
+      }
+    }
+
+    // --- Wave Management ---
+    function spawnWave() {
+      aliens = [];
+      
+      // Select target vocabulary item
+      const targetItem = vocabData[Math.floor(Math.random() * vocabData.length)];
+      currentTargetWord = targetItem.word;
+      document.getElementById('def-text').innerText = `"${targetItem.def}"`;
+
+      // Pick 3 distractor words
+      let distractors = vocabData.filter(v => v.word !== currentTargetWord);
+      distractors.sort(() => 0.5 - Math.random());
+      
+      let waveWords = [
+        { word: currentTargetWord, isCorrect: true },
+        { word: distractors[0].word, isCorrect: false },
+        { word: distractors[1].word, isCorrect: false },
+        { word: distractors[2].word, isCorrect: false }
+      ];
+
+      // Shuffle wave positions
+      waveWords.sort(() => 0.5 - Math.random());
+
+      // Create 4 Aliens spaced evenly
+      const spacing = canvas.width / 4;
+      waveWords.forEach((item, index) => {
+        let x = spacing * index + spacing / 2;
+        let y = 140; // Position below prompt banner
+        aliens.push(new Alien(x, y, item.word, item.isCorrect));
+      });
+    }
+
+    // --- Event Listeners ---
+    window.addEventListener('keydown', e => {
+      if (e.code === 'ArrowLeft') keys.Left = true;
+      if (e.code === 'ArrowRight') keys.Right = true;
+      if (e.code === 'Space') {
+        if (!keys.spacePressed && !gameOver) {
+          projectiles.push({
+            x: player.x,
+            y: player.y - player.height / 2,
+            vy: -10,
+            radius: 3
+          });
+        }
+        keys.spacePressed = true;
+      }
+    });
+
+    window.addEventListener('keyup', e => {
+      if (e.code === 'ArrowLeft') keys.Left = false;
+      if (e.code === 'ArrowRight') keys.Right = false;
+      if (e.code === 'Space') keys.spacePressed = false;
+    });
+
+    // --- Game Logic Updates ---
+    function update() {
+      if (gameOver) return;
+
+      player.update();
+
+      // Update background stars
+      stars.forEach(star => {
+        star.y += star.speed;
+        if (star.y > canvas.height) star.y = 0;
+      });
+
+      // Update projectiles
+      for (let i = projectiles.length - 1; i >= 0; i--) {
+        let p = projectiles[i];
+        p.y += p.vy;
+
+        if (p.y < 0) {
+          projectiles.splice(i, 1);
+          continue;
+        }
+
+        // Check projectile collision with aliens
+        for (let j = aliens.length - 1; j >= 0; j--) {
+          let a = aliens[j];
+          if (
+            p.x > a.x - a.width / 2 &&
+            p.x < a.x + a.width / 2 &&
+            p.y > a.y - a.height / 2 &&
+            p.y < a.y + a.height / 2
+          ) {
+            projectiles.splice(i, 1);
+
+            if (a.isCorrect) {
+              // CORRECT ALIEN HIT
+              createExplosion(a.x, a.y, '#00f0ff');
+              score += 100;
+              document.getElementById('score-display').innerText = `SCORE: ${score}`;
+              spawnWave(); // Wipe and instantly spawn new wave
+            } else {
+              // INCORRECT ALIEN HIT
+              createExplosion(a.x, a.y, '#ff3366');
+              a.triggerDive(); // Aggressively dive bomb!
+            }
+            break;
+          }
+        }
+      }
+
+      // Update Aliens & Check Collision with Player
+      aliens.forEach(a => {
+        a.update();
+
+        // Player collision with diving alien
+        let dx = a.x - player.x;
+        let dy = a.y - player.y;
+        let distance = Math.hypot(dx, dy);
+
+        if (distance < (a.width / 3 + player.width / 3)) {
+          // Player hit!
+          createExplosion(player.x, player.y, '#ff3366');
+          takeDamage();
+          // Reset diving alien back to top
+          a.x = a.homeX;
+          a.y = -50;
+          a.vx = 0;
+          a.vy = 0;
+          a.state = "HOVER";
+        }
+      });
+
+      // Update particles
+      for (let i = particles.length - 1; i >= 0; i--) {
+        let pt = particles[i];
+        pt.x += pt.vx;
+        pt.y += pt.vy;
+        pt.life--;
+        if (pt.life <= 0) particles.splice(i, 1);
+      }
+    }
+
+    function takeDamage() {
+      lives--;
+      updateLivesDisplay();
+
+      if (lives <= 0) {
+        endGame();
+      }
+    }
+
+    function updateLivesDisplay() {
+      let hearts = "";
+      for (let i = 0; i < lives; i++) hearts += "❤️";
+      document.getElementById('lives-container').innerText = hearts;
+    }
+
+    function endGame() {
+      gameOver = true;
+      document.getElementById('final-score').innerText = `Final Score: ${score}`;
+      document.getElementById('game-over-screen').classList.remove('hidden');
+    }
+
+    function resetGame() {
+      score = 0;
+      lives = 3;
+      gameOver = false;
+      projectiles = [];
+      particles = [];
+      document.getElementById('score-display').innerText = `SCORE: 0`;
+      document.getElementById('game-over-screen').classList.add('hidden');
+      updateLivesDisplay();
+      spawnWave();
+    }
+
+    // --- Render Loop ---
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw background stars
+      ctx.fillStyle = '#ffffff';
+      stars.forEach(star => {
+        ctx.fillRect(star.x, star.y, star.size, star.size);
+      });
+
+      // Draw game elements
+      player.draw();
+
+      aliens.forEach(a => a.draw());
+
+      // Draw Projectiles
+      ctx.fillStyle = '#ffcc00';
+      projectiles.forEach(p => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Draw Particles
+      particles.forEach(pt => {
+        ctx.fillStyle = pt.color;
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, pt.radius, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
+    function gameLoop() {
+      update();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    // Initialize Game
+    spawnWave();
+    gameLoop();
+  </script>
+</body>
+</html>

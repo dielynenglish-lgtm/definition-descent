@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Marble Popper: Culinary Vocabulary</title>
+<style>
+  body {
+    background: #1e1e24;
+    color: #fff;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0;
+    padding: 20px;
+  }
+  h1 { margin-bottom: 5px; color: #ff9f43; }
+  #target-definition {
+    background: #2f3542;
+    border: 2px solid #ff9f43;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    margin-bottom: 15px;
+    max-width: 700px;
+    text-align: center;
+  }
+  canvas {
+    background: #222f3e;
+    border: 4px solid #576574;
+    border-radius: 12px;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+    cursor: crosshair;
+  }
+  #score-board {
+    margin-top: 10px;
+    font-size: 1.2rem;
+    font-weight: bold;
+  }
+</style>
+</head>
+<body>
+
+<h1>Marble Popper: Vocabulary Match</h1>
+<div id="target-definition">Target Definition: <span id="def-text" style="color: #00d2d3;">Loading...</span></div>
+<canvas id="gameCanvas" width="800" height="500"></canvas>
+<div id="score-board">Score: <span id="score">0</span></div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// Vocabulary Bank
+const vocab = [
+  { word: "recipe", def: "A set of instructions for preparing a culinary dish." },
+  { word: "pasta", def: "A dish originally from Italy consisting of dough made from durum wheat." },
+  { word: "variation", def: "A change or difference in condition, amount, or level." },
+  { word: "combination", def: "A joining or merging of different parts or qualities." },
+  { word: "ultimately", def: "At the end of a process or period of time; finally." },
+  { word: "generation", def: "All of the people or organisms born and living at about the same time." },
+  { word: "deserve", def: "To be worthy of or entitled to something because of actions." }
+];
+
+let targetVocab = vocab[Math.floor(Math.random() * vocab.length)];
+document.getElementById('def-text').innerText = targetVocab.def;
+
+let score = 0;
+let gameOver = false;
+
+// Track Path Waypoints (Curved path across canvas)
+const trackPath = [];
+for (let x = 0; x <= 800; x += 5) {
+  let y = 250 + Math.sin(x / 50) * 120;
+  trackPath.push({x, y});
+}
+const pitPosition = trackPath[trackPath.length - 1];
+
+// Game Objects
+let pathMarbles = [];
+let bullet = null;
+const launcher = { x: 400, y: 450, angle: 0 };
+
+// Initialize Marble Train
+for (let i = 0; i < 12; i++) {
+  let randomWord = vocab[Math.floor(Math.random() * vocab.length)].word;
+  pathMarbles.push({
+    pathIndex: -i * 7, // Staggered start off-screen
+    word: randomWord,
+    radius: 18,
+    color: '#ff6b6b'
+  });
+}
+
+// Track Mouse Movement
+canvas.addEventListener('mousemove', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mouseX = e.clientX - rect.left;
+  const mouseY = e.clientY - rect.top;
+  launcher.angle = Math.atan2(mouseY - launcher.y, mouseX - launcher.x);
+});
+
+// Shoot Marble
+canvas.addEventListener('click', () => {
+  if (bullet || gameOver) return;
+  
+  bullet = {
+    x: launcher.x,
+    y: launcher.y,
+    vx: Math.cos(launcher.angle) * 10,
+    vy: Math.sin(launcher.angle) * 10,
+    word: targetVocab.word,
+    radius: 18
+  };
+});
+
+function update() {
+  if (gameOver) return;
+
+  // Move Train along Curved Line Track
+  for (let i = 0; i < pathMarbles.length; i++) {
+    pathMarbles[i].pathIndex += 0.4; // Speed
+    
+    // Danger Pit Reached
+    if (pathMarbles[i].pathIndex >= trackPath.length - 1) {
+      gameOver = true;
+      alert("Game Over! A marble reached the danger pit.");
+      return;
+    }
+  }
+
+  // Update Bullet Movement
+  if (bullet) {
+    bullet.x += bullet.vx;
+    bullet.y += bullet.vy;
+
+    // Canvas boundary check for bullet
+    if (bullet.x < 0 || bullet.x > canvas.width || bullet.y < 0 || bullet.y > canvas.height) {
+      bullet = null;
+    } else {
+      // Interpolated Circle-to-Circle Collision Check
+      for (let i = 0; i < pathMarbles.length; i++) {
+        let m = pathMarbles[i];
+        if (m.pathIndex < 0) continue;
+        
+        let pos = trackPath[Math.floor(m.pathIndex)];
+        let dist = Math.hypot(bullet.x - pos.x, bullet.y - pos.y);
+
+        if (dist < bullet.radius + m.radius) {
+          // Check if shot matches target word
+          if (m.word === targetVocab.word) {
+            score += 100;
+            document.getElementById('score').innerText = score;
+            pathMarbles.splice(i, 1); // Pop matching marble
+            
+            // Pick new target word
+            targetVocab = vocab[Math.floor(Math.random() * vocab.length)];
+            document.getElementById('def-text').innerText = targetVocab.def;
+          }
+          bullet = null;
+          break;
+        }
+      }
+    }
+  }
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // 1. Draw Track
+  ctx.beginPath();
+  ctx.strokeStyle = '#34495e';
+  ctx.lineWidth = 40;
+  for (let i = 0; i < trackPath.length; i++) {
+    if (i === 0) ctx.moveTo(trackPath[i].x, trackPath[i].y);
+    else ctx.lineTo(trackPath[i].x, trackPath[i].y);
+  }
+  ctx.stroke();
+
+  // 2. Draw Danger Pit Drain
+  ctx.beginPath();
+  ctx.arc(pitPosition.x, pitPosition.y, 25, 0, Math.PI * 2);
+  ctx.fillStyle = '#e74c3c';
+  ctx.fill();
+
+  // 3. Draw Moving Marbles
+  for (let m of pathMarbles) {
+    if (m.pathIndex < 0) continue;
+    let pos = trackPath[Math.floor(m.pathIndex)];
+
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, m.radius, 0, Math.PI * 2);
+    ctx.fillStyle = '#1dd1a1';
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Render Vocabulary Text
+    ctx.fillStyle = '#10ac84';
+    ctx.font = 'bold 10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(m.word, pos.x, pos.y + 3);
+  }
+
+  // 4. Draw Launcher
+  ctx.save();
+  ctx.translate(launcher.x, launcher.y);
+  ctx.rotate(launcher.angle);
+  ctx.fillStyle = '#ff9f43';
+  ctx.fillRect(0, -10, 40, 20);
+  ctx.restore();
+
+  // 5. Draw Launcher Base & Current Target Bullet
+  ctx.beginPath();
+  ctx.arc(launcher.x, launcher.y, 20, 0, Math.PI * 2);
+  ctx.fillStyle = '#54a0ff';
+  ctx.fill();
+
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 10px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(targetVocab.word, launcher.x, launcher.y + 3);
+
+  // 6. Draw Fired Bullet
+  if (bullet) {
+    ctx.beginPath();
+    ctx.arc(bullet.x, bullet.y, bullet.radius, 0, Math.PI * 2);
+    ctx.fillStyle = '#fabca1';
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#222';
+    ctx.font = 'bold 10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(bullet.word, bullet.x, bullet.y + 3);
+  }
+
+  requestAnimationFrame(() => {
+    update();
+    draw();
+  });
+}
+
+draw();
+</script>
+</body>
+</html>

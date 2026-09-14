@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crossword Arcade Frogger</title>
+<style>
+  body {
+    background-color: #1a1a2e;
+    color: #ffffff;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    padding: 20px;
+  }
+
+  #game-container {
+    background-color: #16213e;
+    border: 4px solid #0f3460;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+    text-align: center;
+    max-width: 650px;
+    width: 100%;
+  }
+
+  #header {
+    margin-bottom: 15px;
+  }
+
+  #timer-display {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #e94560;
+    margin-bottom: 10px;
+  }
+
+  #prompt-box {
+    background-color: #0f3460;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    min-height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #533483;
+  }
+
+  #grid {
+    display: grid;
+    grid-template-rows: repeat(8, 50px);
+    grid-template-columns: repeat(7, 80px);
+    gap: 2px;
+    background-color: #0f172a;
+    border: 2px solid #334155;
+    margin: 15px auto;
+    width: max-content;
+    position: relative;
+  }
+
+  .cell {
+    width: 80px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-align: center;
+    box-sizing: border-box;
+    padding: 2px;
+    user-select: none;
+    word-break: break-word;
+  }
+
+  /* Terrain types */
+  .zone-top { background-color: #1e293b; color: #f8fafc; border: 1px dashed #475569; }
+  .zone-water { background-color: #0284c7; }
+  .zone-safe { background-color: #334155; }
+  .zone-road { background-color: #334155; }
+  .zone-start { background-color: #16a34a; }
+
+  /* Entities */
+  .log {
+    background-color: #78350f !important;
+    color: #fef3c7;
+    border-radius: 6px;
+    border: 1px solid #b45309;
+  }
+
+  .car {
+    background-color: #dc2626 !important;
+    color: #ffffff;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    line-height: 0.9;
+  }
+
+  .player {
+    background-color: #facc15 !important;
+    color: #000000;
+    border-radius: 50%;
+    font-weight: 900;
+    box-shadow: 0 0 10px #facc15;
+  }
+
+  #controls-hint {
+    margin-top: 10px;
+    font-size: 0.9rem;
+    color: #94a3b8;
+  }
+
+  button {
+    background-color: #e94560;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    font-size: 1rem;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-top: 10px;
+  }
+
+  button:hover {
+    background-color: #c02739;
+  }
+</style>
+</head>
+<body>
+
+<div id="game-container">
+  <h2>Crossword Arcade Frogger</h2>
+  <div id="timer-display">Time Left: <span id="time">45</span>s</div>
+  <div id="prompt-box">
+    <span id="puzzle-text">Loading puzzle...</span>
+  </div>
+
+  <div id="grid"></div>
+
+  <div id="controls-hint">Use <b>Arrow Keys</b> or <b>WASD</b> to navigate across to the matching safety zone!</div>
+</div>
+
+<script>
+const vocabulary = [
+  { word: "participant", def: "A person who takes part in something.", puzzle: "The active _____ completed all stages of the study." },
+  { word: "implication", def: "A likely consequence or result.", puzzle: "The decision has a serious political _____ for the region." },
+  { word: "motivation", def: "The reason or desire to act.", puzzle: "High ambition was her primary _____ to succeed." },
+  { word: "polished", def: "Refined, elegant, or shiny.", puzzle: "He delivered a very smooth and _____ presentation." },
+  { word: "outfit", def: "A set of clothes worn together.", puzzle: "She chose a formal _____ for the job interview." },
+  { word: "reinforce", def: "To strengthen or support.", puzzle: "We need extra beams to _____ the aging structure." },
+  { word: "accessible", def: "Easy to reach, enter, or use.", puzzle: "The new building design is fully _____ to everyone." }
+];
+
+const GRID_ROWS = 8;
+const GRID_COLS = 7;
+
+let player = { r: 7, c: 3 };
+let currentTargetIndex = 0;
+let timeLeft = 45;
+let timerInterval = null;
+let gameInterval = null;
+let topZones = [];
+
+// Dynamic row obstacles tracking
+let logs = []; // Row 1 & 2
+let cars = []; // Row 4 & 5
+
+function initGame() {
+  clearInterval(timerInterval);
+  clearInterval(gameInterval);
+  
+  // Pick random puzzle
+  currentTargetIndex = Math.floor(Math.random() * vocabulary.length);
+  const currentVocab = vocabulary[currentTargetIndex];
+  
+  document.getElementById("puzzle-text").innerText = currentVocab.puzzle;
+  
+  // Setup safety options at top
+  let options = [currentVocab.word];
+  while (options.length < GRID_COLS) {
+    let randWord = vocabulary[Math.floor(Math.random() * vocabulary.length)].word;
+    if (!options.includes(randWord)) {
+      options.push(randWord);
+    }
+  }
+  options.sort(() => Math.random() - 0.5);
+  topZones = options;
+
+  // Reset player & timer
+  player = { r: 7, c: 3 };
+  timeLeft = 45;
+  document.getElementById("time").innerText = timeLeft;
+
+  // Initialize obstacles
+  logs = [
+    { r: 1, c: 0, dir: 1, word: vocabulary[0].word },
+    { r: 1, c: 4, dir: 1, word: vocabulary[1].word },
+    { r: 2, c: 2, dir: -1, word: vocabulary[2].word },
+    { r: 2, c: 6, dir: -1, word: vocabulary[3].word }
+  ];
+
+  cars = [
+    { r: 4, c: 1, dir: 1, def: vocabulary[4].def },
+    { r: 4, c: 5, dir: 1, def: vocabulary[5].def },
+    { r: 5, c: 0, dir: -1, def: vocabulary[6].def },
+    { r: 5, c: 3, dir: -1, def: vocabulary[0].def }
+  ];
+
+  renderGrid();
+
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    document.getElementById("time").innerText = timeLeft;
+    if (timeLeft <= 0) {
+      gameOver("Time's up! Try again.");
+    }
+  }, 1000);
+
+  gameInterval = setInterval(gameLoop, 800);
+}
+
+function gameLoop() {
+  // Move logs
+  logs.forEach(log => {
+    log.c = (log.c + log.dir + GRID_COLS) % GRID_COLS;
+  });
+
+  // Move cars
+  cars.forEach(car => {
+    car.c = (car.c + car.dir + GRID_COLS) % GRID_COLS;
+  });
+
+  // Check raft riding logic if player is on water
+  if (player.r === 1 || player.r === 2) {
+    let logOnPlayer = logs.find(l => l.r === player.r && l.c === player.c);
+    if (logOnPlayer) {
+      // Ride log
+      player.c += logOnPlayer.dir;
+      if (player.c < 0 || player.c >= GRID_COLS) {
+        gameOver("You drifted off-screen!");
+        return;
+      }
+    } else {
+      gameOver("You splashed into the water!");
+      return;
+    }
+  }
+
+  // Check collision with cars
+  if (player.r === 4 || player.r === 5) {
+    let hitCar = cars.find(c => c.r === player.r && c.c === player.c);
+    if (hitCar) {
+      gameOver("Watch out! You hit a vehicle.");
+      return;
+    }
+  }
+
+  renderGrid();
+}
+
+function renderGrid() {
+  const gridEl = document.getElementById("grid");
+  gridEl.innerHTML = "";
+
+  for (let r = 0; r < GRID_ROWS; r++) {
+    for (let c = 0; c < GRID_COLS; c++) {
+      const cell = document.createElement("div");
+      cell.classList.add("cell");
+
+      // Row terrain assignment
+      if (r === 0) {
+        cell.classList.add("zone-top");
+        cell.innerText = topZones[c];
+      } else if (r === 1 || r === 2) {
+        cell.classList.add("zone-water");
+      } else if (r === 3) {
+        cell.classList.add("zone-safe");
+        cell.innerText = "SAFE";
+      } else if (r === 4 || r === 5) {
+        cell.classList.add("zone-road");
+      } else if (r === 6) {
+        cell.classList.add("zone-safe");
+        cell.innerText = "SAFE";
+      } else if (r === 7) {
+        cell.classList.add("zone-start");
+      }
+
+      // Draw Logs
+      let log = logs.find(l => l.r === r && l.c === c);
+      if (log) {
+        cell.classList.add("log");
+        cell.innerText = log.word;
+      }
+
+      // Draw Cars
+      let car = cars.find(cObj => cObj.r === r && cObj.c === c);
+      if (car) {
+        cell.classList.add("car");
+        cell.innerText = car.def;
+      }
+
+      // Draw Player
+      if (player.r === r && player.c === c) {
+        cell.classList.add("player");
+        cell.innerText = "FROG";
+      }
+
+      gridEl.appendChild(cell);
+    }
+  }
+}
+
+function handleInput(e) {
+  let key = e.key.toLowerCase();
+  let newR = player.r;
+  let newC = player.c;
+
+  if (key === "arrowup" || key === "w") newR--;
+  if (key === "arrowdown" || key === "s") newR++;
+  if (key === "arrowleft" || key === "a") newC--;
+  if (key === "arrowright" || key === "d") newC++;
+
+  // Boundary checks
+  if (newR >= 0 && newR < GRID_ROWS && newC >= 0 && newC < GRID_COLS) {
+    player.r = newR;
+    player.c = newC;
+
+    // Check immediately upon entering top row
+    if (player.r === 0) {
+      checkWin();
+      return;
+    }
+
+    // Check immediate collisions upon step
+    if (player.r === 4 || player.r === 5) {
+      if (cars.some(c => c.r === player.r && c.c === player.c)) {
+        gameOver("Watch out! You stepped into traffic.");
+        return;
+      }
+    }
+
+    if (player.r === 1 || player.r === 2) {
+      if (!logs.some(l => l.r === player.r && l.c === player.c)) {
+        gameOver("You stepped directly into the water!");
+        return;
+      }
+    }
+
+    renderGrid();
+  }
+}
+
+function checkWin() {
+  const selectedWord = topZones[player.c];
+  const targetWord = vocabulary[currentTargetIndex].word;
+
+  if (selectedWord === targetWord) {
+    alert("Correct! You solved the puzzle!");
+    initGame();
+  } else {
+    gameOver(`Wrong destination! "${selectedWord}" doesn't fit the sentence.`);
+  }
+}
+
+function gameOver(msg) {
+  clearInterval(timerInterval);
+  clearInterval(gameInterval);
+  alert(msg);
+  initGame();
+}
+
+window.addEventListener("keydown", handleInput);
+window.onload = initGame;
+</script>
+</body>
+</html>

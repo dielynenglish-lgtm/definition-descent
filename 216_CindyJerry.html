@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flashcard Memory Matrix</title>
+  <style>
+    :root {
+      --bg-color: #0f172a;
+      --card-back: #1e293b;
+      --card-front: #3b82f6;
+      --card-matched: #10b981;
+      --text-color: #f8fafc;
+      --accent-color: #38bdf8;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+      color: var(--accent-color);
+    }
+
+    .dashboard {
+      display: flex;
+      gap: 30px;
+      margin-bottom: 20px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      background: #1e293b;
+      padding: 10px 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
+
+    .grid-container {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      width: 100%;
+      max-width: 600px;
+      perspective: 1000px;
+    }
+
+    .card {
+      height: 110px;
+      background-color: var(--card-back);
+      border: 2px solid #334155;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+      transition: transform 0.3s ease, background-color 0.3s ease;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      border-color: var(--accent-color);
+    }
+
+    .card.flipped {
+      background-color: var(--card-front);
+      color: #ffffff;
+    }
+
+    .card.matched {
+      background-color: var(--card-matched);
+      color: #ffffff;
+      cursor: default;
+      border-color: #059669;
+    }
+
+    /* Modal Styling */
+    .overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8);
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+    }
+
+    .modal {
+      background: #1e293b;
+      padding: 30px;
+      border-radius: 12px;
+      text-align: center;
+      max-width: 400px;
+      border: 2px solid var(--accent-color);
+    }
+
+    .modal h2 { margin-top: 0; color: var(--accent-color); }
+
+    .btn {
+      background: var(--accent-color);
+      color: #0f172a;
+      border: none;
+      padding: 10px 20px;
+      font-size: 1rem;
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 15px;
+    }
+
+    .btn:hover { background: #0284c7; color: #ffffff; }
+  </style>
+</head>
+<body>
+
+  <h1>Memory Matrix</h1>
+  
+  <div class="dashboard">
+    <div>Timer: <span id="timer">90</span>s</div>
+    <div>Matches: <span id="matches">0</span>/8</div>
+    <div>Moves: <span id="moves">0</span></div>
+  </div>
+
+  <div class="grid-container" id="grid"></div>
+
+  <!-- End Game Modal -->
+  <div class="overlay" id="overlay">
+    <div class="modal">
+      <h2 id="modal-title">Game Over</h2>
+      <p id="modal-body"></p>
+      <button class="btn" onclick="initGame()">Play Again</button>
+    </div>
+  </div>
+
+  <script>
+    const vocabularyPairs = [
+      { word: "unidentified", def: "Not recognized or identified" },
+      { word: "phenomenon", def: "A remarkable event or occurrence" },
+      { word: "radar", def: "A system for detecting presence of objects" },
+      { word: "sensor", def: "A device that detects or measures physical properties" },
+      { word: "personnel", def: "People employed in an organization or service" },
+      { word: "strengthen", def: "To make or become stronger" },
+      { word: "mystery", def: "Something that is difficult or impossible to understand" },
+      { word: "evaluate", def: "To form an idea of the value or amount of something" }
+    ];
+
+    let cardsData = [];
+    let flippedCards = [];
+    let matchedCount = 0;
+    let moveCount = 0;
+    let timerSeconds = 90;
+    let timerInterval = null;
+    let isBoardLocked = false;
+
+    function initGame() {
+      // Reset state
+      document.getElementById('overlay').style.display = 'none';
+      matchedCount = 0;
+      moveCount = 0;
+      timerSeconds = 90;
+      isBoardLocked = false;
+      flippedCards = [];
+      
+      document.getElementById('matches').innerText = '0';
+      document.getElementById('moves').innerText = '0';
+      document.getElementById('timer').innerText = '90';
+
+      clearInterval(timerInterval);
+
+      // Create card set (8 words + 8 definitions)
+      cardsData = [];
+      vocabularyPairs.forEach((pair, index) => {
+        cardsData.push({ id: index, text: pair.word, type: 'word' });
+        cardsData.push({ id: index, text: pair.def, type: 'def' });
+      });
+
+      // Shuffle cards
+      cardsData.sort(() => Math.random() - 0.5);
+
+      // Render grid
+      const grid = document.getElementById('grid');
+      grid.innerHTML = '';
+      
+      cardsData.forEach((item, idx) => {
+        const cardElem = document.createElement('div');
+        cardElem.classList.add('card');
+        cardElem.dataset.index = idx;
+        cardElem.dataset.id = item.id;
+        cardElem.innerText = '?'; // Face-down state
+        cardElem.addEventListener('click', handleCardClick);
+        grid.appendChild(cardElem);
+      });
+
+      // Start countdown
+      timerInterval = setInterval(updateTimer, 1000);
+    }
+
+    function handleCardClick(e) {
+      const clickedCard = e.currentTarget;
+
+      if (
+        isBoardLocked || 
+        clickedCard.classList.contains('flipped') || 
+        clickedCard.classList.contains('matched')
+      ) {
+        return;
+      }
+
+      // Flip card
+      const cardIndex = clickedCard.dataset.index;
+      clickedCard.classList.add('flipped');
+      clickedCard.innerText = cardsData[cardIndex].text;
+      flippedCards.push(clickedCard);
+
+      if (flippedCards.length === 2) {
+        moveCount++;
+        document.getElementById('moves').innerText = moveCount;
+        checkMatch();
+      }
+    }
+
+    function checkMatch() {
+      const [card1, card2] = flippedCards;
+      const isMatch = card1.dataset.id === card2.dataset.id;
+
+      if (isMatch) {
+        card1.classList.remove('flipped');
+        card2.classList.remove('flipped');
+        card1.classList.add('matched');
+        card2.classList.add('matched');
+        
+        matchedCount++;
+        document.getElementById('matches').innerText = matchedCount;
+        flippedCards = [];
+
+        if (matchedCount === 8) {
+          endGame(true);
+        }
+      } else {
+        isBoardLocked = true;
+        setTimeout(() => {
+          card1.classList.remove('flipped');
+          card2.classList.remove('flipped');
+          card1.innerText = '?';
+          card2.innerText = '?';
+          flippedCards = [];
+          isBoardLocked = false;
+        }, 1000);
+      }
+    }
+
+    function updateTimer() {
+      timerSeconds--;
+      document.getElementById('timer').innerText = timerSeconds;
+
+      if (timerSeconds <= 0) {
+        endGame(false);
+      }
+    }
+
+    function endGame(isWin) {
+      clearInterval(timerInterval);
+      const overlay = document.getElementById('overlay');
+      const title = document.getElementById('modal-title');
+      const body = document.getElementById('modal-body');
+
+      if (isWin) {
+        title.innerText = "Victory!";
+        
+        // Efficiency Rating Logic
+        let rating = "S (Master)";
+        if (moveCount > 12 && moveCount <= 18) rating = "A (Expert)";
+        else if (moveCount > 18 && moveCount <= 25) rating = "B (Skilled)";
+        else if (moveCount > 25) rating = "C (Apprentice)";
+
+        body.innerHTML = `You matched all cards in <b>${90 - timerSeconds}</b> seconds!<br><br>Total Moves: <b>${moveCount}</b><br>Efficiency Rating: <b>${rating}</b>`;
+      } else {
+        title.innerText = "Time's Up!";
+        body.innerHTML = `You ran out of time! You found <b>${matchedCount}/8</b> matches.<br>Give it another shot!`;
+      }
+
+      overlay.style.display = 'flex';
+    }
+
+    // Start on load
+    initGame();
+  </script>
+</body>
+</html>

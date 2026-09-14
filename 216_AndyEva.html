@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Balloon Pop Vocabulary Game</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(to bottom, #1a2a6c, #b21f1f, #fdbb2d);
+      height: 100vh;
+      overflow: hidden;
+      position: relative;
+      user-select: none;
+    }
+
+    /* Screen shake animation */
+    @keyframes shake {
+      0% { transform: translate(1px, 1px) rotate(0deg); }
+      10% { transform: translate(-1px, -2px) rotate(-1deg); }
+      20% { transform: translate(-3px, 0px) rotate(1deg); }
+      30% { transform: translate(3px, 2px) rotate(0deg); }
+      40% { transform: translate(1px, -1px) rotate(1deg); }
+      50% { transform: translate(-1px, 2px) rotate(-1deg); }
+      60% { transform: translate(-3px, 1px) rotate(0deg); }
+      70% { transform: translate(3px, 1px) rotate(-1deg); }
+      80% { transform: translate(-1px, -1px) rotate(1deg); }
+      90% { transform: translate(1px, 2px) rotate(0deg); }
+      100% { transform: translate(1px, -2px) rotate(-1deg); }
+    }
+
+    .shake {
+      animation: shake 0.4s;
+    }
+
+    /* Command Center Box */
+    #command-center {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 80%;
+      max-width: 650px;
+      background: rgba(0, 0, 0, 0.65);
+      border: 3px solid rgba(255, 255, 255, 0.8);
+      border-radius: 16px;
+      padding: 20px;
+      color: white;
+      text-align: center;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+      backdrop-filter: blur(8px);
+      z-index: 100;
+    }
+
+    #stats {
+      display: flex;
+      justify-content: space-between;
+      font-size: 1.2rem;
+      font-weight: bold;
+      margin-bottom: 12px;
+    }
+
+    #definition-box {
+      font-size: 1.3rem;
+      background: rgba(255, 255, 255, 0.15);
+      padding: 12px;
+      border-radius: 8px;
+    }
+
+    /* Balloon styling */
+    .balloon {
+      position: absolute;
+      bottom: -120px;
+      width: 90px;
+      height: 110px;
+      border-radius: 50% 50% 50% 50% / 40% 40% 60% 60%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      color: white;
+      font-weight: bold;
+      font-size: 0.95rem;
+      padding: 8px;
+      cursor: pointer;
+      box-shadow: inset -10px -10px 20px rgba(0,0,0,0.3);
+      animation: floatUp linear forwards;
+    }
+
+    .balloon::after {
+      content: "";
+      position: absolute;
+      bottom: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-bottom: 12px solid inherit;
+    }
+
+    @keyframes floatUp {
+      0% {
+        bottom: -120px;
+      }
+      100% {
+        bottom: 105vh;
+      }
+    }
+
+    /* Game Over Modal */
+    #game-over-modal {
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.85);
+      z-index: 200;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      color: white;
+    }
+
+    #game-over-modal h1 {
+      font-size: 3rem;
+      margin-bottom: 15px;
+    }
+
+    #game-over-modal p {
+      font-size: 1.5rem;
+      margin-bottom: 25px;
+    }
+
+    #restart-btn {
+      padding: 12px 28px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      background: #fdbb2d;
+      border: none;
+      border-radius: 25px;
+      cursor: pointer;
+      color: #333;
+      transition: transform 0.2s;
+    }
+
+    #restart-btn:hover {
+      transform: scale(1.05);
+    }
+  </style>
+</head>
+<body>
+
+  <div id="command-center">
+    <div id="stats">
+      <span>Score: <span id="score">0</span></span>
+      <span>Time: <span id="timer">90</span>s</span>
+    </div>
+    <div id="definition-box">
+      Target Definition: <span id="target-definition">Loading...</span>
+    </div>
+  </div>
+
+  <div id="game-over-modal">
+    <h1>Game Over!</h1>
+    <p>Your Final Score: <span id="final-score">0</span></p>
+    <button id="restart-btn" onclick="startGame()">Play Again</button>
+  </div>
+
+  <script>
+    const vocabulary = [
+      { word: "agony", definition: "Extreme physical or mental suffering" },
+      { word: "vomit", definition: "Eject matter from the stomach through the mouth" },
+      { word: "dose", definition: "A quantity of a medicine or drug taken at one time" },
+      { word: "undergo", definition: "Experience or be subjected to something" },
+      { word: "surgery", definition: "Medical treatment involving an operation" },
+      { word: "massive", definition: "Large and heavy or solid; exceptionally high degree" },
+      { word: "physically", definition: "In a manner relating to the body rather than the mind" }
+    ];
+
+    const balloonColors = ['#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#f1c40f', '#e67e22', '#1abc9c'];
+
+    let score = 0;
+    let timeLeft = 90;
+    let currentTarget = null;
+    let gameInterval = null;
+    let spawnInterval = null;
+
+    function getRandomWord() {
+      const randomIndex = Math.floor(Math.random() * vocabulary.length);
+      return vocabulary[randomIndex];
+    }
+
+    function setNextTarget() {
+      currentTarget = getRandomWord();
+      document.getElementById('target-definition').textContent = currentTarget.definition;
+    }
+
+    function createBalloon() {
+      const balloon = document.createElement('div');
+      balloon.classList.add('balloon');
+
+      // Pick a random word from vocabulary
+      const item = getRandomWord();
+      balloon.textContent = item.word;
+      balloon.dataset.word = item.word;
+
+      // Styling
+      const color = balloonColors[Math.floor(Math.random() * balloonColors.length)];
+      balloon.style.backgroundColor = color;
+      
+      // Random horizontal position (keep within screen margins)
+      const randomX = Math.floor(Math.random() * (window.innerWidth - 120)) + 15;
+      balloon.style.left = `${randomX}px`;
+
+      // Random float duration between 7s and 12s
+      const duration = Math.floor(Math.random() * 5) + 7;
+      balloon.style.animationDuration = `${duration}s`;
+
+      // Click handler
+      balloon.addEventListener('click', () => popBalloon(balloon));
+
+      // Remove balloon once animation completes
+      balloon.addEventListener('animationend', () => {
+        balloon.remove();
+      });
+
+      document.body.appendChild(balloon);
+    }
+
+    function popBalloon(balloon) {
+      const clickedWord = balloon.dataset.word;
+
+      if (clickedWord === currentTarget.word) {
+        score += 10;
+        document.getElementById('score').textContent = score;
+        balloon.remove();
+        setNextTarget();
+      } else {
+        score -= 5;
+        document.getElementById('score').textContent = score;
+        balloon.remove();
+        triggerScreenShake();
+      }
+    }
+
+    function triggerScreenShake() {
+      document.body.classList.add('shake');
+      setTimeout(() => {
+        document.body.classList.remove('shake');
+      }, 400);
+    }
+
+    function startGame() {
+      // Clear existing elements
+      document.querySelectorAll('.balloon').forEach(b => b.remove());
+      document.getElementById('game-over-modal').style.display = 'none';
+
+      score = 0;
+      timeLeft = 90;
+      document.getElementById('score').textContent = score;
+      document.getElementById('timer').textContent = timeLeft;
+
+      setNextTarget();
+
+      // Main timer countdown
+      clearInterval(gameInterval);
+      gameInterval = setInterval(() => {
+        timeLeft--;
+        document.getElementById('timer').textContent = timeLeft;
+
+        if (timeLeft <= 0) {
+          endGame();
+        }
+      }, 1000);
+
+      // Spawn 1 balloon per second
+      clearInterval(spawnInterval);
+      spawnInterval = setInterval(() => {
+        createBalloon();
+      }, 1000);
+    }
+
+    function endGame() {
+      clearInterval(gameInterval);
+      clearInterval(spawnInterval);
+      document.querySelectorAll('.balloon').forEach(b => b.remove());
+
+      document.getElementById('final-score').textContent = score;
+      document.getElementById('game-over-modal').style.display = 'flex';
+    }
+
+    window.onload = startGame;
+  </script>
+</body>
+</html>

@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word-Chain Miner</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #121212;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        #game-container {
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        #ui-header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 70px;
+            background: rgba(20, 20, 20, 0.9);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            box-sizing: border-box;
+            border-bottom: 2px solid #333;
+            z-index: 10;
+        }
+
+        .ui-box {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        #target-def {
+            color: #ffd700;
+            font-size: 15px;
+            max-width: 440px;
+            text-align: center;
+            background: rgba(255, 215, 0, 0.1);
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid #ffd700;
+        }
+
+        canvas {
+            background: #2b1d0c;
+            display: block;
+        }
+
+        #game-over-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 800px;
+            height: 600px;
+            background: rgba(0, 0, 0, 0.88);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        button {
+            padding: 12px 28px;
+            font-size: 18px;
+            font-weight: bold;
+            background-color: #ffd700;
+            color: #000;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: transform 0.1s, background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #ffae00;
+            transform: scale(1.05);
+        }
+
+        #controls-hint {
+            margin-top: 12px;
+            color: #bbb;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="ui-header">
+        <div class="ui-box">Time: <span id="timer-display" style="color:#ff4d4d;">60</span>s</div>
+        <div id="target-def">Definition: <span id="def-text">Loading...</span></div>
+        <div class="ui-box">Score: <span id="score-display" style="color:#4de6a6;">0</span></div>
+    </div>
+
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <div id="game-over-overlay">
+        <h1 style="font-size: 48px; color: #ffd700; margin-bottom: 10px;">Time's Up!</h1>
+        <p style="font-size: 24px;">Final Score: <span id="final-score">0</span></p>
+        <button onclick="resetGame()">Play Again</button>
+    </div>
+</div>
+
+<div id="controls-hint">Press <strong>DOWN ARROW</strong> to fire the mechanical claw downward!</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// Game Vocabulary (7 words provided)
+const vocabulary = [
+    { word: "reservation", def: "An arrangement to hold something (like a room or seat) for future use." },
+    { word: "preference", def: "A greater liking for one alternative over another." },
+    { word: "secure", def: "Safe from danger, harm, or loss; firmly fixed." },
+    { word: "session", def: "A period devoted to a particular activity or meeting." },
+    { word: "massage", def: "Rubbing and kneading of muscles and joints to relieve tension." },
+    { word: "promptly", def: "With little or no delay; done immediately." },
+    { word: "opening", def: "An available position, vacancy, or an open space." }
+];
+
+// Game State Variables
+let score = 0;
+let timeLeft = 60;
+let gameTimer = null;
+let isGameOver = false;
+let currentTarget = null;
+
+// Mechanical Claw Physics Variables
+const pivotX = canvas.width / 2;
+const pivotY = 70;
+let angle = 0;
+let angleSpeed = 0.025;
+let maxAngle = Math.PI / 2.3;
+let ropeLength = 30;
+let minRopeLength = 30;
+let maxRopeLength = 540;
+let clawState = 'SWINGING'; // 'SWINGING', 'EXTENDING', 'RETRACTING'
+let reelSpeed = 8;
+let grabbedNugget = null;
+
+// Underground Gold Nuggets Container
+let nuggets = [];
+
+class Nugget {
+    constructor(vocab, x, y) {
+        this.vocab = vocab;
+        this.x = x;
+        this.y = y;
+        this.radius = 38;
+        this.color = '#ffd700';
+    }
+
+    draw() {
+        // Draw Gold Nugget Body
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        ctx.shadowColor = '#000';
+        ctx.shadowBlur = 6;
+        ctx.fill();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#b8860b';
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // Draw Vocabulary Label
+        ctx.fillStyle = '#000';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(this.vocab.word, this.x, this.y);
+    }
+}
+
+function initNuggets() {
+    nuggets = [];
+    // Shuffle vocabulary list and select 6 distinct nuggets for the underground area
+    let shuffled = [...vocabulary].sort(() => 0.5 - Math.random());
+    let selected = shuffled.slice(0, 6);
+
+    // Grid-based distinct positions to prevent overlapping
+    const positions = [
+        { x: 130, y: 200 },
+        { x: 400, y: 220 },
+        { x: 670, y: 200 },
+        { x: 220, y: 410 },
+        { x: 580, y: 430 },
+        { x: 400, y: 520 }
+    ];
+
+    for (let i = 0; i < selected.length; i++) {
+        nuggets.push(new Nugget(selected[i], positions[i].x, positions[i].y));
+    }
+
+    pickNewTarget();
+}
+
+function pickNewTarget() {
+    if (nuggets.length === 0) return;
+    const randomIndex = Math.floor(Math.random() * nuggets.length);
+    currentTarget = nuggets[randomIndex].vocab;
+    document.getElementById('def-text').innerText = currentTarget.def;
+}
+
+function updateClaw() {
+    if (clawState === 'SWINGING') {
+        angle += angleSpeed;
+        if (angle > maxAngle || angle < -maxAngle) {
+            angleSpeed = -angleSpeed;
+        }
+    } else if (clawState === 'EXTENDING') {
+        ropeLength += 10;
+        let clawX = pivotX + Math.sin(angle) * ropeLength;
+        let clawY = pivotY + Math.cos(angle) * ropeLength;
+
+        // Boundary collision check
+        if (clawX < 15 || clawX > canvas.width - 15 || clawY > canvas.height - 15 || ropeLength >= maxRopeLength) {
+            clawState = 'RETRACTING';
+            reelSpeed = 8;
+        }
+
+        // Nugget grab collision check
+        for (let i = 0; i < nuggets.length; i++) {
+            let n = nuggets[i];
+            let dist = Math.hypot(clawX - n.x, clawY - n.y);
+            if (dist < n.radius + 10) {
+                grabbedNugget = nuggets.splice(i, 1)[0];
+                clawState = 'RETRACTING';
+
+                // Heavy-weight slowdown effect: incorrect nuggets reel in 3x slower
+                if (grabbedNugget.vocab.word === currentTarget.word) {
+                    reelSpeed = 6; // Standard reel speed
+                } else {
+                    reelSpeed = 2; // Heavy slowdown (3x slower)
+                }
+                break;
+            }
+        }
+    } else if (clawState === 'RETRACTING') {
+        ropeLength -= reelSpeed;
+
+        if (grabbedNugget) {
+            grabbedNugget.x = pivotX + Math.sin(angle) * ropeLength;
+            grabbedNugget.y = pivotY + Math.cos(angle) * ropeLength;
+        }
+
+        if (ropeLength <= minRopeLength) {
+            ropeLength = minRopeLength;
+            clawState = 'SWINGING';
+
+            if (grabbedNugget) {
+                processGrabbedItem(grabbedNugget);
+                grabbedNugget = null;
+            }
+        }
+    }
+}
+
+function processGrabbedItem(nugget) {
+    if (nugget.vocab.word === currentTarget.word) {
+        // Points awarded based on depth (Y position)
+        let depthPoints = Math.floor(nugget.y);
+        score += depthPoints;
+        document.getElementById('score-display').innerText = score;
+        respawnNugget();
+        pickNewTarget();
+    } else {
+        // Penalty for incorrect nugget
+        score = Math.max(0, score - 150);
+        document.getElementById('score-display').innerText = score;
+        respawnNugget();
+    }
+}
+
+function respawnNugget() {
+    // Select an unused word from the 7-word list to replace the retrieved nugget
+    let unusedVocab = vocabulary.filter(v => !nuggets.some(n => n.vocab.word === v.word));
+    let newVocab = unusedVocab.length > 0 
+        ? unusedVocab[Math.floor(Math.random() * unusedVocab.length)] 
+        : vocabulary[Math.floor(Math.random() * vocabulary.length)];
+
+    let validPos = false;
+    let newX, newY;
+
+    // Ensure non-overlapping coordinates for the new nugget
+    while (!validPos) {
+        newX = 110 + Math.random() * (canvas.width - 220);
+        newY = 180 + Math.random() * (canvas.height - 240);
+        validPos = nuggets.every(n => Math.hypot(n.x - newX, n.y - newY) > 85);
+    }
+
+    nuggets.push(new Nugget(newVocab, newX, newY));
+}
+
+function drawScene() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Underground Divider Line
+    ctx.strokeStyle = '#5c3a21';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(0, 110);
+    ctx.lineTo(canvas.width, 110);
+    ctx.stroke();
+
+    // Underground Fill
+    ctx.fillStyle = '#231609';
+    ctx.fillRect(0, 110, canvas.width, canvas.height - 110);
+
+    // Draw Gold Nuggets
+    nuggets.forEach(n => n.draw());
+    if (grabbedNugget) grabbedNugget.draw();
+
+    // Calculate Hook Position
+    let clawX = pivotX + Math.sin(angle) * ropeLength;
+    let clawY = pivotY + Math.cos(angle) * ropeLength;
+
+    // Draw Winding Rope
+    ctx.beginPath();
+    ctx.moveTo(pivotX, pivotY);
+    ctx.lineTo(clawX, clawY);
+    ctx.strokeStyle = '#bbb';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    // Draw Top Mechanical Anchor
+    ctx.fillStyle = '#555';
+    ctx.fillRect(pivotX - 25, 60, 50, 15);
+
+    // Draw Swinging Metal Claw
+    ctx.save();
+    ctx.translate(clawX, clawY);
+    ctx.rotate(-angle);
+    ctx.strokeStyle = '#ddd';
+    ctx.lineWidth = 4;
+
+    // Left Prongs
+    ctx.beginPath();
+    ctx.arc(-10, 10, 12, Math.PI * 0.5, Math.PI * 1.2);
+    ctx.stroke();
+
+    // Right Prongs
+    ctx.beginPath();
+    ctx.arc(10, 10, 12, Math.PI * -0.2, Math.PI * 0.5);
+    ctx.stroke();
+
+    ctx.restore();
+}
+
+function gameLoop() {
+    if (!isGameOver) {
+        updateClaw();
+        drawScene();
+        requestAnimationFrame(gameLoop);
+    }
+}
+
+function startTimer() {
+    gameTimer = setInterval(() => {
+        timeLeft--;
+        document.getElementById('timer-display').innerText = timeLeft;
+
+        if (timeLeft <= 0) {
+            endGame();
+        }
+    }, 1000);
+}
+
+function endGame() {
+    isGameOver = true;
+    clearInterval(gameTimer);
+    document.getElementById('final-score').innerText = score;
+    document.getElementById('game-over-overlay').classList.remove('hidden');
+}
+
+function resetGame() {
+    score = 0;
+    timeLeft = 60;
+    isGameOver = false;
+    angle = 0;
+    ropeLength = minRopeLength;
+    clawState = 'SWINGING';
+    grabbedNugget = null;
+
+    document.getElementById('score-display').innerText = score;
+    document.getElementById('timer-display').innerText = timeLeft;
+    document.getElementById('game-over-overlay').classList.add('hidden');
+
+    initNuggets();
+    clearInterval(gameTimer);
+    startTimer();
+    requestAnimationFrame(gameLoop);
+}
+
+// Key Controls
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown' && clawState === 'SWINGING' && !isGameOver) {
+        clawState = 'EXTENDING';
+    }
+});
+
+// Start Game
+initNuggets();
+startTimer();
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
