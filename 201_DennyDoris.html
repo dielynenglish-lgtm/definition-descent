@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vocabulary Challenge</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #1a1a2e;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+
+    .game-container {
+      background-color: #16213e;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      width: 90%;
+      max-width: 600px;
+      text-align: center;
+    }
+
+    h1 {
+      color: #e94560;
+      margin-top: 0;
+    }
+
+    .score-board {
+      font-size: 1.2rem;
+      margin-bottom: 20px;
+      color: #4ecca3;
+    }
+
+    .definition-card {
+      background-color: #0f3460;
+      padding: 20px;
+      border-radius: 8px;
+      font-size: 1.1rem;
+      min-height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 25px;
+      border: 2px solid #e94560;
+    }
+
+    .options-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 15px;
+    }
+
+    button.option-btn {
+      background-color: #0f3460;
+      color: white;
+      border: 2px solid #4ecca3;
+      padding: 12px;
+      font-size: 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    button.option-btn:hover {
+      background-color: #4ecca3;
+      color: #1a1a2e;
+      font-weight: bold;
+    }
+
+    .feedback {
+      margin-top: 20px;
+      font-weight: bold;
+      height: 24px;
+    }
+
+    .restart-btn {
+      margin-top: 20px;
+      padding: 10px 20px;
+      background-color: #e94560;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 1rem;
+      cursor: pointer;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+<div class="game-container">
+  <h1>Vocabulary Builder</h1>
+  <div class="score-board">Score: <span id="score">0</span></div>
+  
+  <div class="definition-card" id="definition">Loading question...</div>
+  
+  <div class="options-grid" id="options"></div>
+  
+  <div class="feedback" id="feedback"></div>
+  <button class="restart-btn" id="restart" onclick="startGame()">Play Again</button>
+</div>
+
+<script>
+  const vocabData = [
+    { word: "presentation", definition: "A speech or talk in which a new product, idea, or piece of work is shown and explained." },
+    { word: "boost", definition: "To help or encourage something to increase or improve." },
+    { word: "accomplish", definition: "To achieve or complete something successfully." },
+    { word: "purchase", definition: "To acquire something by paying money for it." },
+    { word: "trigger", definition: "To cause an event or situation to happen or exist." },
+    { word: "psychology", definition: "The scientific study of the human mind and its functions." },
+    { word: "stability", definition: "The state of being resistant to change or deterioration." }
+  ];
+
+  let currentQuestions = [];
+  let currentIndex = 0;
+  let score = 0;
+
+  function shuffle(array) {
+    return array.sort(() => Math.random() - 0.5);
+  }
+
+  function startGame() {
+    score = 0;
+    currentIndex = 0;
+    document.getElementById("score").innerText = score;
+    document.getElementById("feedback").innerText = "";
+    document.getElementById("restart").style.display = "none";
+    currentQuestions = shuffle([...vocabData]);
+    showQuestion();
+  }
+
+  function showQuestion() {
+    if (currentIndex >= currentQuestions.length) {
+      document.getElementById("definition").innerText = `Great job! Game Over! Final Score: ${score}/${vocabData.length}`;
+      document.getElementById("options").innerHTML = "";
+      document.getElementById("restart").style.display = "inline-block";
+      return;
+    }
+
+    const currentItem = currentQuestions[currentIndex];
+    document.getElementById("definition").innerText = currentItem.definition;
+
+    // Pick 3 wrong options + correct option
+    let choices = [currentItem.word];
+    let otherWords = vocabData.filter(v => v.word !== currentItem.word).map(v => v.word);
+    shuffle(otherWords);
+    choices.push(...otherWords.slice(0, 3));
+    shuffle(choices);
+
+    const optionsContainer = document.getElementById("options");
+    optionsContainer.innerHTML = "";
+
+    choices.forEach(choice => {
+      const btn = document.createElement("button");
+      btn.className = "option-btn";
+      btn.innerText = choice;
+      btn.onclick = () => checkAnswer(choice, currentItem.word);
+      optionsContainer.appendChild(btn);
+    });
+  }
+
+  function checkAnswer(selected, correct) {
+    const feedback = document.getElementById("feedback");
+    if (selected === correct) {
+      score++;
+      document.getElementById("score").innerText = score;
+      feedback.style.color = "#4ecca3";
+      feedback.innerText = "Correct!";
+    } else {
+      feedback.style.color = "#e94560";
+      feedback.innerText = `Wrong! Correct word was: ${correct}`;
+    }
+
+    currentIndex++;
+    setTimeout(() => {
+      feedback.innerText = "";
+      showQuestion();
+    }, 1200);
+  }
+
+  startGame();
+</script>
+
+</body>
+</html>

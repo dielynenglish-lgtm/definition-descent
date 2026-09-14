@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocab Galaga: Ancient History Edition</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #0b0b1a;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        #game-container {
+            position: relative;
+            box-shadow: 0 0 30px rgba(0, 238, 255, 0.3);
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid #00e1ff;
+        }
+
+        canvas {
+            display: block;
+            background: radial-gradient(circle at center, #111133 0%, #050510 100%);
+        }
+
+        .instructions {
+            margin-top: 15px;
+            color: #a0a0d0;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        kbd {
+            background-color: #222;
+            border: 1px solid #555;
+            border-radius: 3px;
+            padding: 2px 6px;
+            color: #00e1ff;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+</div>
+
+<div class="instructions">
+    Controls: <kbd>&larr;</kbd> <kbd>&rarr;</kbd> Move Ship | <kbd>Spacebar</kbd> Fire Laser | Match the Definition at top to the correct Alien Word!
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// --- VOCABULARY DATABASE (Ancient History - 10 Words) ---
+const vocabList = [
+    { word: "ARTEFACT", def: "An object made by a human being, typically of cultural or historical interest." },
+    { word: "HIEROGLYPH", def: "A picture or symbol used in a system of writing, especially in ancient Egypt." },
+    { word: "ZIGGURAT", def: "A rectangular tiered temple or terraced mound built by ancient Mesopotamians." },
+    { word: "PAPYRUS", def: "A material prepared in ancient Egypt from the pithy stem of a water plant, used for writing." },
+    { word: "EMPIRE", def: "An extensive group of states or countries under a single supreme authority." },
+    { word: "DYNASTY", def: "A line of hereditary rulers of a country or empire." },
+    { word: "AQUEDUCT", def: "An artificial channel constructed for conveying water, typically in ancient Rome." },
+    { word: "SARCOPHAGUS", def: "A stone coffin, typically adorned with a sculpture or inscription." },
+    { word: "CITADEL", def: "A fortress, typically on high ground, protecting or dominating a city." },
+    { word: "AGORA", def: "A public open space used for assemblies and markets in ancient Greece." }
+];
+
+// --- GAME STATE ---
+let score = 0;
+let lives = 3;
+let gameOver = false;
+let currentQuestion = null;
+let keys = {};
+
+// --- GAME OBJECTS ---
+const player = {
+    x: canvas.width / 2 - 20,
+    y: canvas.height - 50,
+    width: 40,
+    height: 30,
+    speed: 6,
+    vx: 0,
+    friction: 0.85
+};
+
+let projectiles = [];
+let aliens = [];
+let stars = [];
+
+// Generate background stars
+for (let i = 0; i < 70; i++) {
+    stars.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        size: Math.random() * 2,
+        speed: Math.random() * 0.5 + 0.2
+    });
+}
+
+// --- EVENT LISTENERS ---
+window.addEventListener('keydown', (e) => {
+    keys[e.code] = true;
+    if (e.code === 'KeyR' && gameOver) resetGame();
+});
+
+window.addEventListener('keyup', (e) => {
+    keys[e.code] = false;
+});
+
+// --- HELPER FUNCTIONS ---
+function getRandomIndices(total, count) {
+    let indices = [];
+    while (indices.length < count) {
+        let r = Math.floor(Math.random() * total);
+        if (!indices.includes(r)) indices.push(r);
+    }
+    return indices;
+}
+
+function spawnWave() {
+    projectiles = [];
+    aliens = [];
+
+    // Select 1 target word + 3 random incorrect words
+    const targetIdx = Math.floor(Math.random() * vocabList.length);
+    currentQuestion = vocabList[targetIdx];
+
+    let otherIndices = getRandomIndices(vocabList.length, 4).filter(idx => idx !== targetIdx);
+    if (otherIndices.length > 3) otherIndices.pop();
+    
+    let choices = [currentQuestion.word];
+    otherIndices.forEach(idx => choices.push(vocabList[idx].word));
+    
+    // Shuffle choices
+    choices.sort(() => Math.random() - 0.5);
+
+    // Create 4 Aliens spaced evenly
+    const spacing = canvas.width / 4;
+    choices.forEach((word, index) => {
+        aliens.push({
+            word: word,
+            isCorrect: word === currentQuestion.word,
+            x: spacing * index + spacing / 2 - 65,
+            y: 110,
+            width: 130,
+            height: 45,
+            homeX: spacing * index + spacing / 2 - 65,
+            homeY: 110,
+            isDiveBombing: false,
+            vx: 0,
+            vy: 0,
+            hoverOffset: Math.random() * Math.PI * 2
+        });
+    });
+}
+
+function resetGame() {
+    score = 0;
+    lives = 3;
+    gameOver = false;
+    player.x = canvas.width / 2 - 20;
+    spawnWave();
+    requestAnimationFrame(gameLoop);
+}
+
+// --- CORE GAME LOOP ---
+function update() {
+    if (gameOver) return;
+
+    // Smooth Player Physics
+    if (keys['ArrowLeft'] || keys['KeyA']) player.vx -= 0.8;
+    if (keys['ArrowRight'] || keys['KeyD']) player.vx += 0.8;
+    
+    player.vx *= player.friction;
+    player.x += player.vx;
+
+    // Player Boundaries
+    if (player.x < 10) player.x = 10;
+    if (player.x + player.width > canvas.width - 10) player.x = canvas.width - player.width - 10;
+
+    // Fire Laser
+    if (keys['Space']) {
+        if (!player.lastFired || Date.now() - player.lastFired > 250) {
+            projectiles.push({
+                x: player.x + player.width / 2 - 3,
+                y: player.y,
+                width: 6,
+                height: 16,
+                speed: 10
+            });
+            player.lastFired = Date.now();
+        }
+    }
+
+    // Move Stars
+    stars.forEach(star => {
+        star.y += star.speed;
+        if (star.y > canvas.height) star.y = 0;
+    });
+
+    // Move Projectiles
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+        projectiles[i].y -= projectiles[i].speed;
+        if (projectiles[i].y < 0) {
+            projectiles.splice(i, 1);
+        }
+    }
+
+    // Update Aliens
+    aliens.forEach((alien) => {
+        if (alien.isDiveBombing) {
+            // Smooth physics dive-bomb towards player
+            let dx = (player.x + player.width / 2) - (alien.x + alien.width / 2);
+            let dy = player.y - alien.y;
+            let angle = Math.atan2(dy, dx);
+
+            alien.vx += Math.cos(angle) * 0.4;
+            alien.vy += Math.sin(angle) * 0.4;
+            
+            // Limit max speed
+            let currentSpeed = Math.hypot(alien.vx, alien.vy);
+            if (currentSpeed > 7) {
+                alien.vx = (alien.vx / currentSpeed) * 7;
+                alien.vy = (alien.vy / currentSpeed) * 7;
+            }
+
+            alien.x += alien.vx;
+            alien.y += alien.vy;
+
+            // Check collision with player
+            if (
+                alien.x < player.x + player.width &&
+                alien.x + alien.width > player.x &&
+                alien.y < player.y + player.height &&
+                alien.y + alien.height > player.y
+            ) {
+                lives--;
+                if (lives <= 0) gameOver = true;
+                else spawnWave();
+            }
+
+            // Reset if dive-bomber misses and leaves bottom screen
+            if (alien.y > canvas.height + 50) {
+                spawnWave();
+            }
+        } else {
+            // Gentle hovering animation
+            alien.hoverOffset += 0.04;
+            alien.y = alien.homeY + Math.sin(alien.hoverOffset) * 6;
+        }
+    });
+
+    // Collision Detection: Projectiles vs Aliens
+    for (let pIdx = projectiles.length - 1; pIdx >= 0; pIdx--) {
+        let p = projectiles[pIdx];
+        for (let aIdx = 0; aIdx < aliens.length; aIdx++) {
+            let a = aliens[aIdx];
+
+            if (
+                p.x < a.x + a.width &&
+                p.x + p.width > a.x &&
+                p.y < a.y + a.height &&
+                p.y + p.height > a.y
+            ) {
+                projectiles.splice(pIdx, 1);
+
+                if (a.isCorrect) {
+                    // CORRECT HIT!
+                    score += 100;
+                    spawnWave();
+                } else {
+                    // INCORRECT HIT! Trigger Dive-Bomb physics & lose 1 life
+                    if (!a.isDiveBombing) {
+                        lives--;
+                        a.isDiveBombing = true;
+                        a.vy = 2; // Initial push downward
+                        if (lives <= 0) gameOver = true;
+                    }
+                }
+                break;
+            }
+        }
+    }
+}
+
+// --- RENDER GAME ---
+function draw() {
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw Stars
+    ctx.fillStyle = '#ffffff';
+    stars.forEach(s => {
+        ctx.fillRect(s.x, s.y, s.size, s.size);
+    });
+
+    // Draw UI Bar (Score, Lives)
+    ctx.fillStyle = '#00ffff';
+    ctx.font = 'bold 18px Arial';
+    ctx.fillText(`SCORE: ${score}`, 20, 35);
+
+    // Lives Display (3 Shield Hearts)
+    ctx.fillText("LIVES: ", canvas.width - 160, 35);
+    for (let i = 0; i < 3; i++) {
+        ctx.fillStyle = i < lives ? '#ff3366' : '#444466';
+        ctx.beginPath();
+        ctx.arc(canvas.width - 80 + (i * 22), 30, 8, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Draw Definition Header
+    if (currentQuestion && !gameOver) {
+        ctx.fillStyle = 'rgba(0, 225, 255, 0.1)';
+        ctx.strokeStyle = '#00e1ff';
+        ctx.lineWidth = 1;
+        ctx.fillRect(20, 50, canvas.width - 40, 45);
+        ctx.strokeRect(20, 50, canvas.width - 40, 45);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '15px Arial';
+        ctx.textAlign = 'center';
+        
+        // Wrap definition text automatically if long
+        ctx.fillText(`" ${currentQuestion.def} "`, canvas.width / 2, 78);
+    }
+
+    // Draw Player Ship
+    ctx.save();
+    ctx.translate(player.x, player.y);
+    // Ship hull
+    ctx.fillStyle = '#00ffcc';
+    ctx.beginPath();
+    ctx.moveTo(player.width / 2, 0);
+    ctx.lineTo(player.width, player.height);
+    ctx.lineTo(player.width / 2, player.height - 8);
+    ctx.lineTo(0, player.height);
+    ctx.closePath();
+    ctx.fill();
+    // Engine glow
+    ctx.fillStyle = '#ff9900';
+    ctx.fillRect(player.width / 2 - 4, player.height - 4, 8, 6);
+    ctx.restore();
+
+    // Draw Lasers
+    ctx.fillStyle = '#ff0055';
+    ctx.shadowBlur = 8;
+    ctx.shadowColor = '#ff0055';
+    projectiles.forEach(p => {
+        ctx.fillRect(p.x, p.y, p.width, p.height);
+    });
+    ctx.shadowBlur = 0; // reset shadow
+
+    // Draw Alien Ships
+    aliens.forEach(alien => {
+        ctx.save();
+        ctx.translate(alien.x, alien.y);
+
+        // Alien Body
+        ctx.fillStyle = alien.isDiveBombing ? '#ff3333' : '#a855f7';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        
+        ctx.beginPath();
+        ctx.roundRect(0, 0, alien.width, alien.height, 8);
+        ctx.fill();
+        ctx.stroke();
+
+        // Alien Vocabulary Word
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 13px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(alien.word, alien.width / 2, alien.height / 2 + 5);
+
+        ctx.restore();
+    });
+
+    // Draw Game Over Screen
+    if (gameOver) {
+        ctx.fillStyle = 'rgba(10, 10, 25, 0.85)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = '#ff3366';
+        ctx.font = 'bold 42px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText("SYSTEM CRITICAL: GAME OVER", canvas.width / 2, canvas.height / 2 - 20);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '20px Arial';
+        ctx.fillText(`Final Score: ${score}`, canvas.width / 2, canvas.height / 2 + 25);
+        ctx.fillText("Press 'R' to Reboot Shield Systems", canvas.width / 2, canvas.height / 2 + 70);
+    }
+}
+
+function gameLoop() {
+    update();
+    draw();
+    if (!gameOver) {
+        requestAnimationFrame(gameLoop);
+    }
+}
+
+// Start Game
+spawnWave();
+requestAnimationFrame(gameLoop);
+</script>
+
+</body>
+</html>

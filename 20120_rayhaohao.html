@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Defend the Castle: Spellcaster</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background: #1a1a2e;
+      color: #ffffff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    #game-container {
+      position: relative;
+      width: 800px;
+      height: 500px;
+      background: linear-gradient(to bottom, #16213e, #0f3460);
+      border: 4px solid #e94560;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    /* UI Header Bar */
+    #ui-bar {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 8px 15px;
+      border-radius: 5px;
+    }
+
+    .stat-box {
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    /* Definition Box above Castle */
+    #definition-box {
+      position: absolute;
+      top: 60px;
+      right: 20px;
+      width: 200px;
+      background: rgba(15, 52, 96, 0.9);
+      border: 2px solid #00fff5;
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      text-align: center;
+      z-index: 10;
+      min-height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 10px rgba(0, 255, 245, 0.3);
+    }
+
+    /* Castle Wall */
+    #castle-wall {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      width: 120px;
+      height: 100%;
+      background: #4a4e69;
+      border-left: 6px solid #22223b;
+      box-shadow: inset 10px 0 15px rgba(0,0,0,0.5);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: center;
+    }
+
+    /* Health Bar */
+    .health-container {
+      width: 80%;
+      height: 15px;
+      background: #333;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 20px;
+      border: 1px solid #fff;
+    }
+
+    #health-bar {
+      width: 100%;
+      height: 100%;
+      background: #4eef90;
+      transition: width 0.3s ease, background-color 0.3s ease;
+    }
+
+    /* Enemies */
+    .enemy {
+      position: absolute;
+      width: 70px;
+      height: 50px;
+      background: #ff4757;
+      border: 2px solid #ffffff;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: bold;
+      font-size: 12px;
+      cursor: pointer;
+      user-select: none;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+      transition: border-color 0.2s, transform 0.1s;
+    }
+
+    .enemy.selected {
+      border-color: #ffdd59;
+      transform: scale(1.08);
+      box-shadow: 0 0 12px #ffdd59;
+    }
+
+    /* Typing Input Popover */
+    #input-popover {
+      position: absolute;
+      display: none;
+      z-index: 20;
+    }
+
+    #typing-input {
+      padding: 6px 10px;
+      border: 2px solid #ffdd59;
+      border-radius: 4px;
+      outline: none;
+      background: #1e272e;
+      color: #fff;
+      font-weight: bold;
+      width: 120px;
+      text-align: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    }
+
+    /* Floating Combat Text & Explosions */
+    .floating-text {
+      position: absolute;
+      font-weight: bold;
+      font-size: 18px;
+      animation: floatUp 1s forwards;
+      pointer-events: none;
+      z-index: 30;
+    }
+
+    .aoe-explosion {
+      position: absolute;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,107,107,0.8) 0%, rgba(255,221,89,0) 70%);
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      animation: explode 0.4s ease-out forwards;
+      z-index: 25;
+    }
+
+    @keyframes floatUp {
+      0% { opacity: 1; transform: translateY(0); }
+      100% { opacity: 0; transform: translateY(-30px); }
+    }
+
+    @keyframes explode {
+      0% { width: 0px; height: 0px; opacity: 1; }
+      100% { width: 140px; height: 140px; opacity: 0; }
+    }
+
+    /* Game Over / Victory Overlay */
+    #overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 40;
+    }
+
+    #overlay h1 {
+      font-size: 36px;
+      margin-bottom: 15px;
+      color: #ffdd59;
+    }
+
+    #start-btn {
+      padding: 10px 25px;
+      font-size: 18px;
+      background: #e94560;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background 0.2s;
+    }
+
+    #start-btn:hover {
+      background: #ff6b81;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="game-container">
+    <!-- UI Header -->
+    <div id="ui-bar">
+      <div class="stat-box" id="wave-display">Wave: 1 / 3</div>
+      <div class="stat-box" id="progression-display">Progress: 0%</div>
+    </div>
+
+    <!-- Definition Display above Castle -->
+    <div id="definition-box">Click an incoming enemy to reveal its definition!</div>
+
+    <!-- Castle Wall -->
+    <div id="castle-wall">
+      <div style="font-size: 12px; margin-bottom: 5px; font-weight: bold;">CASTLE HP</div>
+      <div class="health-container">
+        <div id="health-bar"></div>
+      </div>
+    </div>
+
+    <!-- Floating Input Box -->
+    <div id="input-popover">
+      <input type="text" id="typing-input" autocomplete="off" placeholder="Type here..." />
+    </div>
+
+    <!-- Game Overlay -->
+    <div id="overlay">
+      <h1 id="overlay-title">Spellcaster: Defense</h1>
+      <p style="margin-bottom: 20px; color: #ccc; text-align: center; max-width: 400px;">
+        Click incoming monsters to inspect their definition, then type their matching vocabulary spell to destroy them!
+      </p>
+      <button id="start-btn" onclick="startGame()">Start Game</button>
+    </div>
+  </div>
+
+  <script>
+    const vocabularyList = [
+      { word: "recipe", definition: "A set of instructions for preparing a particular dish." },
+      { word: "pasta", definition: "An Italian food made from flour, water, and sometimes eggs." },
+      { word: "variation", definition: "A change or slight difference in condition, amount, or level." },
+      { word: "combination", definition: "A joining or merging of different parts or qualities." },
+      { word: "ultimately", definition: "Finally; in the end." },
+      { word: "generation", definition: "All of the people born and living at about the same time." },
+      { word: "deserve", definition: "To be worthy of or entitled to something." }
+    ];
+
+    let castleHealth = 100;
+    let currentWave = 1;
+    const totalWaves = 3;
+    let enemiesDefeated = 0;
+    let totalEnemiesToSpawn = 10;
+    let enemiesSpawned = 0;
+    let activeEnemies = [];
+    let selectedEnemy = null;
+    let gameLoopId = null;
+    let spawnIntervalId = null;
+    let isGameRunning = false;
+
+    const container = document.getElementById('game-container');
+    const healthBar = document.getElementById('health-bar');
+    const definitionBox = document.getElementById('definition-box');
+    const inputPopover = document.getElementById('input-popover');
+    const typingInput = document.getElementById('typing-input');
+    const waveDisplay = document.getElementById('wave-display');
+    const progressionDisplay = document.getElementById('progression-display');
+    const overlay = document.getElementById('overlay');
+    const overlayTitle = document.getElementById('overlay-title');
+
+    function startGame() {
+      castleHealth = 100;
+      currentWave = 1;
+      enemiesDefeated = 0;
+      enemiesSpawned = 0;
+      activeEnemies = [];
+      selectedEnemy = null;
+      isGameRunning = true;
+
+      updateHealthDisplay();
+      updateUI();
+      overlay.style.display = 'none';
+      definitionBox.textContent = "Click an enemy to target!";
+
+      // Clear previous elements
+      document.querySelectorAll('.enemy, .floating-text, .aoe-explosion').forEach(e => e.remove());
+
+      gameLoopId = requestAnimationFrame(gameLoop);
+      spawnIntervalId = setInterval(spawnEnemy, 2500);
+    }
+
+    function spawnEnemy() {
+      if (!isGameRunning || enemiesSpawned >= totalEnemiesToSpawn) return;
+
+      const randomVocab = vocabularyList[Math.floor(Math.random() * vocabularyList.length)];
+      const enemyEl = document.createElement('div');
+      enemyEl.className = 'enemy';
+      
+      // Vertical spawning bounds
+      const minY = 80;
+      const maxY = 420;
+      const randomY = Math.floor(Math.random() * (maxY - minY)) + minY;
+
+      enemyEl.style.left = '0px';
+      enemyEl.style.top = randomY + 'px';
+      
+      const enemyObj = {
+        element: enemyEl,
+        word: randomVocab.word,
+        definition: randomVocab.definition,
+        x: 0,
+        y: randomY,
+        speed: 0.5 + (currentWave * 0.2)
+      };
+
+      // Set label initially hidden/obscured to encourage typing practice
+      enemyEl.textContent = enemyObj.word.substring(0, 2) + "...";
+
+      enemyEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectEnemy(enemyObj);
+      });
+
+      container.appendChild(enemyEl);
+      activeEnemies.push(enemyObj);
+      enemiesSpawned++;
+    }
+
+    function selectEnemy(enemyObj) {
+      if (selectedEnemy) {
+        selectedEnemy.element.classList.remove('selected');
+      }
+
+      selectedEnemy = enemyObj;
+      selectedEnemy.element.classList.add('selected');
+
+      // Update Definition UI
+      definitionBox.textContent = `"${enemyObj.definition}"`;
+
+      // Position typing input near enemy
+      inputPopover.style.display = 'block';
+      positionInput();
+      typingInput.value = '';
+      typingInput.focus();
+    }
+
+    function positionInput() {
+      if (!selectedEnemy) return;
+      inputPopover.style.left = (selectedEnemy.x - 25) + 'px';
+      inputPopover.style.top = (selectedEnemy.y + 55) + 'px';
+    }
+
+    typingInput.addEventListener('input', (e) => {
+      if (!selectedEnemy) return;
+
+      if (typingInput.value.trim().toLowerCase() === selectedEnemy.word.toLowerCase()) {
+        triggerAoEExplosion(selectedEnemy.x + 35, selectedEnemy.y + 25);
+        showFloatingText(selectedEnemy.x, selectedEnemy.y, "Correct!", "#4eef90");
+        
+        destroyEnemy(selectedEnemy);
+        deselectEnemy();
+        
+        enemiesDefeated++;
+        updateUI();
+        checkWaveProgress();
+      }
+    });
+
+    function triggerAoEExplosion(x, y) {
+      const explosion = document.createElement('div');
+      explosion.className = 'aoe-explosion';
+      explosion.style.left = x + 'px';
+      explosion.style.top = y + 'px';
+      container.appendChild(explosion);
+      
+      // Damage surrounding enemies in AoE range
+      activeEnemies.forEach(enemy => {
+        if (enemy !== selectedEnemy) {
+          const dist = Math.hypot(enemy.x - x, enemy.y - y);
+          if (dist < 100) {
+            showFloatingText(enemy.x, enemy.y, "AoE Hit!", "#ffdd59");
+          }
+        }
+      });
+
+      setTimeout(() => explosion.remove(), 400);
+    }
+
+    function destroyEnemy(enemyObj) {
+      enemyObj.element.remove();
+      activeEnemies = activeEnemies.filter(e => e !== enemyObj);
+    }
+
+    function deselectEnemy() {
+      if (selectedEnemy) {
+        selectedEnemy.element.classList.remove('selected');
+        selectedEnemy = null;
+      }
+      inputPopover.style.display = 'none';
+      definitionBox.textContent = "Click an incoming enemy!";
+    }
+
+    function gameLoop() {
+      if (!isGameRunning) return;
+
+      const castleX = 680; // Left edge of castle wall
+
+      for (let i = activeEnemies.length - 1; i >= 0; i--) {
+        const enemy = activeEnemies[i];
+        enemy.x += enemy.speed;
+        enemy.element.style.left = enemy.x + 'px';
+
+        // Keep input box attached to moving enemy
+        if (selectedEnemy === enemy) {
+          positionInput();
+        }
+
+        // Enemy reaches castle wall
+        if (enemy.x >= castleX) {
+          castleHealth -= 15;
+          if (castleHealth < 0) castleHealth = 0;
+          
+          showFloatingText(castleX - 30, enemy.y, "-15 HP", "#ff4757");
+          updateHealthDisplay();
+
+          if (selectedEnemy === enemy) {
+            deselectEnemy();
+          }
+
+          destroyEnemy(enemy);
+
+          if (castleHealth <= 0) {
+            endGame(false);
+            return;
+          }
+        }
+      }
+
+      gameLoopId = requestAnimationFrame(gameLoop);
+    }
+
+    function updateHealthDisplay() {
+      healthBar.style.width = castleHealth + '%';
+      if (castleHealth > 50) {
+        healthBar.style.backgroundColor = '#4eef90';
+      } else if (castleHealth > 25) {
+        healthBar.style.backgroundColor = '#ffdd59';
+      } else {
+        healthBar.style.backgroundColor = '#ff4757';
+      }
+    }
+
+    function updateUI() {
+      waveDisplay.textContent = `Wave: ${currentWave} / ${totalWaves}`;
+      const progressPercent = Math.min(100, Math.floor((enemiesDefeated / totalEnemiesToSpawn) * 100));
+      progressionDisplay.textContent = `Progress: ${progressPercent}%`;
+    }
+
+    function checkWaveProgress() {
+      if (enemiesDefeated >= totalEnemiesToSpawn) {
+        if (currentWave < totalWaves) {
+          currentWave++;
+          enemiesDefeated = 0;
+          enemiesSpawned = 0;
+          showFloatingText(400, 200, "Defended! Wave Complete!", "#00fff5");
+          updateUI();
+        } else {
+          showFloatingText(400, 200, "Defended!", "#00fff5");
+          endGame(true);
+        }
+      }
+    }
+
+    function showFloatingText(x, y, text, color) {
+      const el = document.createElement('div');
+      el.className = 'floating-text';
+      el.textContent = text;
+      el.style.color = color;
+      el.style.left = x + 'px';
+      el.style.top = y + 'px';
+      container.appendChild(el);
+      setTimeout(() => el.remove(), 1000);
+    }
+
+    function endGame(isVictory) {
+      isGameRunning = false;
+      cancelAnimationFrame(gameLoopId);
+      clearInterval(spawnIntervalId);
+
+      overlay.style.display = 'flex';
+      if (isVictory) {
+        overlayTitle.textContent = "Defended! You Win!";
+      } else {
+        overlayTitle.textContent = "Game Over! Castle Fell";
+      }
+    }
+
+    // Deselect if clicking blank canvas area
+    container.addEventListener('click', (e) => {
+      if (e.target === container) {
+        deselectEnemy();
+      }
+    });
+  </script>
+</body>
+</html>

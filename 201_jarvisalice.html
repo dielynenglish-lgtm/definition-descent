@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocab Tetris: Drop & Unlock</title>
+    <style>
+        :root {
+            --bg-color: #0d0e15;
+            --panel-bg: #161925;
+            --accent-cyan: #00f3ff;
+            --accent-pink: #ff007f;
+            --accent-green: #00ff66;
+            --accent-yellow: #ffdd00;
+            --text-color: #ffffff;
+            --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: var(--font-family);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            background-color: var(--panel-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.2), inset 0 0 15px rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(0, 243, 255, 0.3);
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            width: 100%;
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            color: var(--accent-cyan);
+            text-shadow: 0 0 10px var(--accent-cyan);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .stats-bar {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            margin-top: 10px;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 8px 15px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .stat-item span {
+            color: var(--accent-yellow);
+        }
+
+        .prompt-card {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 0, 127, 0.4);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            min-height: 90px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 6px;
+            box-shadow: 0 0 10px rgba(255, 0, 127, 0.1);
+        }
+
+        .prompt-title {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            color: #aaa;
+            letter-spacing: 1px;
+        }
+
+        .prompt-def {
+            font-size: 0.95rem;
+            color: #fff;
+        }
+
+        .prompt-word-badge {
+            display: inline-block;
+            align-self: center;
+            background: var(--accent-pink);
+            color: #fff;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            box-shadow: 0 0 8px var(--accent-pink);
+        }
+
+        .controls-hint {
+            font-size: 0.85rem;
+            color: var(--accent-cyan);
+            text-align: center;
+            font-weight: bold;
+            animation: pulse 1.5s infinite alternate;
+        }
+
+        @keyframes pulse {
+            from { opacity: 0.7; }
+            to { opacity: 1; text-shadow: 0 0 8px var(--accent-cyan); }
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            border: 2px solid var(--accent-cyan);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.3);
+            border-radius: 4px;
+            background-color: #000;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(13, 14, 21, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            z-index: 10;
+        }
+
+        .overlay h2 {
+            font-size: 2rem;
+            color: var(--accent-pink);
+            text-shadow: 0 0 10px var(--accent-pink);
+        }
+
+        .overlay p {
+            font-size: 1rem;
+            color: #ccc;
+            text-align: center;
+            padding: 0 20px;
+        }
+
+        .btn {
+            background: transparent;
+            color: var(--accent-cyan);
+            border: 2px solid var(--accent-cyan);
+            padding: 10px 24px;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.3);
+        }
+
+        .btn:hover {
+            background: var(--accent-cyan);
+            color: #000;
+            box-shadow: 0 0 20px var(--accent-cyan);
+        }
+
+        .btn-keys {
+            display: flex;
+            gap: 10px;
+            margin-top: 5px;
+        }
+
+        .key-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid #fff;
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+
+        .key-btn:active {
+            background: var(--accent-cyan);
+            color: #000;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <div class="header">
+            <h1>Vocab Tetris</h1>
+            <div class="stats-bar">
+                <div class="stat-item">Score: <span id="score-val">0</span></div>
+                <div class="stat-item">Time: <span id="time-val">60</span>s</div>
+                <div class="stat-item">Lines: <span id="lines-val">0</span></div>
+            </div>
+        </div>
+
+        <div class="prompt-card" id="prompt-card">
+            <div class="prompt-title">Unlock Mechanic Prompt</div>
+            <div class="prompt-def" id="prompt-def">Press START to play!</div>
+            <div class="prompt-word-badge" id="prompt-word" style="display: none;">WORD</div>
+        </div>
+
+        <div class="controls-hint" id="controls-hint">
+            Match word to definition? Press [Y] Yes / [N] No
+        </div>
+
+        <div class="canvas-wrapper">
+            <canvas id="tetris" width="240" height="480"></canvas>
+            
+            <div class="overlay" id="game-overlay">
+                <h2 id="overlay-title">VOCAB TETRIS</h2>
+                <p id="overlay-msg">Unlock blocks by correctly matching vocabulary words to their definitions!</p>
+                <button class="btn" id="start-btn" onclick="startGame()">START GAME</button>
+            </div>
+        </div>
+
+        <div class="btn-keys">
+            <button class="key-btn" onclick="handleInput('y')">Match [Y]</button>
+            <button class="key-btn" onclick="handleInput('n')">Mismatch [N]</button>
+        </div>
+    </div>
+
+    <script>
+        const vocabList = [
+            { word: "SOLO", def: "Done by one person alone; unaccompanied." },
+            { word: "FLEXIBILITY", def: "The quality of bending easily without breaking; adaptability." },
+            { word: "COMPROMISE", def: "An agreement reached by each side making concessions." },
+            { word: "DESTINATION", def: "The place to which someone or something is going." },
+            { word: "SPLIT", def: "To divide or cause to divide into parts or groups." },
+            { word: "ARISE", def: "To come into being, notice, or outcome; originate." },
+            { word: "OCCASIONALLY", def: "At intervals; from time to time; now and then." },
+            { word: "ADAPT", def: "Make something suitable for a new use or purpose; adjust." },
+            { word: "STRATEGY", def: "A plan of action designed to achieve a long-term goal." },
+            { word: "OBSTACLE", def: "A thing that blocks one's way or prevents progress." }
+        ];
+
+        const canvas = document.getElementById('tetris');
+        const context = canvas.getContext('2d');
+        context.scale(24, 24);
+
+        let score = 0;
+        let lines = 0;
+        let timer = 60;
+        let timerInterval = null;
+        let gameLoopId = null;
+        let isGameOver = false;
+        let isPaused = true;
+
+        let isLocked = true;
+        let currentPrompt = { word: "", def: "", isCorrectMatch: false };
+
+        const SHAPES = {
+            'I': [[0,0,0,0], [1,1,1,1], [0,0,0,0], [0,0,0,0]],
+            'L': [[0,0,2], [2,2,2], [0,0,0]],
+            'O': [[3,3], [3,3]],
+            'T': [[0,4,0], [4,4,4], [0,0,0]]
+        };
+
+        const COLORS = [
+            null,
+            '#00f3ff',
+            '#ffdd00',
+            '#ff007f',
+            '#00ff66'
+        ];
+
+        const arena = createMatrix(10, 20);
+
+        const player = {
+            pos: {x: 0, y: 0},
+            matrix: null,
+            colorIndex: 0
+        };
+
+        let dropCounter = 0;
+        let dropInterval = 800;
+        let lastTime = 0;
+
+        function createMatrix(w, h) {
+            const matrix = [];
+            while (h--) {
+                matrix.push(new Array(w).fill(0));
+            }
+            return matrix;
+        }
+
+        function createPiece(type) {
+            return SHAPES[type];
+        }
+
+        function drawMatrix(matrix, offset, translucent = false) {
+            matrix.forEach((row, y) => {
+                row.forEach((value, x) => {
+                    if (value !== 0) {
+                        if (translucent) {
+                            context.fillStyle = 'rgba(255, 255, 255, 0.25)';
+                        } else {
+                            context.fillStyle = COLORS[value];
+                        }
+                        context.fillRect(x + offset.x, y + offset.y, 1, 1);
+                        context.strokeStyle = translucent ? 'rgba(255, 255, 255, 0.5)' : '#000';
+                        context.lineWidth = 0.05;
+                        context.strokeRect(x + offset.x, y + offset.y, 1, 1);
+                    }
+                });
+            });
+        }
+
+        function draw() {
+            context.fillStyle = '#000';
+            context.fillRect(0, 0, canvas.width, canvas.height);
+
+            drawArena();
+            if (player.matrix) {
+                drawMatrix(player.matrix, player.pos, isLocked);
+            }
+        }
+
+        function drawArena() {
+            arena.forEach((row, y) => {
+                row.forEach((value, x) => {
+                    if (value !== 0) {
+                        context.fillStyle = COLORS[value];
+                        context.fillRect(x, y, 1, 1);
+                        context.strokeStyle = '#000';
+                        context.lineWidth = 0.05;
+                        context.strokeRect(x, y, 1, 1);
+                    }
+                });
+            });
+        }
+
+        function merge(arena, player) {
+            player.matrix.forEach((row, y) => {
+                row.forEach((value, x) => {
+                    if (value !== 0) {
+                        arena[y + player.pos.y][x + player.pos.x] = value;
+                    }
+                });
+            });
+        }
+
+        function collide(arena, player) {
+            const [m, o] = [player.matrix, player.pos];
+            for (let y = 0; y < m.length; ++y) {
+                for (let x = 0; x < m[y].length; ++x) {
+                    if (m[y][x] !== 0 &&
+                       (arena[y + o.y] && arena[y + o.y][x + o.x]) !== 0) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        function playerReset() {
+            const pieces = 'ILOT';
+            const type = pieces[Math.floor(Math.random() * pieces.length)];
+            player.matrix = createPiece(type);
+            
+            const typeMap = { 'I': 1, 'L': 2, 'O': 3, 'T': 4 };
+            player.colorIndex = typeMap[type];
+
+            player.matrix = player.matrix.map(row => 
+                row.map(val => val ? player.colorIndex : 0)
+            );
+
+            player.pos.y = 0;
+            player.pos.x = Math.floor(arena[0].length / 2) - Math.floor(player.matrix[0].length / 2);
+
+            if (collide(arena, player)) {
+                endGame("STACK OVERFLOW! GAME OVER");
+                return;
+            }
+
+            isLocked = true;
+            dropInterval = 800;
+            generateVocabPrompt();
+        }
+
+        function generateVocabPrompt() {
+            const target = vocabList[Math.floor(Math.random() * vocabList.length)];
+            const isCorrect = Math.random() < 0.5;
+            let displayedDef = target.def;
+
+            if (!isCorrect) {
+                let otherList = vocabList.filter(v => v.word !== target.word);
+                displayedDef = otherList[Math.floor(Math.random() * otherList.length)].def;
+            }
+
+            currentPrompt = {
+                word: target.word,
+                def: displayedDef,
+                isCorrectMatch: isCorrect
+            };
+
+            document.getElementById('prompt-def').innerText = `"${currentPrompt.def}"`;
+            const wordBadge = document.getElementById('prompt-word');
+            wordBadge.innerText = currentPrompt.word;
+            wordBadge.style.display = 'inline-block';
+        }
+
+        function handleInput(choice) {
+            if (isGameOver || isPaused || !isLocked) return;
+
+            const userSaidYes = (choice === 'y');
+            const success = (userSaidYes === currentPrompt.isCorrectMatch);
+
+            if (success) {
+                isLocked = false;
+                dropInterval = 800;
+                document.getElementById('prompt-def').innerText = "UNLOCKED! Use Arrow Keys (← → ↓ ↑)";
+                document.getElementById('prompt-word').style.display = 'none';
+            } else {
+                isLocked = true;
+                dropInterval = 150;
+                document.getElementById('prompt-def').innerText = "WRONG! Fast dropping locked block...";
+                document.getElementById('prompt-word').style.display = 'none';
+            }
+        }
+
+        function playerDrop() {
+            player.pos.y++;
+            if (collide(arena, player)) {
+                player.pos.y--;
+                merge(arena, player);
+                arenaSweep();
+                playerReset();
+            }
+            dropCounter = 0;
+        }
+
+        function playerMove(dir) {
+            if (isLocked) return;
+            player.pos.x += dir;
+            if (collide(arena, player)) {
+                player.pos.x -= dir;
+            }
+        }
+
+        function playerRotate() {
+            if (isLocked) return;
+            const pos = player.pos.x;
+            let offset = 1;
+            rotate(player.matrix);
+            while (collide(arena, player)) {
+                player.pos.x += offset;
+                offset = -(offset + (offset > 0 ? 1 : -1));
+                if (offset > player.matrix[0].length) {
+                    rotate(player.matrix, -1);
+                    player.pos.x = pos;
+                    return;
+                }
+            }
+        }
+
+        function rotate(matrix, dir = 1) {
+            for (let y = 0; y < matrix.length; ++y) {
+                for (let x = 0; x < y; ++x) {
+                    [matrix[x][y], matrix[y][x]] = [matrix[y][x], matrix[x][y]];
+                }
+            }
+            if (dir > 0) {
+                matrix.forEach(row => row.reverse());
+            } else {
+                matrix.reverse();
+            }
+        }
+
+        function arenaSweep() {
+            let rowCount = 1;
+            outer: for (let y = arena.length - 1; y >= 0; --y) {
+                for (let x = 0; x < arena[y].length; ++x) {
+                    if (arena[y][x] === 0) {
+                        continue outer;
+                    }
+                }
+
+                const row = arena.splice(y, 1)[0].fill(0);
+                arena.unshift(row);
+                ++y;
+
+                score += rowCount * 100;
+                lines += 1;
+                rowCount *= 2;
+            }
+            updateStats();
+        }
+
+        function updateStats() {
+            document.getElementById('score-val').innerText = score;
+            document.getElementById('lines-val').innerText = lines;
+            document.getElementById('time-val').innerText = timer;
+        }
+
+        function update(time = 0) {
+            if (isPaused || isGameOver) return;
+
+            const deltaTime = time - lastTime;
+            lastTime = time;
+
+            dropCounter += deltaTime;
+            if (dropCounter > dropInterval) {
+                playerDrop();
+            }
+
+            draw();
+            gameLoopId = requestAnimationFrame(update);
+        }
+
+        function startTimer() {
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                if (!isPaused && !isGameOver) {
+                    timer--;
+                    document.getElementById('time-val').innerText = timer;
+                    if (timer <= 0) {
+                        endGame("TIME'S UP!");
+                    }
+                }
+            }, 1000);
+        }
+
+        function startGame() {
+            arena.forEach(row => row.fill(0));
+            score = 0;
+            lines = 0;
+            timer = 60;
+            isGameOver = false;
+            isPaused = false;
+
+            updateStats();
+            document.getElementById('game-overlay').style.display = 'none';
+
+            playerReset();
+            startTimer();
+            lastTime = performance.now();
+            update();
+        }
+
+        function endGame(title) {
+            isGameOver = true;
+            isPaused = true;
+            clearInterval(timerInterval);
+            cancelAnimationFrame(gameLoopId);
+
+            document.getElementById('overlay-title').innerText = title;
+            document.getElementById('overlay-msg').innerText = `Final Score: ${score} | Lines Cleared: ${lines}`;
+            document.getElementById('start-btn').innerText = "PLAY AGAIN";
+            document.getElementById('game-overlay').style.display = 'flex';
+        }
+
+        document.addEventListener('keydown', event => {
+            if (isGameOver || isPaused) return;
+
+            const key = event.key.toLowerCase();
+
+            if (key === 'y') {
+                handleInput('y');
+            } else if (key === 'n') {
+                handleInput('n');
+            }
+
+            if (!isLocked) {
+                if (event.key === 'ArrowLeft') {
+                    playerMove(-1);
+                } else if (event.key === 'ArrowRight') {
+                    playerMove(1);
+                } else if (event.key === 'ArrowDown') {
+                    playerDrop();
+                } else if (event.key === 'ArrowUp') {
+                    playerRotate();
+                }
+            }
+        });
+    </script>
+</body>
+</html>

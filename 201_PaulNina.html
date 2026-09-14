@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Whack-A-Word Arcade</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+    }
+    body {
+      margin: 0;
+      padding: 20px;
+      background-color: #1e1b4b;
+      color: #ffffff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+    #game-container {
+      background: #312e81;
+      border: 4px solid #6366f1;
+      border-radius: 16px;
+      padding: 24px;
+      max-width: 650px;
+      width: 100%;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      text-align: center;
+    }
+    h1 {
+      margin: 0 0 10px 0;
+      color: #fbbf24;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      font-size: 2rem;
+    }
+    .hud {
+      display: flex;
+      justify-content: space-between;
+      font-size: 1.25rem;
+      font-weight: bold;
+      margin-bottom: 20px;
+      background: #1e1b4b;
+      padding: 10px 20px;
+      border-radius: 8px;
+    }
+    .hud span {
+      color: #38bdf8;
+    }
+    #definition-box {
+      background: #4338ca;
+      border: 2px dashed #a5b4fc;
+      border-radius: 10px;
+      padding: 15px;
+      margin-bottom: 20px;
+      min-height: 80px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    #definition-title {
+      font-size: 0.85rem;
+      color: #c7d2fe;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 5px;
+    }
+    #definition-text {
+      font-size: 1.15rem;
+      font-weight: bold;
+      color: #ffffff;
+    }
+    #grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    .hole {
+      position: relative;
+      height: 110px;
+      background: #1e293b;
+      border-bottom: 8px solid #0f172a;
+      border-radius: 50% / 40%;
+      overflow: hidden;
+      box-shadow: inset 0 10px 15px rgba(0,0,0,0.6);
+    }
+    .mole {
+      position: absolute;
+      bottom: -100%;
+      left: 10%;
+      width: 80%;
+      height: 85%;
+      background: #854d0e;
+      border-radius: 20px 20px 0 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 0.95rem;
+      color: #fef08a;
+      text-shadow: 1px 1px 2px #000;
+      transition: bottom 0.25s ease-out;
+      cursor: pointer;
+      border: 2px solid #a16207;
+      border-bottom: none;
+      padding: 5px;
+      text-align: center;
+      word-break: break-word;
+    }
+    .mole.up {
+      bottom: 0;
+    }
+    .mole.hit {
+      background: #22c55e !important;
+      color: #ffffff;
+    }
+    .mole.wrong {
+      background: #ef4444 !important;
+      color: #ffffff;
+    }
+    #start-btn {
+      background: #f59e0b;
+      color: #000;
+      border: none;
+      padding: 12px 30px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      border-radius: 30px;
+      cursor: pointer;
+      box-shadow: 0 4px 0 #b45309;
+      transition: all 0.1s;
+    }
+    #start-btn:active {
+      transform: translateY(4px);
+      box-shadow: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="game-container">
+    <h1>Whack-A-Word</h1>
+    
+    <div class="hud">
+      <div>Score: <span id="score">0</span></div>
+      <div>Time Left: <span id="timer">60</span>s</div>
+    </div>
+
+    <div id="definition-box">
+      <div id="definition-title">Target Definition</div>
+      <div id="definition-text">Press "Start Game" to begin!</div>
+    </div>
+
+    <div id="grid">
+      <div class="hole"><div class="mole"></div></div>
+      <div class="hole"><div class="mole"></div></div>
+      <div class="hole"><div class="mole"></div></div>
+      <div class="hole"><div class="mole"></div></div>
+      <div class="hole"><div class="mole"></div></div>
+      <div class="hole"><div class="mole"></div></div>
+    </div>
+
+    <button id="start-btn" onclick="startGame()">Start Game</button>
+  </div>
+
+  <script>
+    const vocabulary = [
+      { word: "miraculous", def: "Extraordinary and bringing welcome reassurance or relief as if by a miracle." },
+      { word: "massive", def: "Exceptionally large, heavy, or solid in structure." },
+      { word: "vomit", def: "To eject matter from the stomach through the mouth." },
+      { word: "physician", def: "A person qualified to practice medicine; a medical doctor." },
+      { word: "dose", def: "A measured quantity of medicine taken at one time." },
+      { word: "established", def: "Having existed or been recognized for a long time." },
+      { word: "undergo", def: "To experience or be subjected to something arduous or difficult." }
+    ];
+
+    const moles = document.querySelectorAll('.mole');
+    const scoreDisplay = document.getElementById('score');
+    const timerDisplay = document.getElementById('timer');
+    const definitionDisplay = document.getElementById('definition-text');
+    const startBtn = document.getElementById('start-btn');
+
+    let score = 0;
+    let timeLeft = 60;
+    let gameInterval = null;
+    let popInterval = null;
+    let currentTarget = null;
+    let isPlaying = false;
+
+    function pickRandomTarget() {
+      currentTarget = vocabulary[Math.floor(Math.random() * vocabulary.length)];
+      definitionDisplay.textContent = `"${currentTarget.def}"`;
+    }
+
+    function getRandomHole() {
+      const availableMoles = Array.from(moles).filter(m => !m.classList.contains('up'));
+      if (availableMoles.length === 0) return null;
+      const index = Math.floor(Math.random() * availableMoles.length);
+      return availableMoles[index];
+    }
+
+    function spawnMole() {
+      if (!isPlaying) return;
+      const mole = getRandomHole();
+      if (!mole) return;
+
+      // Ensure the correct target word appears more frequently (55% weight for target word)
+      let selectedWord;
+      if (Math.random() < 0.55) {
+        selectedWord = currentTarget.word;
+      } else {
+        const otherWords = vocabulary.filter(v => v.word !== currentTarget.word);
+        selectedWord = otherWords[Math.floor(Math.random() * otherWords.length)].word;
+      }
+
+      mole.textContent = selectedWord;
+      mole.dataset.word = selectedWord;
+      mole.classList.remove('hit', 'wrong');
+      mole.classList.add('up');
+
+      // Mole stays up for 1.2 seconds unless clicked
+      const hideTimeout = setTimeout(() => {
+        mole.classList.remove('up');
+      }, 1200);
+
+      mole.dataset.timeoutId = hideTimeout;
+    }
+
+    function handleMoleClick(e) {
+      if (!isPlaying) return;
+      const mole = e.target;
+      if (!mole.classList.contains('up') || mole.classList.contains('hit') || mole.classList.contains('wrong')) return;
+
+      clearTimeout(mole.dataset.timeoutId);
+
+      if (mole.dataset.word === currentTarget.word) {
+        score += 10;
+        scoreDisplay.textContent = score;
+        mole.classList.add('hit');
+        pickRandomTarget(); // Change definition upon successful hit
+      } else {
+        score = Math.max(0, score - 5);
+        scoreDisplay.textContent = score;
+        mole.classList.add('wrong');
+      }
+
+      setTimeout(() => {
+        mole.classList.remove('up');
+      }, 300);
+    }
+
+    moles.forEach(mole => mole.addEventListener('click', handleMoleClick));
+
+    function startGame() {
+      if (isPlaying) return;
+
+      score = 0;
+      timeLeft = 60;
+      isPlaying = true;
+      scoreDisplay.textContent = score;
+      timerDisplay.textContent = timeLeft;
+      startBtn.disabled = true;
+      startBtn.style.opacity = "0.5";
+
+      pickRandomTarget();
+
+      // Main countdown timer
+      gameInterval = setInterval(() => {
+        timeLeft--;
+        timerDisplay.textContent = timeLeft;
+
+        if (timeLeft <= 0) {
+          endGame();
+        }
+      }, 1000);
+
+      // Mole popup loop
+      popInterval = setInterval(spawnMole, 800);
+    }
+
+    function endGame() {
+      isPlaying = false;
+      clearInterval(gameInterval);
+      clearInterval(popInterval);
+      moles.forEach(mole => mole.classList.remove('up'));
+      definitionDisplay.textContent = `Game Over! Final Score: ${score}`;
+      startBtn.disabled = false;
+      startBtn.style.opacity = "1";
+    }
+  </script>
+</body>
+</html>

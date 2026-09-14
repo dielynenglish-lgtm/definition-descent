@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Architectural Vision: Gallery Runner</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+        body {
+            background-color: #0b0d14;
+            color: #f1f5f9;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            box-shadow: 0 0 35px rgba(217, 119, 6, 0.25);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid #334155;
+        }
+        canvas {
+            display: block;
+            background: #090a10;
+        }
+        /* Top Definition Overlay Bar */
+        #definition-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(15, 23, 42, 0.92);
+            border-bottom: 2px solid #d97706;
+            padding: 12px 20px;
+            text-align: center;
+            z-index: 10;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+            backdrop-filter: blur(6px);
+        }
+        #def-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #fbbf24;
+            margin-bottom: 4px;
+        }
+        #def-text {
+            font-size: 16px;
+            font-weight: 600;
+            color: #f8fafc;
+            line-height: 1.3;
+        }
+        /* HUD Display */
+        #hud {
+            position: absolute;
+            top: 75px;
+            left: 15px;
+            right: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .hud-card {
+            background: rgba(15, 23, 42, 0.75);
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.1);
+            backdrop-filter: blur(4px);
+        }
+        .hud-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            color: #94a3b8;
+            letter-spacing: 1px;
+        }
+        .hud-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #ffffff;
+        }
+        /* Shield/Inspiration Health Bar */
+        #shield-container {
+            width: 150px;
+            height: 12px;
+            background: #1e293b;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid #475569;
+            margin-top: 4px;
+        }
+        #shield-fill {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, #d97706, #fbbf24);
+            transition: width 0.2s ease;
+        }
+        /* Overlay Screens */
+        .overlay-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(11, 13, 20, 0.94);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            text-align: center;
+            padding: 40px;
+        }
+        .overlay-title {
+            font-size: 34px;
+            font-weight: 800;
+            color: #fbbf24;
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+            text-shadow: 0 0 12px rgba(251, 191, 36, 0.4);
+        }
+        .overlay-sub {
+            font-size: 15px;
+            color: #94a3b8;
+            margin-bottom: 30px;
+            max-width: 520px;
+            line-height: 1.5;
+        }
+        .btn {
+            background: linear-gradient(135deg, #d97706, #b45309);
+            color: #ffffff;
+            font-size: 17px;
+            font-weight: 700;
+            padding: 12px 36px;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 0 18px rgba(217, 119, 6, 0.4);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 28px rgba(217, 119, 6, 0.7);
+        }
+        .controls-info {
+            margin-top: 25px;
+            font-size: 13px;
+            color: #64748b;
+        }
+        .controls-info span {
+            color: #fbbf24;
+            font-weight: bold;
+        }
+        /* Banner Messages */
+        #feedback-pop {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            font-size: 26px;
+            font-weight: 900;
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: none;
+            z-index: 15;
+            text-shadow: 0 0 10px rgba(0,0,0,0.8);
+        }
+        #feedback-pop.active {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1.1);
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="definition-bar">
+        <div id="def-title">Target Concept</div>
+        <div id="def-text">Press START RUN to begin gallery exploration...</div>
+    </div>
+
+    <div id="hud">
+        <div class="hud-card">
+            <div class="hud-label">Gallery Distance</div>
+            <div class="hud-value" id="score-display">0 m</div>
+        </div>
+        <div class="hud-card">
+            <div class="hud-label">Pace</div>
+            <div class="hud-value" id="speed-display">1.0x</div>
+        </div>
+        <div class="hud-card">
+            <div class="hud-label">Inspiration</div>
+            <div id="shield-container">
+                <div id="shield-fill"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="feedback-pop"></div>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <div id="start-screen" class="overlay-screen">
+        <h1 class="overlay-title">ARCHITECTURAL GALLERY GATES</h1>
+        <p class="overlay-sub">Navigate the gallery corridors and select the archway matching the architectural or artistic definition shown at the top! Avoid pedestals by jumping.</p>
+        <button class="btn" id="start-btn">START RUN</button>
+        <div class="controls-info">
+            Controls: <span>LEFT / RIGHT Arrows</span> (or A/D) to Move | <span>UP Arrow</span> (or W/Space) to Jump
+        </div>
+    </div>
+
+    <div id="gameover-screen" class="overlay-screen" style="display: none;">
+        <h1 class="overlay-title" style="color: #ef4444;">INSPIRATION DEPLETED</h1>
+        <p class="overlay-sub" id="final-stats">Your tour ended unexpectedly.</p>
+        <button class="btn" id="restart-btn">RETRY TOUR</button>
+    </div>
+</div>
+
+<script>
+    // Architectural & Artistic Vocabulary Database
+    const VOCAB_DATABASE = [
+        { word: "CANTILEVER", def: "A rigid structural element extending horizontally and supported at only one end." },
+        { word: "FACADE", def: "The principal front or exterior face of a building." },
+        { word: "PARAMETRIC", def: "Design driven by algorithmic rules and digital parameters to generate complex curves." },
+        { word: "BRUTALISM", def: "An architectural style characterized by massive, monolithic forms and raw exposed concrete." },
+        { word: "PERSPECTIVE", def: "A method of depicting three-dimensional space and spatial depth on a flat surface." },
+        { word: "PORTICO", def: "A structure consisting of a roof supported by columns at the entrance of a building." },
+        { word: "MINIMALISM", def: "A design philosophy focusing on simplicity, clean lines, and essential elements." }
+    ];
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const defTextEl = document.getElementById('def-text');
+    const scoreDisplay = document.getElementById('score-display');
+    const speedDisplay = document.getElementById('speed-display');
+    const shieldFill = document.getElementById('shield-fill');
+    const feedbackPop = document.getElementById('feedback-pop');
+    const startScreen = document.getElementById('start-screen');
+    const gameoverScreen = document.getElementById('gameover-screen');
+    const finalStats = document.getElementById('final-stats');
+
+    const LANES = [220, 400, 580];
+    let isRunning = false;
+    let distance = 0;
+    let speed = 4;
+    let baseSpeed = 4;
+    let shield = 100;
+    let lastTime = 0;
+    let gateTimer = 0;
+    const GATE_INTERVAL = 10;
+
+    const player = {
+        lane: 1,
+        x: LANES[1],
+        y: 490,
+        width: 44,
+        height: 60,
+        jumpZ: 0,
+        jumpVelocity: 0,
+        isJumping: false,
+        gravity: 0.8
+    };
+
+    let obstacles = [];
+    let activeGatePair = null;
+    let currentQuiz = null;
+    let obstacleTimer = 0;
+    let bgScroll = 0;
+
+    document.getElementById('start-btn').addEventListener('click', startGame);
+    document.getElementById('restart-btn').addEventListener('click', startGame);
+
+    window.addEventListener('keydown', (e) => {
+        if (!isRunning) return;
+
+        if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+            if (player.lane > 0) player.lane--;
+        } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+            if (player.lane < 2) player.lane++;
+        } else if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W' || e.key === ' ') {
+            if (!player.isJumping) {
+                player.isJumping = true;
+                player.jumpVelocity = 14;
+            }
+        }
+    });
+
+    function startGame() {
+        startScreen.style.display = 'none';
+        gameoverScreen.style.display = 'none';
+        
+        distance = 0;
+        baseSpeed = 4.5;
+        speed = baseSpeed;
+        shield = 100;
+        gateTimer = 3;
+        obstacleTimer = 0;
+        player.lane = 1;
+        player.x = LANES[1];
+        player.jumpZ = 0;
+        player.isJumping = false;
+        
+        obstacles = [];
+        activeGatePair = null;
+        currentQuiz = null;
+        
+        updateHUD();
+        defTextEl.textContent = "Prepare for upcoming architectural portals! Navigate lanes and leap over pedestals.";
+        
+        isRunning = true;
+        lastTime = performance.now();
+        requestAnimationFrame(gameLoop);
+    }
+
+    function gameLoop(time) {
+        if (!isRunning) return;
+
+        const dt = (time - lastTime) / 1000;
+        lastTime = time;
+
+        update(dt);
+        render();
+
+        if (shield > 0) {
+            requestAnimationFrame(gameLoop);
+        } else {
+            endGame();
+        }
+    }
+
+    function update(dt) {
+        distance += speed * dt * 10;
+        baseSpeed += dt * 0.05;
+        speed = Math.max(baseSpeed, speed);
+
+        const targetX = LANES[player.lane];
+        player.x += (targetX - player.x) * 0.25;
+
+        if (player.isJumping) {
+            player.jumpZ += player.jumpVelocity;
+            player.jumpVelocity -= player.gravity;
+            if (player.jumpZ <= 0) {
+                player.jumpZ = 0;
+                player.isJumping = false;
+            }
+        }
+
+        bgScroll = (bgScroll + speed * 1.5) % 40;
+
+        obstacleTimer += dt;
+        if (obstacleTimer > (2.5 / (speed / 4)) && (!activeGatePair || activeGatePair.y < 100)) {
+            obstacleTimer = 0;
+            if (Math.random() > 0.3) {
+                const lane = Math.floor(Math.random() * 3);
+                obstacles.push({
+                    lane: lane,
+                    x: LANES[lane],
+                    y: -40,
+                    width: 50,
+                    height: 25,
+                    passed: false
+                });
+            }
+        }
+
+        for (let i = obstacles.length - 1; i >= 0; i--) {
+            let obs = obstacles[i];
+            obs.y += speed * 1.3;
+
+            if (!obs.passed && obs.y > player.y - 20 && obs.y < player.y + 30) {
+                if (player.lane === obs.lane) {
+                    if (player.jumpZ < 25) {
+                        obs.passed = true;
+                        takeDamage(20, "COLLISION! -20 INSPIRATION");
+                    }
+                }
+            }
+
+            if (obs.y > canvas.height + 50) {
+                obstacles.splice(i, 1);
+            }
+        }
+
+        if (!activeGatePair) {
+            gateTimer -= dt;
+            if (gateTimer <= 0) {
+                spawnGatePair();
+                gateTimer = GATE_INTERVAL;
+            }
+        } else {
+            activeGatePair.y += speed * 1.1;
+
+            if (!activeGatePair.passed && activeGatePair.y >= player.y - 10) {
+                activeGatePair.passed = true;
+                
+                if (player.lane === activeGatePair.correctLane) {
+                    speed += 1.8;
+                    distance += 150;
+                    shield = Math.min(100, shield + 10);
+                    showFeedback("ACCURATE! +SPEED & INSPIRATION", "#10b981");
+                } else {
+                    takeDamage(25, "WRONG PORTAL! MISALIGNED");
+                }
+
+                setTimeout(() => {
+                    if (activeGatePair && activeGatePair.passed) {
+                        defTextEl.textContent = "Approaching next architectural gallery portal...";
+                    }
+                }, 1500);
+            }
+
+            if (activeGatePair.y > canvas.height + 100) {
+                activeGatePair = null;
+            }
+        }
+
+        updateHUD();
+    }
+
+    function spawnGatePair() {
+        const targetIndex = Math.floor(Math.random() * VOCAB_DATABASE.length);
+        const targetObj = VOCAB_DATABASE[targetIndex];
+
+        let distractorIndex = Math.floor(Math.random() * VOCAB_DATABASE.length);
+        while (distractorIndex === targetIndex) {
+            distractorIndex = Math.floor(Math.random() * VOCAB_DATABASE.length);
+        }
+        const distractorObj = VOCAB_DATABASE[distractorIndex];
+
+        const correctLane = Math.floor(Math.random() * 3);
+        let otherLane = (correctLane + 1 + Math.floor(Math.random() * 2)) % 3;
+
+        currentQuiz = targetObj;
+        defTextEl.textContent = `"${targetObj.def}"`;
+
+        activeGatePair = {
+            y: -120,
+            correctLane: correctLane,
+            gateA: { lane: correctLane, word: targetObj.word, isCorrect: true },
+            gateB: { lane: otherLane, word: distractorObj.word, isCorrect: false },
+            passed: false
+        };
+    }
+
+    function takeDamage(amount, msg) {
+        shield -= amount;
+        speed = Math.max(3, speed - 2);
+        showFeedback(msg, "#ef4444");
+    }
+
+    function showFeedback(text, color) {
+        feedbackPop.textContent = text;
+        feedbackPop.style.color = color;
+        feedbackPop.classList.add('active');
+        setTimeout(() => {
+            feedbackPop.classList.remove('active');
+        }, 1200);
+    }
+
+    function updateHUD() {
+        scoreDisplay.textContent = `${Math.floor(distance)} m`;
+        speedDisplay.textContent = `${(speed / 4).toFixed(1)}x`;
+        shieldFill.style.width = `${Math.max(0, shield)}%`;
+
+        if (shield < 30) {
+            shieldFill.style.background = 'linear-gradient(90deg, #ef4444, #f87171)';
+        } else {
+            shieldFill.style.background = 'linear-gradient(90deg, #d97706, #fbbf24)';
+        }
+    }
+
+    function render() {
+        // Clear Background - Deep gallery ambient darkness
+        ctx.fillStyle = '#090a10';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw Gallery Flooring and Lane Dividers
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 2;
+        
+        const laneBounds = [130, 310, 490, 670];
+        laneBounds.forEach(x => {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, canvas.height);
+            ctx.stroke();
+        });
+
+        // Marble Tile Moving Grid
+        ctx.strokeStyle = '#d97706';
+        ctx.lineWidth = 1;
+        ctx.globalAlpha = 0.15;
+        for (let y = bgScroll; y < canvas.height; y += 40) {
+            ctx.beginPath();
+            ctx.moveTo(130, y);
+            ctx.lineTo(670, y);
+            ctx.stroke();
+        }
+        ctx.globalAlpha = 1.0;
+
+        // Draw Sculptural Pedestals (Obstacles)
+        obstacles.forEach(obs => {
+            ctx.fillStyle = '#475569';
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 2;
+            ctx.fillRect(obs.x - obs.width/2, obs.y, obs.width, obs.height);
+            ctx.strokeRect(obs.x - obs.width/2, obs.y, obs.width, obs.height);
+            
+            // Marble Highlight Top
+            ctx.fillStyle = '#fbbf24';
+            ctx.fillRect(obs.x - obs.width/2 + 4, obs.y + 3, obs.width - 8, 4);
+        });
+
+        // Draw Architectural Gates
+        if (activeGatePair) {
+            drawArchway(activeGatePair.gateA.lane, activeGatePair.y, activeGatePair.gateA.word);
+            drawArchway(activeGatePair.gateB.lane, activeGatePair.y, activeGatePair.gateB.word);
+        }
+
+        // Draw Player (Artistic Craft / Figure)
+        const renderY = player.y - player.jumpZ;
+
+        if (player.isJumping) {
+            ctx.fillStyle = 'rgba(0,0,0,0.4)';
+            ctx.beginPath();
+            ctx.ellipse(player.x, player.y + 25, 20, 8, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Geometric Stylized Avatar
+        ctx.fillStyle = '#fbbf24';
+        ctx.shadowColor = '#d97706';
+        ctx.shadowBlur = 15;
+        
+        ctx.beginPath();
+        ctx.moveTo(player.x, renderY - 28);
+        ctx.lineTo(player.x - 20, renderY + 18);
+        ctx.lineTo(player.x + 20, renderY + 18);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(player.x, renderY - 4, 5, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.shadowBlur = 0;
+    }
+
+    function drawArchway(laneIndex, y, word) {
+        const x = LANES[laneIndex];
+        const width = 155;
+        const height = 90;
+
+        ctx.fillStyle = '#0f172a';
+        ctx.strokeStyle = '#fbbf24';
+        ctx.lineWidth = 3;
+        ctx.shadowColor = '#d97706';
+        ctx.shadowBlur = 10;
+
+        // Classical Portico Beam
+        ctx.fillRect(x - width/2, y, width, 28);
+        ctx.strokeRect(x - width/2, y, width, 28);
+
+        // Columns
+        ctx.fillRect(x - width/2, y + 28, 18, height - 28);
+        ctx.strokeRect(x - width/2, y + 28, 18, height - 28);
+
+        ctx.fillRect(x + width/2 - 18, y + 28, 18, height - 28);
+        ctx.strokeRect(x + width/2 - 18, y + 28, 18, height - 28);
+
+        ctx.shadowBlur = 0;
+
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = 'bold 13px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(word, x, y + 19);
+    }
+
+    function endGame() {
+        isRunning = false;
+        finalStats.innerHTML = `Distance Traveled: <strong>${Math.floor(distance)} meters</strong><br>Keep building your vocabulary and artistic vision!`;
+        gameoverScreen.style.display = 'flex';
+    }
+</script>
+</body>
+</html>

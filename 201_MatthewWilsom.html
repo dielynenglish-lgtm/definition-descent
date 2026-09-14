@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crossword Arcade Frogger</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            background-color: #1a1a2e;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        #game-container {
+            width: 600px;
+            background: #16213e;
+            border: 4px solid #0f3460;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+        #header {
+            background: #0f3460;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        #definition-box {
+            font-size: 1.1rem;
+            color: #e94560;
+            font-weight: bold;
+            margin-top: 8px;
+            min-height: 2.5em;
+        }
+        #stats {
+            display: flex;
+            justify-content: space-between;
+            font-size: 1rem;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        #grid {
+            position: relative;
+            width: 560px;
+            height: 400px;
+            background: #000;
+            border: 2px solid #e94560;
+            overflow: hidden;
+            margin: 0 auto;
+        }
+        .lane {
+            position: absolute;
+            width: 100%;
+            height: 40px;
+            display: flex;
+            align-items: center;
+        }
+        .safety-zone { background-color: #1b4332; }
+        .road { background-color: #2b2b2b; border-top: 1px dashed #555; border-bottom: 1px dashed #555; }
+        .river { background-color: #0077b6; }
+        .start-zone { background-color: #2d6a4f; }
+
+        .top-target {
+            position: absolute;
+            top: 0;
+            height: 40px;
+            width: 90px;
+            background: #40916c;
+            border: 2px solid #52b788;
+            color: #fff;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            border-radius: 4px;
+        }
+
+        .obstacle {
+            position: absolute;
+            height: 32px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: #fff;
+            padding: 0 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .car { background: #d90429; border: 1px solid #ef233c; }
+        .log { background: #7f4f24; border: 1px solid #936639; }
+
+        #player {
+            position: absolute;
+            width: 32px;
+            height: 32px;
+            background: #52b788;
+            border: 2px solid #74c69d;
+            border-radius: 50%;
+            z-index: 10;
+            transition: all 0.05s ease;
+        }
+
+        #message-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+        }
+        button {
+            background: #e94560;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+        button:hover { background: #0f3460; }
+        .controls-hint {
+            margin-top: 12px;
+            font-size: 0.85rem;
+            color: #aaa;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="header">
+        <div>Fill in the blank:</div>
+        <div id="definition-box">Loading puzzle...</div>
+    </div>
+    
+    <div id="stats">
+        <span>Score: <span id="score">0</span></span>
+        <span>Time Left: <span id="timer">45</span>s</span>
+    </div>
+
+    <div id="grid">
+        <div id="message-overlay">
+            <h2 id="overlay-title">Crossword Arcade Frogger</h2>
+            <p id="overlay-desc">Use ARROW KEYS to navigate to the target word!</p>
+            <button onclick="startGame()">Start Game</button>
+        </div>
+        <div id="player"></div>
+    </div>
+
+    <div class="controls-hint">Controls: Arrow Keys (Up, Down, Left, Right)</div>
+</div>
+
+<script>
+const vocabData = [
+    { word: "ENCOUNTER", def: "To unexpectedly experience or come face-to-face with." },
+    { word: "FEAST", def: "A large, elaborate meal typically served to many guests." },
+    { word: "MERGE", def: "To combine or cause to combine to form a single entity." },
+    { word: "DISTINCT", def: "Recognizably different in nature from something else." },
+    { word: "ENDURE", def: "To suffer patiently or remain in existence through hardship." },
+    { word: "REMINDER", def: "A thing that causes someone to remember something." }
+];
+
+const GRID_WIDTH = 560;
+const GRID_HEIGHT = 400;
+const ROW_HEIGHT = 40;
+const COL_WIDTH = 40;
+
+let currentVocab = null;
+let score = 0;
+let timeLeft = 45;
+let timerInterval = null;
+let gameLoopId = null;
+let gameActive = false;
+
+let player = { x: 260, y: 360, row: 9, col: 6.5 };
+let obstacles = [];
+let topTargets = [];
+
+function initLanes() {
+    const grid = document.getElementById('grid');
+    // Clear old elements except overlay and player
+    const itemsToRemove = grid.querySelectorAll('.lane, .top-target, .obstacle');
+    itemsToRemove.forEach(el => el.remove());
+
+    // Create background lanes
+    for (let r = 0; r < 10; r++) {
+        let lane = document.createElement('div');
+        lane.className = 'lane ';
+        if (r === 0) lane.className += 'safety-zone';
+        else if (r >= 1 && r <= 4) lane.className += 'river';
+        else if (r === 5) lane.className += 'safety-zone';
+        else if (r >= 6 && r <= 8) lane.className += 'road';
+        else lane.className += 'start-zone';
+        lane.style.top = (r * ROW_HEIGHT) + 'px';
+        grid.appendChild(lane);
+    }
+}
+
+function setupRound() {
+    // Select word
+    currentVocab = vocabData[Math.floor(Math.random() * vocabData.length)];
+    document.getElementById('definition-box').innerText = `"${currentVocab.def}"`;
+
+    // Reset Player Position
+    player.x = 260;
+    player.y = 360;
+    updatePlayerPosition();
+
+    // Create Top Destinations (1 Correct, 2 Distractors)
+    let targets = [currentVocab.word];
+    while (targets.length < 3) {
+        let randWord = vocabData[Math.floor(Math.random() * vocabData.length)].word;
+        if (!targets.includes(randWord)) targets.push(randWord);
+    }
+    targets.sort(() => Math.random() - 0.5);
+
+    const grid = document.getElementById('grid');
+    document.querySelectorAll('.top-target, .obstacle').forEach(e => e.remove());
+    topTargets = [];
+
+    const positions = [50, 235, 420];
+    targets.forEach((word, index) => {
+        let targetEl = document.createElement('div');
+        targetEl.className = 'top-target';
+        targetEl.style.left = positions[index] + 'px';
+        targetEl.innerText = word;
+        grid.appendChild(targetEl);
+
+        topTargets.push({
+            word: word,
+            x: positions[index],
+            width: 90,
+            isCorrect: word === currentVocab.word
+        });
+    });
+
+    // Create Obstacles across lanes
+    obstacles = [
+        // River Lanes (Logs)
+        { row: 1, x: 0, width: 120, speed: 2, type: 'log', label: 'Persevere' },
+        { row: 1, x: 300, width: 120, speed: 2, type: 'log', label: 'Sustain' },
+        { row: 2, x: 100, width: 100, speed: -2.5, type: 'log', label: 'Unite' },
+        { row: 2, x: 380, width: 100, speed: -2.5, type: 'log', label: 'Blend' },
+        { row: 3, x: 50, width: 130, speed: 1.8, type: 'log', label: 'Noticeable' },
+        { row: 3, x: 320, width: 130, speed: 1.8, type: 'log', label: 'Unique' },
+        { row: 4, x: 0, width: 110, speed: -2.2, type: 'log', label: 'Prompt' },
+        { row: 4, x: 280, width: 110, speed: -2.2, type: 'log', label: 'Banquet' },
+
+        // Road Lanes (Cars)
+        { row: 6, x: 0, width: 70, speed: 3, type: 'car', label: 'DANGER' },
+        { row: 6, x: 250, width: 70, speed: 3, type: 'car', label: 'FAST' },
+        { row: 7, x: 100, width: 80, speed: -3.5, type: 'car', label: 'HAZARD' },
+        { row: 7, x: 380, width: 80, speed: -3.5, type: 'car', label: 'AVOID' },
+        { row: 8, x: 50, width: 75, speed: 2.5, type: 'car', label: 'STOP' },
+        { row: 8, x: 320, width: 75, speed: 2.5, type: 'car', label: 'CAUTION' }
+    ];
+
+    obstacles.forEach(obs => {
+        let el = document.createElement('div');
+        el.className = `obstacle ${obs.type}`;
+        el.style.width = obs.width + 'px';
+        el.innerText = obs.label;
+        grid.appendChild(el);
+        obs.element = el;
+    });
+
+    // Reset Timer
+    timeLeft = 45;
+    document.getElementById('timer').innerText = timeLeft;
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+        if (!gameActive) return;
+        timeLeft--;
+        document.getElementById('timer').innerText = timeLeft;
+        if (timeLeft <= 0) {
+            endGame("Time's Up!");
+        }
+    }, 1000);
+}
+
+function updatePlayerPosition() {
+    const pEl = document.getElementById('player');
+    pEl.style.left = player.x + 'px';
+    pEl.style.top = player.y + 'px';
+}
+
+function startGame() {
+    document.getElementById('message-overlay').style.display = 'none';
+    score = 0;
+    document.getElementById('score').innerText = score;
+    initLanes();
+    setupRound();
+    gameActive = true;
+    if (gameLoopId) cancelAnimationFrame(gameLoopId);
+    gameLoop();
+}
+
+function endGame(message) {
+    gameActive = false;
+    clearInterval(timerInterval);
+    const overlay = document.getElementById('message-overlay');
+    document.getElementById('overlay-title').innerText = message;
+    document.getElementById('overlay-desc').innerText = `Final Score: ${score}`;
+    overlay.style.display = 'flex';
+}
+
+function resetPlayerToStart() {
+    player.x = 260;
+    player.y = 360;
+    updatePlayerPosition();
+}
+
+function gameLoop() {
+    if (!gameActive) return;
+
+    let playerRow = Math.floor((player.y + 16) / ROW_HEIGHT);
+    let ridingLog = false;
+
+    // Move obstacles
+    obstacles.forEach(obs => {
+        obs.x += obs.speed;
+        if (obs.speed > 0 && obs.x > GRID_WIDTH) obs.x = -obs.width;
+        if (obs.speed < 0 && obs.x < -obs.width) obs.x = GRID_WIDTH;
+
+        obs.element.style.left = obs.x + 'px';
+        obs.element.style.top = (obs.row * ROW_HEIGHT + 4) + 'px';
+
+        // Collision Check
+        let obsY = obs.row * ROW_HEIGHT;
+        if (player.y < obsY + ROW_HEIGHT && player.y + 32 > obsY) {
+            if (player.x + 8 < obs.x + obs.width && player.x + 24 > obs.x) {
+                if (obs.type === 'car') {
+                    resetPlayerToStart(); // Hit car -> Reset to start
+                } else if (obs.type === 'log') {
+                    ridingLog = true;
+                    player.x += obs.speed; // Carry player with log
+                }
+            }
+        }
+    });
+
+    // Handle River Mechanics
+    if (playerRow >= 1 && playerRow <= 4) {
+        if (!ridingLog) {
+            resetPlayerToStart(); // Fell in river -> Reset
+        } else {
+            // Keep in bounds
+            if (player.x < 0) player.x = 0;
+            if (player.x > GRID_WIDTH - 32) player.x = GRID_WIDTH - 32;
+        }
+    }
+
+    // Handle Reaching Top Destination Zone
+    if (playerRow === 0) {
+        let reachedTarget = topTargets.find(t => player.x + 16 >= t.x && player.x + 16 <= t.x + t.width);
+        if (reachedTarget) {
+            if (reachedTarget.isCorrect) {
+                score += 100;
+                document.getElementById('score').innerText = score;
+                setupRound();
+            } else {
+                resetPlayerToStart();
+            }
+        } else {
+            resetPlayerToStart(); // Missed the target safety zone
+        }
+    }
+
+    updatePlayerPosition();
+    gameLoopId = requestAnimationFrame(gameLoop);
+}
+
+// Controls
+window.addEventListener('keydown', e => {
+    if (!gameActive) return;
+
+    const STEP = 40;
+    switch (e.key) {
+        case 'ArrowUp':
+            if (player.y - STEP >= 0) player.y -= STEP;
+            break;
+        case 'ArrowDown':
+            if (player.y + STEP <= GRID_HEIGHT - 40) player.y += STEP;
+            break;
+        case 'ArrowLeft':
+            if (player.x - STEP >= 0) player.x -= STEP;
+            break;
+        case 'ArrowRight':
+            if (player.x + STEP <= GRID_WIDTH - 32) player.x += STEP;
+            break;
+    }
+    updatePlayerPosition();
+});
+</script>
+
+</body>
+</html>

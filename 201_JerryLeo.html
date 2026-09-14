@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Breakout Word-Wall Builder</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+    }
+    body {
+      background-color: #1e1e2e;
+      color: #cdd6f4;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: 0;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+    h1 {
+      margin: 5px 0 2px 0;
+      color: #89b4fa;
+      font-size: 1.8rem;
+    }
+    p.subtitle {
+      margin: 0 0 10px 0;
+      color: #a6adc8;
+      font-size: 0.95rem;
+    }
+    #stats-bar {
+      display: flex;
+      justify-content: space-between;
+      width: 800px;
+      margin-bottom: 8px;
+    }
+    .stat-card {
+      background: #313244;
+      padding: 6px 16px;
+      border-radius: 8px;
+      border: 1px solid #45475a;
+      font-weight: bold;
+      font-size: 1.05rem;
+    }
+    .stat-card span {
+      color: #f9e2af;
+    }
+    #game-container {
+      position: relative;
+      width: 800px;
+      height: 550px;
+      border: 3px solid #45475a;
+      border-radius: 10px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+      background: #11111b;
+    }
+    canvas {
+      display: block;
+      border-radius: 8px;
+      cursor: none;
+    }
+    /* Notification Toast */
+    #toast {
+      position: absolute;
+      top: 15px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(49, 50, 68, 0.95);
+      border: 2px solid #89b4fa;
+      color: #cdd6f4;
+      padding: 8px 18px;
+      border-radius: 20px;
+      font-weight: bold;
+      font-size: 1rem;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      z-index: 5;
+    }
+    /* Quiz & Game Over Modals */
+    .overlay-modal {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(17, 17, 27, 0.88);
+      backdrop-filter: blur(4px);
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      border-radius: 8px;
+      z-index: 10;
+    }
+    .modal-box {
+      background: #1e1e2e;
+      border: 2px solid #89b4fa;
+      padding: 25px 30px;
+      border-radius: 12px;
+      text-align: center;
+      max-width: 520px;
+      width: 85%;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
+    }
+    .modal-box h2 {
+      margin-top: 0;
+      color: #f9e2af;
+      font-size: 1.5rem;
+    }
+    .modal-box p {
+      font-size: 1.1rem;
+      color: #cdd6f4;
+      line-height: 1.4;
+      margin: 15px 0;
+    }
+    .btn-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 15px;
+    }
+    .quiz-btn, .action-btn {
+      background: #313244;
+      color: #cdd6f4;
+      border: 2px solid #585b70;
+      padding: 12px 20px;
+      font-size: 1rem;
+      font-weight: bold;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .quiz-btn:hover, .action-btn:hover {
+      background: #89b4fa;
+      color: #11111b;
+      border-color: #89b4fa;
+      transform: translateY(-2px);
+    }
+    .action-btn {
+      background: #a6e3a1;
+      color: #11111b;
+      border-color: #a6e3a1;
+      margin-top: 15px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Breakout Word-Wall Builder</h1>
+  <p class="subtitle">Shatter word layers, answer vocabulary definitions, and unleash Multiball!</p>
+
+  <div id="stats-bar">
+    <div class="stat-card">Score: <span id="score">0</span></div>
+    <div class="stat-card">Lives: <span id="lives">3</span></div>
+    <div class="stat-card">Active Balls: <span id="balls-count">1</span></div>
+  </div>
+
+  <div id="game-container">
+    <canvas id="gameCanvas" width="800" height="550"></canvas>
+    <div id="toast">Message</div>
+
+    <!-- Vocabulary Quiz Overlay -->
+    <div id="quiz-modal" class="overlay-modal">
+      <div class="modal-box">
+        <h2>🧱 WORD LAYER SHATTERED!</h2>
+        <p id="quiz-def">Definition loading...</p>
+        <div id="quiz-options" class="btn-group"></div>
+      </div>
+    </div>
+
+    <!-- Game Over / Victory Overlay -->
+    <div id="end-modal" class="overlay-modal">
+      <div class="modal-box">
+        <h2 id="end-title">GAME OVER</h2>
+        <p id="end-msg">Try again to master all 10 vocabulary words!</p>
+        <button class="action-btn" onclick="initGame()">Play Again</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // 10 Vocabulary Words and Definitions
+    const vocabulary = [
+      { word: "participant", def: "A person who takes part or joins in an activity or event." },
+      { word: "implication", def: "A possible future effect, result, or suggestion of an action." },
+      { word: "motivation", def: "The reason, enthusiasm, or strong desire to do something." },
+      { word: "polished", def: "Refined, high quality, elegant, or smooth and shiny." },
+      { word: "outfit", def: "A complete set of clothes worn together for a purpose." },
+      { word: "reinforce", def: "To strengthen, support, or make an idea or structure stronger." },
+      { word: "accessible", def: "Easy to reach, enter, use, or understand." },
+      { word: "formula", def: "A mathematical relationship, rule, or expression written in symbols." },
+      { word: "equation", def: "A mathematical statement showing that two expressions are equal." },
+      { word: "orbit", def: "The curved path followed by a celestial object around a star or planet." }
+    ];
+
+    // Brick colors corresponding to rows
+    const rowColors = [
+      '#f38ba8', '#fab387', '#f9e2af', '#a6e3a1', '#94e2d5',
+      '#89dceb', '#74c7ec', '#89b4fa', '#cba6f7', '#f5c2e7'
+    ];
+
+    // Game variables
+    let score = 0;
+    let lives = 3;
+    let isPaused = false;
+    let isGameOver = false;
+
+    // Paddle settings
+    const paddleHeight = 14;
+    let paddle = {
+      x: 320,
+      y: canvas.height - 25,
+      width: 130,
+      height: paddleHeight,
+      color: '#89b4fa'
+    };
+
+    // Balls array (supports multiball)
+    let balls = [];
+
+    // Brick Grid Setup
+    const brickRows = 10;
+    const brickCols = 8;
+    const brickPadding = 4;
+    const brickOffsetTop = 35;
+    const brickOffsetLeft = 25;
+    const brickWidth = (canvas.width - (brickOffsetLeft * 2) - (brickCols - 1) * brickPadding) / brickCols;
+    const brickHeight = 16;
+
+    let bricks = [];
+    let rowCompleted = [];
+
+    // Mouse Controls
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      paddle.x = mouseX - paddle.width / 2;
+      
+      // Keep paddle within bounds
+      if (paddle.x < 0) paddle.x = 0;
+      if (paddle.x + paddle.width > canvas.width) paddle.x = canvas.width - paddle.width;
+    });
+
+    function initGame() {
+      score = 0;
+      lives = 3;
+      isPaused = false;
+      isGameOver = false;
+      paddle.width = 130;
+      paddle.x = (canvas.width - paddle.width) / 2;
+
+      document.getElementById('score').innerText = score;
+      document.getElementById('lives').innerText = lives;
+      document.getElementById('end-modal').style.display = 'none';
+      document.getElementById('quiz-modal').style.display = 'none';
+
+      // Initialize 2D Bricks Array
+      bricks = [];
+      rowCompleted = new Array(brickRows).fill(false);
+
+      for (let r = 0; r < brickRows; r++) {
+        bricks[r] = [];
+        for (let c = 0; c < brickCols; c++) {
+          bricks[r][c] = {
+            x: 0,
+            y: 0,
+            status: 1 // 1 = intact, 0 = smashed
+          };
+        }
+      }
+
+      resetBalls();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function resetBalls() {
+      balls = [{
+        x: canvas.width / 2,
+        y: paddle.y - 12,
+        dx: (Math.random() - 0.5) * 6,
+        dy: -5,
+        radius: 7,
+        color: '#f5e0dc'
+      }];
+      document.getElementById('balls-count').innerText = balls.length;
+    }
+
+    function spawnMultiball() {
+      balls.push({
+        x: paddle.x + paddle.width / 2,
+        y: paddle.y - 12,
+        dx: (Math.random() - 0.5) * 8,
+        dy: -5.5,
+        radius: 7,
+        color: '#a6e3a1'
+      });
+      document.getElementById('balls-count').innerText = balls.length;
+    }
+
+    function showToast(text) {
+      const toast = document.getElementById('toast');
+      toast.innerText = text;
+      toast.style.opacity = 1;
+      setTimeout(() => { toast.style.opacity = 0; }, 2500);
+    }
+
+    // --- GAME PHYSICS & LOGIC ---
+
+    function updatePhysics() {
+      if (isPaused || isGameOver) return;
+
+      for (let i = balls.length - 1; i >= 0; i--) {
+        let b = balls[i];
+
+        b.x += b.dx;
+        b.y += b.dy;
+
+        // Side Walls Collision Reflection Formula
+        if (b.x - b.radius < 0) {
+          b.x = b.radius;
+          b.dx = -b.dx;
+        } else if (b.x + b.radius > canvas.width) {
+          b.x = canvas.width - b.radius;
+          b.dx = -b.dx;
+        }
+
+        // Top Wall Reflection
+        if (b.y - b.radius < 0) {
+          b.y = b.radius;
+          b.dy = -b.dy;
+        }
+
+        // Paddle Collision (Vector reflection based on hit location)
+        if (
+          b.y + b.radius >= paddle.y &&
+          b.y - b.radius <= paddle.y + paddle.height &&
+          b.x >= paddle.x &&
+          b.x <= paddle.x + paddle.width &&
+          b.dy > 0
+        ) {
+          // Calculate hit position relative to paddle center (-1 to +1)
+          let hitPos = (b.x - (paddle.x + paddle.width / 2)) / (paddle.width / 2);
+          let maxAngle = Math.PI / 3; // 60 degrees max
+          let reflectionAngle = hitPos * maxAngle;
+          let speed = Math.sqrt(b.dx * b.dx + b.dy * b.dy);
+
+          // Vector Reflection Formula
+          b.dx = speed * Math.sin(reflectionAngle);
+          b.dy = -speed * Math.cos(reflectionAngle);
+        }
+
+        // Bottom Wall (Ball Out of Bounds)
+        if (b.y - b.radius > canvas.height) {
+          balls.splice(i, 1);
+        }
+      }
+
+      document.getElementById('balls-count').innerText = balls.length;
+
+      // Handle Life Loss if all balls are gone
+      if (balls.length === 0) {
+        lives--;
+        document.getElementById('lives').innerText = lives;
+        if (lives <= 0) {
+          endGame(false);
+        } else {
+          showToast("Ball Lost! ⚠️");
+          resetBalls();
+        }
+      }
+
+      detectBrickCollisions();
+    }
+
+    // Brick Collision Detection & Row Shatter Checking
+    function detectBrickCollisions() {
+      for (let r = 0; r < brickRows; r++) {
+        for (let c = 0; c < brickCols; c++) {
+          let b = bricks[r][c];
+          if (b.status === 1) {
+            balls.forEach(ball => {
+              if (
+                ball.x + ball.radius > b.x &&
+                ball.x - ball.radius < b.x + brickWidth &&
+                ball.y + ball.radius > b.y &&
+                ball.y - ball.radius < b.y + brickHeight
+              ) {
+                ball.dy = -ball.dy;
+                b.status = 0;
+                score += 10;
+                document.getElementById('score').innerText = score;
+
+                checkRowCompletion(r);
+              }
+            });
+          }
+        }
+      }
+    }
+
+    function checkRowCompletion(rowIndex) {
+      if (rowCompleted[rowIndex]) return;
+
+      let allSmashed = true;
+      for (let c = 0; c < brickCols; c++) {
+        if (bricks[rowIndex][c].status === 1) {
+          allSmashed = false;
+          break;
+        }
+      }
+
+      if (allSmashed) {
+        rowCompleted[rowIndex] = true;
+        
+        // Check if all bricks in total are broken (Victory)
+        let totalRemaining = 0;
+        for (let r = 0; r < brickRows; r++) {
+          for (let c = 0; c < brickCols; c++) {
+            if (bricks[r][c].status === 1) totalRemaining++;
+          }
+        }
+
+        if (totalRemaining === 0) {
+          endGame(true);
+        } else {
+          triggerQuiz(rowIndex);
+        }
+      }
+    }
+
+    // --- QUIZ & POWERUP SYSTEM ---
+
+    function triggerQuiz(rowIndex) {
+      isPaused = true;
+      const targetVocab = vocabulary[rowIndex];
+
+      document.getElementById('quiz-def').innerText = `"${targetVocab.def}"`;
+
+      // Generate 3 choices (1 correct, 2 distractors)
+      let choices = [targetVocab.word];
+      while (choices.length < 3) {
+        let randWord = vocabulary[Math.floor(Math.random() * vocabulary.length)].word;
+        if (!choices.includes(randWord)) {
+          choices.push(randWord);
+        }
+      }
+      choices.sort(() => Math.random() - 0.5); // Shuffle choices
+
+      const optionsContainer = document.getElementById('quiz-options');
+      optionsContainer.innerHTML = '';
+
+      choices.forEach(choice => {
+        const btn = document.createElement('button');
+        btn.className = 'quiz-btn';
+        btn.innerText = choice.toUpperCase();
+        btn.onclick = () => handleQuizAnswer(choice, targetVocab.word);
+        optionsContainer.appendChild(btn);
+      });
+
+      document.getElementById('quiz-modal').style.display = 'flex';
+    }
+
+    function handleQuizAnswer(selected, correct) {
+      document.getElementById('quiz-modal').style.display = 'none';
+
+      if (selected === correct) {
+        spawnMultiball();
+        showToast("✨ CORRECT! Multiball Granted!");
+      } else {
+        paddle.width = Math.max(50, paddle.width - 20); // Shrink penalty
+        showToast(`❌ INCORRECT! Correct: "${correct}". Paddle Shrank!`);
+      }
+
+      isPaused = false;
+      requestAnimationFrame(gameLoop);
+    }
+
+    function endGame(isWin) {
+      isGameOver = true;
+      const endModal = document.getElementById('end-modal');
+      const endTitle = document.getElementById('end-title');
+      const endMsg = document.getElementById('end-msg');
+
+      if (isWin) {
+        endTitle.innerText = "🏆 VICTORY!";
+        endTitle.style.color = "#a6e3a1";
+        endMsg.innerText = `Outstanding! You shattered all 10 word layers with a score of ${score}!`;
+      } else {
+        endTitle.innerText = "GAME OVER";
+        endTitle.style.color = "#f38ba8";
+        endMsg.innerText = `Final Score: ${score}. Try again to master all vocabulary words!`;
+      }
+
+      endModal.style.display = 'flex';
+    }
+
+    // --- RENDERING FUNCTIONS ---
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw Bricks
+      for (let r = 0; r < brickRows; r++) {
+        for (let c = 0; c < brickCols; c++) {
+          if (bricks[r][c].status === 1) {
+            let bx = brickOffsetLeft + c * (brickWidth + brickPadding);
+            let by = brickOffsetTop + r * (brickHeight + brickPadding);
+            
+            bricks[r][c].x = bx;
+            bricks[r][c].y = by;
+
+            ctx.fillStyle = rowColors[r];
+            ctx.beginPath();
+            ctx.roundRect(bx, by, brickWidth, brickHeight, 3);
+            ctx.fill();
+
+            // Label first letter or row index hint
+            ctx.fillStyle = "#11111b";
+            ctx.font = "bold 10px Segoe UI";
+            ctx.textAlign = "center";
+            ctx.fillText(vocabulary[r].word[0].toUpperCase(), bx + brickWidth / 2, by + 12);
+          }
+        }
+      }
+
+      // Draw Paddle
+      ctx.fillStyle = paddle.color;
+      ctx.beginPath();
+      ctx.roundRect(paddle.x, paddle.y, paddle.width, paddle.height, 6);
+      ctx.fill();
+
+      // Draw Balls
+      balls.forEach(b => {
+        ctx.fillStyle = b.color;
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.closePath();
+      });
+    }
+
+    function gameLoop() {
+      if (!isGameOver) {
+        updatePhysics();
+        draw();
+        if (!isPaused) {
+          requestAnimationFrame(gameLoop);
+        }
+      }
+    }
+
+    // Start game on load
+    initGame();
+  </script>
+</body>
+</html>

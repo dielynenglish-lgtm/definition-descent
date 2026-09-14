@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocabulary Money Ladder</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body {
+            background: radial-gradient(circle, #0b1d3a 0%, #020b18 100%);
+            color: #ffffff;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .game-container {
+            width: 100%;
+            max-width: 900px;
+            background-color: #0f2a4a;
+            border: 4px solid #ffd700;
+            border-radius: 15px;
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.3);
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 700px) {
+            .game-container {
+                grid-template-columns: 1fr;
+            }
+        }
+        .header {
+            grid-column: 1 / -1;
+            text-align: center;
+            border-bottom: 2px solid #ffd700;
+            padding-bottom: 10px;
+        }
+        .header h1 {
+            color: #ffd700;
+            margin: 0;
+            font-size: 2.2em;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+            text-transform: uppercase;
+        }
+        .timer-box {
+            font-size: 1.2em;
+            color: #ff4d4d;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+        .quiz-section {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .question-box {
+            background: #163860;
+            border: 2px solid #ffd700;
+            border-radius: 10px;
+            padding: 20px;
+            font-size: 1.2em;
+            min-height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            margin-bottom: 20px;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .option-btn {
+            background: linear-gradient(180deg, #1d4575 0%, #0d2747 100%);
+            border: 2px solid #3a75bb;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: left;
+        }
+        .option-btn:hover {
+            border-color: #ffd700;
+            background: linear-gradient(180deg, #2a5d9c 0%, #133863 100%);
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
+        }
+        .ladder-section {
+            background: #081628;
+            border: 2px solid #3a75bb;
+            border-radius: 10px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column-reverse;
+            gap: 8px;
+        }
+        .ladder-step {
+            background: #102540;
+            padding: 10px 15px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            color: #8fa3bf;
+            border: 1px solid transparent;
+        }
+        .ladder-step.active {
+            background: linear-gradient(90deg, #ffd700 0%, #ffae00 100%);
+            color: #000;
+            border-color: #ffffff;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.8);
+            transform: scale(1.03);
+        }
+        .ladder-step.completed {
+            color: #ffd700;
+        }
+        .game-over-screen {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 40px;
+        }
+        .game-over-screen h2 {
+            font-size: 2.5em;
+            color: #ffd700;
+            margin-bottom: 10px;
+        }
+        .btn-restart {
+            background: linear-gradient(180deg, #ffd700 0%, #ffae00 100%);
+            color: #000;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.2em;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 20px;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+            transition: transform 0.2s;
+        }
+        .btn-restart:hover {
+            transform: scale(1.05);
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="game-container">
+    <div class="header">
+        <h1>Vocabulary Money Ladder</h1>
+        <div class="timer-box" id="timer">Time Remaining: 60s</div>
+    </div>
+
+    <div class="quiz-section" id="quiz-area">
+        <div class="question-box" id="question">Loading question...</div>
+        <div class="options-grid" id="options"></div>
+    </div>
+
+    <div class="ladder-section" id="ladder"></div>
+
+    <div class="game-over-screen hidden" id="game-over">
+        <h2 id="game-over-title">GAME OVER</h2>
+        <p id="game-over-msg">You lost!</p>
+        <button class="btn-restart" onclick="restartGame()">Play Again</button>
+    </div>
+</div>
+
+<script>
+    const originalQuestions = [
+        {
+            word: "version",
+            question: "Which word means 'a particular form or variant of something'?",
+            options: ["version", "landscape", "vast", "undertake"],
+            answer: 0
+        },
+        {
+            word: "vast",
+            question: "Which word describes an area that is 'immense, huge, or expansive'?",
+            options: ["dusty", "extraordinary", "vast", "diverse"],
+            answer: 2
+        },
+        {
+            word: "undertake",
+            question: "To commit oneself to or begin a task or responsibility is to:",
+            options: ["version", "undertake", "landscape", "dusty"],
+            answer: 1
+        },
+        {
+            word: "extraordinary",
+            question: "Something remarkable, highly unusual, or exceptional is:",
+            options: ["extraordinary", "diverse", "version", "vast"],
+            answer: 0
+        },
+        {
+            word: "landscape",
+            question: "All the visible features of an area of land can be called a:",
+            options: ["undertake", "dusty", "version", "landscape"],
+            answer: 3
+        },
+        {
+            word: "dusty",
+            question: "Something covered with fine, dry powder or dirt is:",
+            options: ["vast", "dusty", "extraordinary", "diverse"],
+            answer: 1
+        },
+        {
+            word: "diverse",
+            question: "Showing a great deal of variety or being very different is:",
+            options: ["diverse", "landscape", "undertake", "version"],
+            answer: 0
+        }
+    ];
+
+    const moneyValues = ["$1,000", "$5,000", "$10,000", "$25,000", "$50,000", "$100,000", "$1,000,000"];
+
+    let questions = [];
+    let currentStep = 0;
+    let timer;
+    let timeLeft = 60;
+
+    function shuffleArray(array) {
+        let arr = [...array];
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+    }
+
+    function initGame() {
+        questions = shuffleArray(originalQuestions);
+        currentStep = 0;
+        timeLeft = 60;
+        document.getElementById('quiz-area').classList.remove('hidden');
+        document.getElementById('ladder').classList.remove('hidden');
+        document.getElementById('game-over').classList.add('hidden');
+        
+        renderLadder();
+        loadQuestion();
+        startTimer();
+    }
+
+    function startTimer() {
+        clearInterval(timer);
+        document.getElementById('timer').innerText = `Time Remaining: ${timeLeft}s`;
+        timer = setInterval(() => {
+            timeLeft--;
+            document.getElementById('timer').innerText = `Time Remaining: ${timeLeft}s`;
+            if (timeLeft <= 0) {
+                clearInterval(timer);
+                endGame(false, "Time ran out!");
+            }
+        }, 1000);
+    }
+
+    function renderLadder() {
+        const ladderEl = document.getElementById('ladder');
+        ladderEl.innerHTML = '';
+        moneyValues.forEach((val, idx) => {
+            const stepEl = document.createElement('div');
+            stepEl.className = `ladder-step ${idx === currentStep ? 'active' : ''} ${idx < currentStep ? 'completed' : ''}`;
+            stepEl.innerHTML = `<span>Step ${idx + 1}</span> <span>${val}</span>`;
+            ladderEl.appendChild(stepEl);
+        });
+    }
+
+    function loadQuestion() {
+        const q = questions[currentStep];
+        document.getElementById('question').innerText = q.question;
+        const optionsEl = document.getElementById('options');
+        optionsEl.innerHTML = '';
+
+        q.options.forEach((opt, idx) => {
+            const btn = document.createElement('button');
+            btn.className = 'option-btn';
+            btn.innerText = `${String.fromCharCode(65 + idx)}: ${opt}`;
+            btn.onclick = () => checkAnswer(idx);
+            optionsEl.appendChild(btn);
+        });
+    }
+
+    function checkAnswer(selectedIndex) {
+        const q = questions[currentStep];
+        if (selectedIndex === q.answer) {
+            currentStep++;
+            if (currentStep >= questions.length) {
+                clearInterval(timer);
+                endGame(true, "Congratulations! You won $1,000,000!");
+            } else {
+                renderLadder();
+                loadQuestion();
+            }
+        } else {
+            clearInterval(timer);
+            endGame(false, `Incorrect! The correct answer was "${q.options[q.answer]}".`);
+        }
+    }
+
+    function endGame(isWin, message) {
+        document.getElementById('quiz-area').classList.add('hidden');
+        document.getElementById('ladder').classList.add('hidden');
+        const gameOverEl = document.getElementById('game-over');
+        gameOverEl.classList.remove('hidden');
+        
+        document.getElementById('game-over-title').innerText = isWin ? "VICTORY!" : "GAME OVER";
+        document.getElementById('game-over-msg').innerText = message;
+    }
+
+    function restartGame() {
+        initGame();
+    }
+
+    // Start on load
+    initGame();
+</script>
+
+</body>
+</html>

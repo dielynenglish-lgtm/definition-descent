@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Command Center: Balloon Pop Defense</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+    }
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: radial-gradient(circle at center, #1e1b4b 0%, #0f172a 70%, #020617 100%);
+      color: #fff;
+    }
+
+    /* Violent Screen Shake Animation */
+    .shake {
+      animation: violent-shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+    }
+    @keyframes violent-shake {
+      10%, 90% { transform: translate3d(-10px, 6px, 0); }
+      20%, 80% { transform: translate3d(12px, -10px, 0); }
+      30%, 50%, 70% { transform: translate3d(-14px, 12px, 0); }
+      40%, 60% { transform: translate3d(14px, -12px, 0); }
+    }
+
+    #game-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Command Center Box */
+    #command-center {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90%;
+      max-width: 700px;
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(12px);
+      border: 2px solid rgba(56, 189, 248, 0.6);
+      border-radius: 16px;
+      padding: 20px;
+      text-align: center;
+      z-index: 10;
+      box-shadow: 0 0 30px rgba(56, 189, 248, 0.25);
+    }
+
+    #hud {
+      display: flex;
+      justify-content: space-between;
+      font-size: 1.25rem;
+      font-weight: 800;
+      margin-bottom: 12px;
+      color: #38bdf8;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    #definition-box {
+      font-size: 1.2rem;
+      line-height: 1.4;
+      color: #f1f5f9;
+      min-height: 55px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 500;
+    }
+
+    /* Floating Balloons */
+    .balloon {
+      position: absolute;
+      bottom: -140px;
+      width: 100px;
+      height: 120px;
+      border-radius: 50% 50% 50% 50% / 40% 40% 60% 60%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 8px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      color: #ffffff;
+      text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+      cursor: pointer;
+      box-shadow: inset -12px -12px 25px rgba(0,0,0,0.35), 0 10px 20px rgba(0,0,0,0.3);
+      z-index: 5;
+    }
+
+    .balloon::after {
+      content: "";
+      position: absolute;
+      bottom: -8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-bottom: 12px solid inherit;
+    }
+
+    /* Pop Effect */
+    .pop-effect {
+      position: absolute;
+      pointer-events: none;
+      animation: explode 0.3s ease-out forwards;
+      border-radius: 50%;
+      z-index: 8;
+    }
+
+    @keyframes explode {
+      0% { transform: scale(1); opacity: 1; }
+      100% { transform: scale(2.2); opacity: 0; }
+    }
+
+    /* Overlays */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.92);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 20;
+    }
+
+    .btn {
+      background: linear-gradient(135deg, #38bdf8, #2563eb);
+      color: white;
+      border: none;
+      padding: 16px 40px;
+      font-size: 1.25rem;
+      font-weight: bold;
+      border-radius: 50px;
+      cursor: pointer;
+      margin-top: 25px;
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.4);
+      transition: transform 0.1s;
+    }
+
+    .btn:hover {
+      transform: scale(1.05);
+    }
+  </style>
+</head>
+<body>
+
+  <div id="game-container">
+    <div id="command-center">
+      <div id="hud">
+        <span>Score: <span id="score-display">0</span></span>
+        <span>Time: <span id="timer-display">90</span>s</span>
+      </div>
+      <div id="definition-box">Target Definition will appear here...</div>
+    </div>
+
+    <!-- Start Overlay -->
+    <div id="start-screen" class="overlay">
+      <h1 style="font-size: 2.8rem; margin-bottom: 10px; color: #38bdf8; letter-spacing: 2px;">COMMAND CENTER</h1>
+      <h2 style="font-weight: 400; margin-bottom: 25px; color: #94a3b8;">High-Energy Vocabulary Defense</h2>
+      <p style="max-width: 500px; text-align: center; line-height: 1.6; color: #cbd5e1; font-size: 1.1rem;">
+        Read the target definition in the Command Center and pop the matching balloon!
+        <br><br>
+        <span style="color: #4ade80; font-weight: bold;">+10 Points</span> for correct popping.<br>
+        <span style="color: #f87171; font-weight: bold;">-5 Points</span> and violent shake for errors!
+      </p>
+      <button class="btn" onclick="startGame()">Start Game</button>
+    </div>
+
+    <!-- Game Over Overlay -->
+    <div id="game-over-screen" class="overlay" style="display: none;">
+      <h1 style="font-size: 2.8rem; color: #38bdf8;">MISSION COMPLETE</h1>
+      <p style="font-size: 1.6rem; margin: 20px 0;">Final Score: <span id="final-score" style="color: #4ade80; font-weight: bold;">0</span></p>
+      <button class="btn" onclick="startGame()">Play Again</button>
+    </div>
+  </div>
+
+  <script>
+    const vocabulary = [
+      { word: "unidentified", def: "Not recognized, proven, or classified; lacking verified identity." },
+      { word: "phenomenon", def: "A remarkable, observable event or occurrence requiring scientific explanation." },
+      { word: "radar", def: "A system using reflected radio waves to detect objects and measure speed/distance." },
+      { word: "sensor", def: "A device that detects physical inputs like light, heat, or motion and signals a response." },
+      { word: "personnel", def: "The body of people employed in an organization, defense force, or service." },
+      { word: "strengthen", def: "To make or become stronger; to reinforce or bolster." },
+      { word: "mysterious", def: "Difficult or impossible to understand, explain, or identify." },
+      { word: "carefully", def: "In a way that deliberately avoids harm, errors, or mistakes; with great attention." }
+    ];
+
+    const balloonColors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4'];
+
+    let score = 0;
+    let timeLeft = 90;
+    let currentTarget = null;
+    let gameInterval = null;
+    let spawnInterval = null;
+    let activeBalloons = [];
+
+    const container = document.getElementById('game-container');
+    const scoreDisplay = document.getElementById('score-display');
+    const timerDisplay = document.getElementById('timer-display');
+    const definitionBox = document.getElementById('definition-box');
+    const startScreen = document.getElementById('start-screen');
+    const gameOverScreen = document.getElementById('game-over-screen');
+
+    function startGame() {
+      score = 0;
+      timeLeft = 90;
+      scoreDisplay.textContent = score;
+      timerDisplay.textContent = timeLeft;
+      
+      activeBalloons.forEach(b => b.remove());
+      activeBalloons = [];
+
+      startScreen.style.display = 'none';
+      gameOverScreen.style.display = 'none';
+
+      setNewTarget();
+
+      // Instantly flood the screen with 15–18 balloons
+      for (let i = 0; i < 16; i++) {
+        spawnBalloon(Math.random() * (window.innerHeight - 250));
+      }
+
+      clearInterval(gameInterval);
+      clearInterval(spawnInterval);
+
+      gameInterval = setInterval(updateTimer, 1000);
+      spawnInterval = setInterval(() => spawnBalloon(), 1000); // Steady spawn: 1 per sec
+    }
+
+    function setNewTarget() {
+      const randomIndex = Math.floor(Math.random() * vocabulary.length);
+      currentTarget = vocabulary[randomIndex];
+      definitionBox.textContent = `"${currentTarget.def}"`;
+      
+      ensureTargetExists();
+    }
+
+    function ensureTargetExists() {
+      const exists = activeBalloons.some(b => b.dataset.word === currentTarget.word);
+      if (!exists && activeBalloons.length > 0) {
+        const randomBalloon = activeBalloons[Math.floor(Math.random() * activeBalloons.length)];
+        randomBalloon.dataset.word = currentTarget.word;
+        randomBalloon.textContent = currentTarget.word;
+      }
+    }
+
+    function spawnBalloon(startBottom = -140) {
+      if (activeBalloons.length >= 20) return; // Keep high-energy cap between 15-20 balloons
+
+      const balloon = document.createElement('div');
+      balloon.className = 'balloon';
+
+      let wordObj;
+      if (Math.random() < 0.35 && currentTarget) {
+        wordObj = currentTarget;
+      } else {
+        wordObj = vocabulary[Math.floor(Math.random() * vocabulary.length)];
+      }
+
+      balloon.textContent = wordObj.word;
+      balloon.dataset.word = wordObj.word;
+
+      const color = balloonColors[Math.floor(Math.random() * balloonColors.length)];
+      balloon.style.backgroundColor = color;
+      
+      const padding = 70;
+      const randomX = Math.random() * (window.innerWidth - padding * 2) + padding;
+      balloon.style.left = `${randomX}px`;
+      balloon.style.bottom = `${startBottom}px`;
+
+      const speed = 1.2 + Math.random() * 1.8;
+
+      balloon.addEventListener('pointerdown', () => handlePop(balloon));
+
+      container.appendChild(balloon);
+      activeBalloons.push(balloon);
+
+      function animate() {
+        if (!balloon.parentElement) return;
+
+        let currentBottom = parseFloat(balloon.style.bottom);
+        currentBottom += speed;
+        balloon.style.bottom = `${currentBottom}px`;
+
+        if (currentBottom > window.innerHeight + 140) {
+          removeBalloon(balloon);
+        } else {
+          requestAnimationFrame(animate);
+        }
+      }
+      requestAnimationFrame(animate);
+    }
+
+    function handlePop(balloon) {
+      const word = balloon.dataset.word;
+      createPopEffect(balloon);
+
+      if (word === currentTarget.word) {
+        score += 10;
+        scoreDisplay.textContent = score;
+        removeBalloon(balloon);
+        setNewTarget();
+      } else {
+        score = Math.max(0, score - 5);
+        scoreDisplay.textContent = score;
+        triggerShake();
+        removeBalloon(balloon);
+      }
+    }
+
+    function createPopEffect(balloon) {
+      const rect = balloon.getBoundingClientRect();
+      const pop = document.createElement('div');
+      pop.className = 'pop-effect';
+      pop.style.left = `${rect.left}px`;
+      pop.style.top = `${rect.top}px`;
+      pop.style.width = `${rect.width}px`;
+      pop.style.height = `${rect.height}px`;
+      pop.style.backgroundColor = balloon.style.backgroundColor;
+      container.appendChild(pop);
+
+      setTimeout(() => pop.remove(), 300);
+    }
+
+    function removeBalloon(balloon) {
+      balloon.remove();
+      activeBalloons = activeBalloons.filter(b => b !== balloon);
+    }
+
+    function triggerShake() {
+      container.classList.add('shake');
+      setTimeout(() => {
+        container.classList.remove('shake');
+      }, 400);
+    }
+
+    function updateTimer() {
+      timeLeft--;
+      timerDisplay.textContent = timeLeft;
+
+      if (timeLeft <= 0) {
+        endGame();
+      }
+    }
+
+    function endGame() {
+      clearInterval(gameInterval);
+      clearInterval(spawnInterval);
+
+      document.getElementById('final-score').textContent = score;
+      gameOverScreen.style.display = 'flex';
+    }
+  </script>
+</body>
+</html>

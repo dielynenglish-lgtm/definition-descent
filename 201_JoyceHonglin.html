@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vocabulary Builder Game</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #6e8efb, #a777e3);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      color: #333;
+    }
+    .game-card {
+      background: #ffffff;
+      padding: 30px 40px;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      text-align: center;
+      max-width: 450px;
+      width: 100%;
+    }
+    h1 {
+      margin-top: 0;
+      color: #4a4a4a;
+      font-size: 24px;
+    }
+    .scrambled-word {
+      font-size: 32px;
+      font-weight: bold;
+      letter-spacing: 5px;
+      color: #6e8efb;
+      margin: 20px 0;
+      text-transform: uppercase;
+    }
+    .hint {
+      font-style: italic;
+      color: #666;
+      margin-bottom: 20px;
+      font-size: 15px;
+    }
+    input[type="text"] {
+      width: 80%;
+      padding: 12px;
+      font-size: 16px;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      outline: none;
+      transition: border-color 0.3s;
+    }
+    input[type="text"]:focus {
+      border-color: #a777e3;
+    }
+    button {
+      margin-top: 15px;
+      padding: 12px 25px;
+      font-size: 16px;
+      font-weight: bold;
+      color: #fff;
+      background-color: #6e8efb;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background-color: #5a78e6;
+    }
+    .feedback {
+      margin-top: 15px;
+      font-weight: bold;
+      font-size: 16px;
+      height: 24px;
+    }
+    .score {
+      margin-top: 20px;
+      font-size: 14px;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+
+<div class="game-card">
+  <h1>Word Unscramble Challenge</h1>
+  <div id="scrambled" class="scrambled-word">------</div>
+  <div id="hint" class="hint">Hint will appear here</div>
+  
+  <input type="text" id="userInput" placeholder="Type your answer..." autocomplete="off" />
+  <br />
+  <button id="submitBtn">Submit Answer</button>
+
+  <div id="feedback" class="feedback"></div>
+  <div id="score" class="score">Score: 0 / 10</div>
+</div>
+
+<script>
+  const vocabulary = [
+    { word: "reservation", hint: "An arrangement to secure a place or seat in advance." },
+    { word: "preference", hint: "A greater liking for one alternative over another." },
+    { word: "secure", hint: "To fix or fasten firmly; protect against danger." },
+    { word: "session", hint: "A period devoted to a particular activity." },
+    { word: "massage", hint: "Rubbing and kneading of muscles to relieve tension." },
+    { word: "promptly", hint: "With little or no delay; immediately." },
+    { word: "opening", hint: "An available job position or an aperture/gap." },
+    { word: "participation", hint: "The action of taking part in something." },
+    { word: "instructor", hint: "A person who teaches or trains others." },
+    { word: "calculate", hint: "To determine mathematically or compute." }
+  ];
+
+  let currentIndex = 0;
+  let score = 0;
+
+  function scrambleWord(word) {
+    const arr = word.split('');
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    const scrambled = arr.join('');
+    return scrambled === word ? scrambleWord(word) : scrambled;
+  }
+
+  function loadWord() {
+    if (currentIndex >= vocabulary.length) {
+      document.querySelector('.game-card').innerHTML = `
+        <h1>Congratulations! 🎉</h1>
+        <p>You completed all words!</p>
+        <p><strong>Final Score: ${score} / ${vocabulary.length}</strong></p>
+        <button onclick="location.reload()">Play Again</button>
+      `;
+      return;
+    }
+
+    const currentItem = vocabulary[currentIndex];
+    document.getElementById("scrambled").innerText = scrambleWord(currentItem.word);
+    document.getElementById("hint").innerText = "Hint: " + currentItem.hint;
+    document.getElementById("userInput").value = "";
+    document.getElementById("feedback").innerText = "";
+  }
+
+  function checkAnswer() {
+    const input = document.getElementById("userInput").value.trim().toLowerCase();
+    const target = vocabulary[currentIndex].word.toLowerCase();
+    const feedback = document.getElementById("feedback");
+
+    if (input === target) {
+      feedback.style.color = "#28a745";
+      feedback.innerText = "Correct! 🌟";
+      score++;
+    } else {
+      feedback.style.color = "#dc3545";
+      feedback.innerText = `Incorrect! The answer was "${target}".`;
+    }
+
+    currentIndex++;
+    document.getElementById("score").innerText = `Score: ${score} / ${vocabulary.length}`;
+    setTimeout(loadWord, 1800);
+  }
+
+  document.getElementById("submitBtn").addEventListener("click", checkAnswer);
+  document.getElementById("userInput").addEventListener("keypress", (e) => {
+    if (e.key === "Enter") checkAnswer();
+  });
+
+  loadWord();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vocabulary Quest</title>
+  <style>
+    :root {
+      --primary: #4a90e2;
+      --primary-hover: #357abd;
+      --success: #2ecc71;
+      --error: #e74c3c;
+      --bg: #f4f7f6;
+      --card-bg: #ffffff;
+      --text: #2c3e50;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+    }
+
+    .game-container {
+      background-color: var(--card-bg);
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 600px;
+      padding: 30px;
+      box-sizing: border-box;
+      text-align: center;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      border-bottom: 2px solid var(--bg);
+      padding-bottom: 15px;
+    }
+
+    .score-board {
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: var(--primary);
+    }
+
+    .progress {
+      font-size: 0.9rem;
+      color: #7f8c8d;
+    }
+
+    .word-display {
+      font-size: 2rem;
+      font-weight: bold;
+      margin: 20px 0;
+      color: var(--text);
+      letter-spacing: 1px;
+    }
+
+    .instruction {
+      font-size: 1rem;
+      color: #7f8c8d;
+      margin-bottom: 25px;
+    }
+
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin-bottom: 25px;
+    }
+
+    @media (min-width: 480px) {
+      .options-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .option-btn {
+      background-color: var(--bg);
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 15px;
+      font-size: 0.95rem;
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: left;
+    }
+
+    .option-btn:hover:not(:disabled) {
+      border-color: var(--primary);
+      background-color: #eef5fc;
+    }
+
+    .option-btn.correct {
+      background-color: var(--success);
+      color: white;
+      border-color: var(--success);
+    }
+
+    .option-btn.incorrect {
+      background-color: var(--error);
+      color: white;
+      border-color: var(--error);
+    }
+
+    .option-btn:disabled {
+      cursor: not-allowed;
+    }
+
+    .next-btn {
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      padding: 12px 30px;
+      font-size: 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background-color 0.2s ease;
+      display: none;
+    }
+
+    .next-btn:hover {
+      background-color: var(--primary-hover);
+    }
+
+    .results-screen {
+      display: none;
+    }
+
+    .restart-btn {
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      padding: 12px 30px;
+      font-size: 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-top: 15px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="game-container">
+    <div id="quiz-screen">
+      <div class="header">
+        <span class="progress" id="progress-text">Question 1 of 5</span>
+        <span class="score-board">Score: <span id="score">0</span></span>
+      </div>
+
+      <div class="instruction">Choose the correct definition for:</div>
+      <div class="word-display" id="target-word">Word</div>
+
+      <div class="options-grid" id="options-container">
+        <!-- Buttons injected dynamically -->
+      </div>
+
+      <button class="next-btn" id="next-btn" onclick="nextQuestion()">Next Question</button>
+    </div>
+
+    <div id="results-screen" class="results-screen">
+      <h2>Game Complete! 🎉</h2>
+      <p style="font-size: 1.2rem;">Your final score is: <strong><span id="final-score">0</span> / <span id="total-questions">0</span></strong></p>
+      <button class="restart-btn" onclick="restartGame()">Play Again</button>
+    </div>
+  </div>
+
+  <script>
+    const vocabularyList = [
+      {
+        word: "Beloved",
+        definition: "Dearly loved or cherished by someone.",
+        options: [
+          "Dearly loved or cherished by someone.",
+          "Extremely expensive or high in price.",
+          "Surrounding something completely.",
+          "Performed in a highly detailed way."
+        ]
+      },
+      {
+        word: "Highlight",
+        definition: "An outstanding or enjoyable part of something.",
+        options: [
+          "To hide something from view.",
+          "An outstanding or enjoyable part of something.",
+          "A complex pattern or design.",
+          "Extravagant and rich in appearance."
+        ]
+      },
+      {
+        word: "Performer",
+        definition: "A person who entertains an audience.",
+        options: [
+          "A tool used for measuring distance.",
+          "A person who entertains an audience.",
+          "An object that surrounds an area.",
+          "A state of complete isolation."
+        ]
+      },
+      {
+        word: "Compelling",
+        definition: "Evoking interest, attention, or admiration in a powerfully irresistible way.",
+        options: [
+          "Extremely grand or luxurious.",
+          "Difficult to understand or explain.",
+          "Evoking interest, attention, or admiration in a powerfully irresistible way.",
+          "Decorated with elaborate details."
+        ]
+      },
+      {
+        word: "Luxury",
+        definition: "A state of great comfort or elegant living.",
+        options: [
+          "A state of great comfort or elegant living.",
+          "A necessary item for basic survival.",
+          "The act of encircling an object.",
+          "A short musical performance."
+        ]
+      },
+      {
+        word: "Elaborately",
+        definition: "In a detailed and carefully arranged manner.",
+        options: [
+          "Done quickly without care.",
+          "In a simple or basic design.",
+          "In a detailed and carefully arranged manner.",
+          "With great physical strength."
+        ]
+      },
+      {
+        word: "Surrounding",
+        definition: "All around a particular place or thing.",
+        options: [
+          "Located far away from everything.",
+          "All around a particular place or thing.",
+          "Deeply cherished by many people.",
+          "Highly entertaining to watch."
+        ]
+      }
+    ];
+
+    let currentQuestionIndex = 0;
+    let score = 0;
+    let selectedQuestions = [];
+
+    function shuffleArray(array) {
+      return array.sort(() => Math.random() - 0.5);
+    }
+
+    function startGame() {
+      currentQuestionIndex = 0;
+      score = 0;
+      document.getElementById('score').textContent = score;
+      document.getElementById('quiz-screen').style.display = 'block';
+      document.getElementById('results-screen').style.display = 'none';
+      
+      // Shuffle and pick 5 random questions
+      selectedQuestions = shuffleArray([...vocabularyList]).slice(0, 5);
+      loadQuestion();
+    }
+
+    function loadQuestion() {
+      const currentQ = selectedQuestions[currentQuestionIndex];
+      document.getElementById('progress-text').textContent = `Question ${currentQuestionIndex + 1} of ${selectedQuestions.length}`;
+      document.getElementById('target-word').textContent = currentQ.word;
+      document.getElementById('next-btn').style.display = 'none';
+
+      const optionsContainer = document.getElementById('options-container');
+      optionsContainer.innerHTML = '';
+
+      const shuffledOptions = shuffleArray([...currentQ.options]);
+
+      shuffledOptions.forEach(option => {
+        const button = document.createElement('button');
+        button.className = 'option-btn';
+        button.textContent = option;
+        button.onclick = () => selectOption(button, option, currentQ.definition);
+        optionsContainer.appendChild(button);
+      });
+    }
+
+    function selectOption(selectedButton, selectedOption, correctDefinition) {
+      const buttons = document.querySelectorAll('.option-btn');
+      buttons.forEach(btn => btn.disabled = true);
+
+      if (selectedOption === correctDefinition) {
+        selectedButton.classList.add('correct');
+        score++;
+        document.getElementById('score').textContent = score;
+      } else {
+        selectedButton.classList.add('incorrect');
+        buttons.forEach(btn => {
+          if (btn.textContent === correctDefinition) {
+            btn.classList.add('correct');
+          }
+        });
+      }
+
+      if (currentQuestionIndex < selectedQuestions.length - 1) {
+        document.getElementById('next-btn').style.display = 'inline-block';
+      } else {
+        document.getElementById('next-btn').textContent = 'See Results';
+        document.getElementById('next-btn').style.display = 'inline-block';
+      }
+    }
+
+    function nextQuestion() {
+      currentQuestionIndex++;
+      if (currentQuestionIndex < selectedQuestions.length) {
+        document.getElementById('next-btn').textContent = 'Next Question';
+        loadQuestion();
+      } else {
+        showResults();
+      }
+    }
+
+    function showResults() {
+      document.getElementById('quiz-screen').style.display = 'none';
+      document.getElementById('results-screen').style.display = 'block';
+      document.getElementById('final-score').textContent = score;
+      document.getElementById('total-questions').textContent = selectedQuestions.length;
+    }
+
+    function restartGame() {
+      document.getElementById('next-btn').textContent = 'Next Question';
+      startGame();
+    }
+
+    // Initialize game on load
+    startGame();
+  </script>
+</body>
+</html>
