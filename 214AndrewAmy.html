@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TV Game Show - Vocabulary Money Ladder</title>
+<style>
+  :root {
+    --bg-color: #030a1e;
+    --card-bg: #0a1838;
+    --gold: #ffd700;
+    --gold-dark: #b8860b;
+    --light-gold: #fff3a8;
+    --text-white: #ffffff;
+    --correct-green: #28a745;
+    --wrong-red: #dc3545;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  }
+
+  body {
+    background: radial-gradient(circle, #0e204b 0%, var(--bg-color) 100%);
+    color: var(--text-white);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+  }
+
+  .game-container {
+    width: 100%;
+    max-width: 950px;
+    background: rgba(10, 24, 56, 0.9);
+    border: 3px solid var(--gold);
+    border-radius: 15px;
+    box-shadow: 0 0 30px rgba(255, 215, 0, 0.3), inset 0 0 15px rgba(0, 0, 0, 0.8);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+
+  header {
+    background: linear-gradient(180deg, #162d66 0%, #081126 100%);
+    border-bottom: 2px solid var(--gold);
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  h1 {
+    color: var(--gold);
+    font-size: 24px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+  }
+
+  .timer-box {
+    background: #000;
+    border: 2px solid var(--gold);
+    border-radius: 8px;
+    padding: 8px 15px;
+    font-size: 22px;
+    font-weight: bold;
+    color: var(--gold);
+    box-shadow: inset 0 0 8px rgba(255, 215, 0, 0.4);
+  }
+
+  .main-content {
+    display: flex;
+    flex-direction: row;
+    padding: 20px;
+    gap: 20px;
+  }
+
+  @media (max-width: 768px) {
+    .main-content {
+      flex-direction: column-reverse;
+    }
+  }
+
+  /* Money Ladder Display */
+  .ladder-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 6px;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid var(--gold-dark);
+  }
+
+  .ladder-step {
+    background: linear-gradient(90deg, #091530 0%, #172c54 50%, #091530 100%);
+    border: 1px solid var(--gold-dark);
+    border-radius: 5px;
+    padding: 6px 12px;
+    display: flex;
+    justify-content: space-between;
+    font-weight: bold;
+    color: var(--gold);
+    font-size: 13px;
+    transition: all 0.3s ease;
+  }
+
+  .ladder-step.active {
+    background: linear-gradient(90deg, var(--gold-dark) 0%, var(--gold) 50%, var(--gold-dark) 100%);
+    color: #000;
+    box-shadow: 0 0 15px var(--gold);
+    transform: scale(1.02);
+  }
+
+  .ladder-step.passed {
+    background: #083311;
+    border-color: var(--correct-green);
+    color: #83f39a;
+  }
+
+  /* Quiz Area */
+  .quiz-container {
+    flex: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 20px;
+  }
+
+  .question-box {
+    background: linear-gradient(135deg, #102450 0%, #07122b 100%);
+    border: 2px solid var(--gold);
+    border-radius: 10px;
+    padding: 25px;
+    min-height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 18px;
+    box-shadow: inset 0 0 15px rgba(0,0,0,0.5);
+  }
+
+  .options-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  @media (max-width: 500px) {
+    .options-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .btn-option {
+    background: linear-gradient(180deg, #122858 0%, #081229 100%);
+    border: 1.5px solid var(--gold);
+    border-radius: 25px;
+    color: var(--text-white);
+    padding: 12px 20px;
+    font-size: 15px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s ease;
+  }
+
+  .btn-option:hover:not(:disabled) {
+    background: var(--gold);
+    color: #000;
+    box-shadow: 0 0 10px var(--gold);
+  }
+
+  .btn-option:disabled {
+    cursor: default;
+  }
+
+  .btn-option.correct {
+    background: var(--correct-green) !important;
+    color: white !important;
+    border-color: #fff;
+  }
+
+  .btn-option.wrong {
+    background: var(--wrong-red) !important;
+    color: white !important;
+    border-color: #fff;
+  }
+
+  /* Overlay Modal */
+  .modal-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(3, 10, 30, 0.95);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    text-align: center;
+    z-index: 10;
+  }
+
+  .modal-overlay.hidden {
+    display: none;
+  }
+
+  .modal-title {
+    font-size: 36px;
+    color: var(--gold);
+    margin-bottom: 10px;
+    text-shadow: 0 0 10px var(--gold);
+  }
+
+  .modal-desc {
+    font-size: 18px;
+    margin-bottom: 25px;
+    max-width: 600px;
+    line-height: 1.4;
+  }
+
+  .btn-action {
+    background: linear-gradient(180deg, var(--gold) 0%, var(--gold-dark) 100%);
+    border: none;
+    color: #000;
+    padding: 12px 30px;
+    font-size: 18px;
+    font-weight: bold;
+    border-radius: 25px;
+    cursor: pointer;
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
+    transition: transform 0.2s;
+  }
+
+  .btn-action:hover {
+    transform: scale(1.05);
+  }
+</style>
+</head>
+<body>
+
+<div class="game-container">
+  <header>
+    <h1>Vocab Money Ladder</h1>
+    <div class="timer-box" id="timer">60</div>
+  </header>
+
+  <div class="main-content">
+    <div class="ladder-container" id="ladder"></div>
+
+    <div class="quiz-container">
+      <div class="question-box" id="question">
+        Question text will appear here.
+      </div>
+
+      <div class="options-grid" id="options"></div>
+    </div>
+  </div>
+
+  <!-- Start / Game Over Modal -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal-title" id="modal-title">MONEY LADDER</div>
+    <div class="modal-desc" id="modal-desc">
+      Climb all 10 steps to reach $1,000,000! Answer every vocabulary question correctly before the 60-second timer runs out. One wrong answer ends the game immediately.
+    </div>
+    <button class="btn-action" id="modal-btn" onclick="startGame()">PLAY GAME</button>
+  </div>
+</div>
+
+<script>
+  // 10 Vocabulary Words List
+  // 1. miraculous, 2. massive, 3. vomit, 4. physician, 5. dose, 
+  // 6. established, 7. undergo, 8. benevolent, 9. resilient, 10. lucrative
+  const rawQuestions = [
+    {
+      word: "miraculous",
+      question: "Which word means extraordinary, highly surprising, or like a miracle?",
+      options: ["Miraculous", "Massive", "Physician", "Resilient"],
+      answer: "Miraculous"
+    },
+    {
+      word: "massive",
+      question: "What is a synonym for exceptionally large, heavy, or solid?",
+      options: ["Massive", "Benevolent", "Lucrative", "Dose"],
+      answer: "Massive"
+    },
+    {
+      word: "vomit",
+      question: "To eject contents from the stomach through the mouth is to:",
+      options: ["Undergo", "Vomit", "Establish", "Dose"],
+      answer: "Vomit"
+    },
+    {
+      word: "physician",
+      question: "A person qualified and licensed to practice medicine is a:",
+      options: ["Physician", "Lucrative", "Miraculous", "Resilient"],
+      answer: "Physician"
+    },
+    {
+      word: "dose",
+      question: "A measured quantity of a medicine given at one time is a:",
+      options: ["Dose", "Massive", "Resilient", "Undergo"],
+      answer: "Dose"
+    },
+    {
+      word: "established",
+      question: "Which term describes something generally accepted, set up, or long-existing?",
+      options: ["Established", "Miraculous", "Vomit", "Lucrative"],
+      answer: "Established"
+    },
+    {
+      word: "undergo",
+      question: "To experience, endure, or be subjected to something (e.g., surgery) is to:",
+      options: ["Undergo", "Dose", "Benevolent", "Establish"],
+      answer: "Undergo"
+    },
+    {
+      word: "benevolent",
+      question: "Which word means well-meaning, kindly, or charitable?",
+      options: ["Benevolent", "Massive", "Lucrative", "Physician"],
+      answer: "Benevolent"
+    },
+    {
+      word: "resilient",
+      question: "Able to withstand or recover quickly from difficult conditions:",
+      options: ["Resilient", "Miraculous", "Undergo", "Established"],
+      answer: "Resilient"
+    },
+    {
+      word: "lucrative",
+      question: "Producing a great deal of profit or wealth:",
+      options: ["Lucrative", "Physician", "Benevolent", "Vomit"],
+      answer: "Lucrative"
+    }
+  ];
+
+  const moneyValues = [
+    "$1,000", "$5,000", "$10,000", "$25,000", "$50,000", 
+    "$75,000", "$150,000", "$300,000", "$500,000", "$1,000,000"
+  ];
+
+  let activeQuestions = [];
+  let currentStep = 0;
+  let timerValue = 60;
+  let timerInterval = null;
+
+  const timerEl = document.getElementById('timer');
+  const questionEl = document.getElementById('question');
+  const optionsEl = document.getElementById('options');
+  const ladderEl = document.getElementById('ladder');
+  const modalEl = document.getElementById('modal');
+  const modalTitleEl = document.getElementById('modal-title');
+  const modalDescEl = document.getElementById('modal-desc');
+  const modalBtnEl = document.getElementById('modal-btn');
+
+  function shuffleArray(array) {
+    const arr = [...array];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  function renderLadder() {
+    ladderEl.innerHTML = '';
+    moneyValues.forEach((val, idx) => {
+      const step = document.createElement('div');
+      step.className = 'ladder-step';
+      if (idx === currentStep) step.classList.add('active');
+      if (idx < currentStep) step.classList.add('passed');
+      
+      step.innerHTML = `<span>${idx + 1}</span><span>${val}</span>`;
+      ladderEl.appendChild(step);
+    });
+  }
+
+  function startGame() {
+    // Randomize the order of words every time the player plays or tries again
+    activeQuestions = shuffleArray(rawQuestions);
+    currentStep = 0;
+    timerValue = 60;
+    timerEl.innerText = timerValue;
+    modalEl.classList.add('hidden');
+    
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      timerValue--;
+      timerEl.innerText = timerValue;
+      if (timerValue <= 0) {
+        endGame(false, "TIME'S UP!");
+      }
+    }, 1000);
+
+    loadQuestion();
+  }
+
+  function loadQuestion() {
+    renderLadder();
+    const qData = activeQuestions[currentStep];
+    questionEl.innerText = qData.question;
+    optionsEl.innerHTML = '';
+
+    // Shuffle options for each question
+    const shuffledOptions = shuffleArray(qData.options);
+
+    shuffledOptions.forEach((opt) => {
+      const btn = document.createElement('button');
+      btn.className = 'btn-option';
+      btn.innerText = opt;
+      btn.onclick = () => checkAnswer(opt, qData.answer, btn);
+      optionsEl.appendChild(btn);
+    });
+  }
+
+  function checkAnswer(selected, correct, buttonEl) {
+    const buttons = optionsEl.querySelectorAll('.btn-option');
+    buttons.forEach(b => b.disabled = true);
+
+    if (selected === correct) {
+      buttonEl.classList.add('correct');
+      currentStep++;
+      
+      setTimeout(() => {
+        if (currentStep < activeQuestions.length) {
+          loadQuestion();
+        } else {
+          endGame(true);
+        }
+      }, 1000);
+    } else {
+      buttonEl.classList.add('wrong');
+      buttons.forEach(b => {
+        if (b.innerText === correct) b.classList.add('correct');
+      });
+      setTimeout(() => {
+        endGame(false, "WRONG ANSWER!");
+      }, 1200);
+    }
+  }
+
+  function endGame(isWin, customTitle) {
+    clearInterval(timerInterval);
+    modalEl.classList.remove('hidden');
+
+    if (isWin) {
+      modalTitleEl.innerText = "GRAND PRIZE WINNER!";
+      modalDescEl.innerText = `Congratulations! You climbed the entire ladder and won ${moneyValues[moneyValues.length - 1]}!`;
+    } else {
+      modalTitleEl.innerText = customTitle || "GAME OVER";
+      const prizeWon = currentStep > 0 ? moneyValues[currentStep - 1] : "$0";
+      modalDescEl.innerText = `You failed to complete the ladder! You leave with ${prizeWon}. Try again to attempt the words in a new random order.`;
+    }
+
+    modalBtnEl.innerText = "TRY AGAIN";
+  }
+
+  renderLadder();
+</script>
+</body>
+</html>
