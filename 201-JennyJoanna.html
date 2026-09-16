@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocab Pac-Maze</title>
+    <style>
+        body {
+            background-color: #111;
+            color: #fff;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #game-container {
+            text-align: center;
+            position: relative;
+        }
+
+        #definition-box {
+            background: #222;
+            border: 2px solid #33ff33;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            width: 560px;
+            min-height: 48px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 0 10px rgba(51, 255, 51, 0.2);
+        }
+
+        #definition-title {
+            font-size: 11px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+
+        #definition-text {
+            font-size: 15px;
+            font-weight: bold;
+            color: #ffff55;
+        }
+
+        #hud {
+            display: flex;
+            justify-content: space-between;
+            width: 560px;
+            font-size: 18px;
+            margin-bottom: 6px;
+            font-weight: bold;
+        }
+
+        #status-msg {
+            height: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 6px;
+        }
+
+        canvas {
+            border: 4px solid #0000ff;
+            box-shadow: 0 0 15px rgba(0, 0, 255, 0.5);
+            background-color: #000;
+            display: block;
+        }
+
+        .correct { color: #33ff33; }
+        .wrong { color: #ff3333; }
+        .vulnerable { color: #33ffff; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="definition-box">
+        <div id="definition-title">Target Definition</div>
+        <div id="definition-text">Loading...</div>
+    </div>
+    
+    <div id="hud">
+        <div>SCORE: <span id="score">0</span></div>
+        <div>LIVES: <span id="lives">3</span></div>
+    </div>
+
+    <div id="status-msg"></div>
+
+    <canvas id="canvas" width="576" height="576"></canvas>
+</div>
+
+<script>
+const vocabList = [
+    { word: "BREAKTHROUGH", def: "A sudden, dramatic, and important discovery or development." },
+    { word: "LABORATORY", def: "A room or building equipped for scientific experiments or research." },
+    { word: "WORKSHOP", def: "A room or building in which goods are manufactured or repaired." },
+    { word: "CALCULATION", def: "A mathematical determination of the size or number of something." },
+    { word: "ENVISION", def: "To imagine as a future possibility or visualize mentally." },
+    { word: "STRIKING", def: "Attracting attention or notice through being unusual or extreme." },
+    { word: "INSIGHT", def: "The capacity to gain an accurate and deep intuitive understanding." },
+    { word: "HYPOTHESIS", def: "A proposed explanation made on the basis of limited evidence." },
+    { word: "EXPERIMENT", def: "A scientific procedure undertaken to make a discovery or test an idea." },
+    { word: "SYNTHESIS", def: "The combination of ideas to form a theory or system." }
+];
+
+const CELL = 32;
+const ROWS = 18;
+const COLS = 18;
+
+// 1 = Wall, 0 = Dot Path, 2 = Empty Center/Ghost House
+const map = [
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,1],
+    [1,0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,1],
+    [1,0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,0,1,0,1,1,1,1,0,1,0,1,1,0,1],
+    [1,0,0,0,0,1,0,0,1,1,0,0,1,0,0,0,0,1],
+    [1,1,1,1,0,1,1,0,1,1,0,1,1,0,1,1,1,1],
+    [1,2,2,1,0,1,0,0,0,0,0,0,1,0,1,2,2,1],
+    [1,1,1,1,0,1,0,1,2,2,1,0,1,0,1,1,1,1],
+    [1,0,0,0,0,0,0,1,2,2,1,0,0,0,0,0,0,1],
+    [1,0,1,1,0,1,0,1,1,1,1,0,1,0,1,1,0,1],
+    [1,0,0,1,0,1,0,0,0,0,0,0,1,0,1,0,0,1],
+    [1,1,0,1,0,1,0,1,1,1,1,0,1,0,1,0,1,1],
+    [1,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,1],
+    [1,0,1,1,1,1,1,0,1,1,0,1,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+];
+
+// Potential locations for power pellets
+const pelletLocations = [
+    {r: 1, c: 1},
+    {r: 1, c: 16},
+    {r: 16, c: 1},
+    {r: 16, c: 16}
+];
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+let score = 0;
+let lives = 3;
+let activeWordObj = null;
+let activePellets = [];
+let dots = [];
+let ghostsEnragedTimer = 0;
+let ghostsVulnerableTimer = 0;
+
+const player = {
+    x: 9 * CELL,
+    y: 14 * CELL,
+    speed: 2,
+    dirX: 0,
+    dirY: 0,
+    nextDirX: 0,
+    nextDirY: 0,
+    radius: 12
+};
+
+const ghosts = [
+    { x: 8 * CELL, y: 8 * CELL, color: 'red', dirX: 1, dirY: 0, baseSpeed: 1.6, speed: 1.6 },
+    { x: 9 * CELL, y: 8 * CELL, color: 'pink', dirX: -1, dirY: 0, baseSpeed: 1.6, speed: 1.6 }
+];
+
+function initDots() {
+    dots = [];
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+            if (map[r][c] === 0) {
+                // Check if this position is used by a pellet
+                const isPelletLoc = pelletLocations.some(p => p.r === r && p.c === c);
+                if (!isPelletLoc) {
+                    dots.push({ x: c * CELL + CELL / 2, y: r * CELL + CELL / 2, active: true });
+                }
+            }
+        }
+    }
+}
+
+function selectNewTarget() {
+    activeWordObj = vocabList[Math.floor(Math.random() * vocabList.length)];
+    document.getElementById('definition-text').innerText = activeWordObj.def;
+
+    // Pick 3 unique words (1 correct + 2 distractors)
+    let choices = [activeWordObj];
+    while (choices.length < 3) {
+        let randWord = vocabList[Math.floor(Math.random() * vocabList.length)];
+        if (!choices.some(item => item.word === randWord.word)) {
+            choices.push(randWord);
+        }
+    }
+
+    // Shuffle choices
+    choices.sort(() => Math.random() - 0.5);
+
+    // Pick 3 random corner locations from 4 available
+    let availableLocations = [...pelletLocations].sort(() => Math.random() - 0.5).slice(0, 3);
+
+    activePellets = choices.map((choice, index) => {
+        let loc = availableLocations[index];
+        return {
+            x: loc.c * CELL + CELL / 2,
+            y: loc.r * CELL + CELL / 2,
+            word: choice.word,
+            isCorrect: choice.word === activeWordObj.word
+        };
+    });
+}
+
+function showStatus(text, className) {
+    const el = document.getElementById('status-msg');
+    el.innerText = text;
+    el.className = className;
+    setTimeout(() => {
+        if (el.innerText === text) el.innerText = '';
+    }, 2500);
+}
+
+// Input Handling
+window.addEventListener('keydown', e => {
+    switch(e.key) {
+        case 'ArrowUp':
+            player.nextDirX = 0; player.nextDirY = -1; break;
+        case 'ArrowDown':
+            player.nextDirX = 0; player.nextDirY = 1; break;
+        case 'ArrowLeft':
+            player.nextDirX = -1; player.nextDirY = 0; break;
+        case 'ArrowRight':
+            player.nextDirX = 1; player.nextDirY = 0; break;
+    }
+});
+
+function canMove(x, y, radius) {
+    // Check collisions with wall boundaries
+    let left = Math.floor((x - radius) / CELL);
+    let right = Math.floor((x + radius - 1) / CELL);
+    let top = Math.floor((y - radius) / CELL);
+    let bottom = Math.floor((y + radius - 1) / CELL);
+
+    if (left < 0 || right >= COLS || top < 0 || bottom >= ROWS) return false;
+
+    for (let r = top; r <= bottom; r++) {
+        for (let c = left; c <= right; c++) {
+            if (map[r][c] === 1) return false;
+        }
+    }
+    return true;
+}
+
+function update() {
+    // Timers
+    if (ghostsVulnerableTimer > 0) {
+        ghostsVulnerableTimer--;
+    }
+    if (ghostsEnragedTimer > 0) {
+        ghostsEnragedTimer--;
+    }
+
+    // Adjust ghost speed based on active power-ups or penalties
+    ghosts.forEach(ghost => {
+        if (ghostsVulnerableTimer > 0) {
+            ghost.speed = ghost.baseSpeed * 0.6;
+        } else if (ghostsEnragedTimer > 0) {
+            ghost.speed = ghost.baseSpeed * 1.25; // 25% speed increase
+        } else {
+            ghost.speed = ghost.baseSpeed;
+        }
+    });
+
+    // Try applying grid direction change if player is aligned enough
+    if (player.nextDirX !== 0 || player.nextDirY !== 0) {
+        let testX = player.x + player.nextDirX * player.speed;
+        let testY = player.y + player.nextDirY * player.speed;
+        
+        // Alignment snaps for smooth grid corner turning
+        let alignedX = player.x;
+        let alignedY = player.y;
+        if (player.nextDirX !== 0) alignedY = Math.round((player.y - CELL/2) / CELL) * CELL + CELL/2;
+        if (player.nextDirY !== 0) alignedX = Math.round((player.x - CELL/2) / CELL) * CELL + CELL/2;
+
+        if (canMove(alignedX + player.nextDirX * player.speed, alignedY + player.nextDirY * player.speed, player.radius)) {
+            player.x = alignedX;
+            player.y = alignedY;
+            player.dirX = player.nextDirX;
+            player.dirY = player.nextDirY;
+        }
+    }
+
+    // Move Player
+    if (canMove(player.x + player.dirX * player.speed, player.y + player.dirY * player.speed, player.radius)) {
+        player.x += player.dirX * player.speed;
+        player.y += player.dirY * player.speed;
+    }
+
+    // Eat Dots
+    dots.forEach(dot => {
+        if (dot.active && Math.hypot(player.x - dot.x, player.y - dot.y) < player.radius) {
+            dot.active = false;
+            score += 10;
+            document.getElementById('score').innerText = score;
+        }
+    });
+
+    // Eat Power Pellets
+    activePellets.forEach((pellet, index) => {
+        if (Math.hypot(player.x - pellet.x, player.y - pellet.y) < player.radius + 10) {
+            if (pellet.isCorrect) {
+                ghostsVulnerableTimer = 8 * 60; // 8 seconds @ 60fps
+                ghostsEnragedTimer = 0;
+                score += 100;
+                showStatus("CORRECT! Ghosts are vulnerable for 8s!", "vulnerable");
+            } else {
+                ghostsEnragedTimer = 5 * 60; // 5 seconds @ 60fps
+                ghostsVulnerableTimer = 0;
+                showStatus("WRONG WORD! Ghosts sped up by 25% for 5s!", "wrong");
+            }
+            document.getElementById('score').innerText = score;
+            selectNewTarget();
+        }
+    });
+
+    // Move Ghosts
+    ghosts.forEach(ghost => {
+        let nextX = ghost.x + ghost.dirX * ghost.speed;
+        let nextY = ghost.y + ghost.dirY * ghost.speed;
+
+        if (canMove(nextX, nextY, 12)) {
+            ghost.x = nextX;
+            ghost.y = nextY;
+        } else {
+            // Choose a new random valid direction when colliding
+            const dirs = [{x:1, y:0}, {x:-1, y:0}, {x:0, y:1}, {x:0, y:-1}];
+            const validDirs = dirs.filter(d => canMove(ghost.x + d.x * ghost.speed, ghost.y + d.y * ghost.speed, 12));
+            if (validDirs.length > 0) {
+                let newDir = validDirs[Math.floor(Math.random() * validDirs.length)];
+                ghost.dirX = newDir.x;
+                ghost.dirY = newDir.y;
+            }
+        }
+
+        // Collision with Player
+        if (Math.hypot(player.x - ghost.x, player.y - ghost.y) < player.radius + 10) {
+            if (ghostsVulnerableTimer > 0) {
+                // Defeat Ghost
+                score += 200;
+                document.getElementById('score').innerText = score;
+                ghost.x = 9 * CELL;
+                ghost.y = 8 * CELL;
+                showStatus("+200 Ate Ghost!", "correct");
+            } else {
+                // Lose Life
+                lives--;
+                document.getElementById('lives').innerText = lives;
+                if (lives <= 0) {
+                    alert("Game Over! Final Score: " + score);
+                    resetGame();
+                } else {
+                    respawnPlayer();
+                }
+            }
+        }
+    });
+}
+
+function respawnPlayer() {
+    player.x = 9 * CELL;
+    player.y = 14 * CELL;
+    player.dirX = 0;
+    player.dirY = 0;
+    player.nextDirX = 0;
+    player.nextDirY = 0;
+}
+
+function resetGame() {
+    score = 0;
+    lives = 3;
+    ghostsVulnerableTimer = 0;
+    ghostsEnragedTimer = 0;
+    document.getElementById('score').innerText = score;
+    document.getElementById('lives').innerText = lives;
+    initDots();
+    selectNewTarget();
+    respawnPlayer();
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw Walls
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+            if (map[r][c] === 1) {
+                ctx.fillStyle = '#1919a6';
+                ctx.fillRect(c * CELL, r * CELL, CELL, CELL);
+                ctx.strokeStyle = '#0000ff';
+                ctx.strokeRect(c * CELL, r * CELL, CELL, CELL);
+            }
+        }
+    }
+
+    // Draw Dots
+    dots.forEach(dot => {
+        if (dot.active) {
+            ctx.beginPath();
+            ctx.arc(dot.x, dot.y, 3, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffb8ae';
+            ctx.fill();
+            ctx.closePath();
+        }
+    });
+
+    // Draw Vocabulary Power Pellets
+    activePellets.forEach(pellet => {
+        ctx.beginPath();
+        ctx.arc(pellet.x, pellet.y, 10, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffb8ff';
+        ctx.fill();
+        ctx.closePath();
+
+        // Draw Label Above Pellet
+        ctx.font = 'bold 11px Courier New';
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.fillText(pellet.word, pellet.x, pellet.y - 14);
+    });
+
+    // Draw Player
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, player.radius, 0.2 * Math.PI, 1.8 * Math.PI);
+    ctx.lineTo(player.x, player.y);
+    ctx.fillStyle = '#ffff00';
+    ctx.fill();
+    ctx.closePath();
+
+    // Draw Ghosts
+    ghosts.forEach(ghost => {
+        ctx.beginPath();
+        ctx.arc(ghost.x, ghost.y, 12, Math.PI, 0, false);
+        ctx.lineTo(ghost.x + 12, ghost.y + 12);
+        ctx.lineTo(ghost.x - 12, ghost.y + 12);
+        
+        if (ghostsVulnerableTimer > 0) {
+            ctx.fillStyle = ghostsVulnerableTimer < 120 && Math.floor(ghostsVulnerableTimer / 10) % 2 === 0 ? '#ffffff' : '#0000ff';
+        } else if (ghostsEnragedTimer > 0) {
+            ctx.fillStyle = '#ff0000';
+        } else {
+            ctx.fillStyle = ghost.color;
+        }
+        
+        ctx.fill();
+        ctx.closePath();
+    });
+}
+
+function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+// Start Game
+initDots();
+selectNewTarget();
+gameLoop();
+
+</script>
+</body>
+</html>
