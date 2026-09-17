@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Definition Runner - 0.4x Relaxed Speed</title>
+    <title>Definition Runner - 0.3x Super Relaxed Speed</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
@@ -44,7 +44,7 @@
                         Time Left: 60:00
                     </span>
                     <span id="gate-timer" class="text-xs text-amber-400 font-arcade font-bold px-2.5 py-1 bg-amber-950/60 border border-amber-500/40 rounded-full">
-                        Gate Approaching: 18s
+                        Gate Approaching: 24s
                     </span>
                 </div>
             </div>
@@ -73,7 +73,7 @@
             </div>
             <div class="bg-slate-900/80 backdrop-blur-sm border border-slate-700/80 px-3 py-1 rounded-xl text-center">
                 <div class="text-[10px] text-slate-400 uppercase font-arcade">Speed</div>
-                <div id="speed-meter" class="text-lg font-bold font-arcade text-emerald-400">0.4x</div>
+                <div id="speed-meter" class="text-lg font-bold font-arcade text-emerald-400">0.3x</div>
             </div>
         </div>
     </div>
@@ -111,7 +111,7 @@
                 DEFINITION GATES
             </h1>
             <p class="text-slate-300 text-sm leading-relaxed">
-                Run forward at an easy-going 0.4x pace, jump over obstacles, and pass through the gate that matches the target definition!
+                Run forward at a super-relaxed 0.3x pace, jump over obstacles, and pass through the gate that matches the target definition to earn points!
             </p>
 
             <button id="btn-start" class="w-full bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-arcade font-bold text-lg py-4 rounded-2xl shadow-xl hover:shadow-cyan-500/25 transition active:scale-95">
@@ -148,7 +148,7 @@
     </div>
 
     <script>
-        // 10 VOCABULARY WORDS & DEFINITIONS
+        // VOCABULARY WORDS & DEFINITIONS
         const WORD_BANK = [
             { word: "encounter", def: "To meet someone or something unexpectedly." },
             { word: "feast", def: "A big, special meal with lots of food." },
@@ -225,16 +225,16 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
-        // Game State Variables - ADJUSTED TO 0.4x SPEED
+        // Game State Variables - SET TO 0.3x SPEED
         let isPlaying = false;
         let score = 0;
         let streak = 0;
         let distance = 0;
-        let speed = 0.4;          // Set to requested 0.4 speed
+        let speed = 0.3;          // 0.3x relaxed speed
         let baseSpeed = 1.6;      
         let shield = 3;
         let gatesPassed = 0;
-        let gateCountdown = 18;
+        let gateCountdown = 24;
         let sessionTimeSeconds = 3600; // 60 minutes limit
         let sessionTimerInterval = null;
 
@@ -336,7 +336,7 @@
                 y: y,
                 color: color,
                 alpha: 1.0,
-                life: 50
+                life: 70
             });
         }
 
@@ -424,7 +424,7 @@
 
             if (activeGates) {
                 activeGates.z -= effectiveSpeed * 1.8;
-                gateCountdown = Math.max(0, (activeGates.z / 60).toFixed(0));
+                gateCountdown = Math.max(0, (activeGates.z / 45).toFixed(0));
                 document.getElementById('gate-timer').innerText = `Gate Approaching: ${gateCountdown}s`;
 
                 if (!activeGates.passed && activeGates.z <= 60) {
@@ -435,9 +435,12 @@
                         gatesPassed++;
                         streak++;
                         
+                        // Base 100 points per correct gate + streak multiplier
                         const earnedPoints = 100 * Math.min(3, streak);
                         addScorePoints(earnedPoints);
-                        spawnFloatingText(`+${earnedPoints} PTS!`, canvas.width / 2, canvas.height / 2 - 40, '#34d399');
+                        
+                        // PROMINENT FLOATING SCORE NOTIFICATION
+                        spawnFloatingText(`CORRECT! +${earnedPoints} PTS!`, canvas.width / 2, canvas.height / 2 - 50, '#34d399');
 
                         addParticles(canvas.width / 2, canvas.height / 2, '#34d399', 30);
                     } else {
@@ -445,7 +448,7 @@
                         shield--;
                         streak = 0;
                         updateShieldUI();
-                        spawnFloatingText(`WRONG GATE!`, canvas.width / 2, canvas.height / 2 - 40, '#f43f5e');
+                        spawnFloatingText(`WRONG GATE! (0 PTS)`, canvas.width / 2, canvas.height / 2 - 50, '#f43f5e');
                         addParticles(canvas.width / 2, canvas.height / 2, '#f43f5e', 30);
                         if (shield <= 0) {
                             gameOver("OUT OF SHIELDS!");
@@ -459,7 +462,7 @@
                 }
             }
 
-            if (Math.random() < 0.003) {
+            if (Math.random() < 0.002) {
                 spawnObstacle();
             }
 
@@ -475,7 +478,7 @@
                         streak = 0;
                         player.invulnerableTimer = 1.0;
                         updateShieldUI();
-                        spawnFloatingText(`OUCH!`, canvas.width / 2, canvas.height / 2 - 40, '#fbbf24');
+                        spawnFloatingText(`HIT OBSTACLE!`, canvas.width / 2, canvas.height / 2 - 50, '#fbbf24');
                         addParticles(canvas.width / 2, canvas.height / 2, '#fbbf24', 20);
                         obstacles.splice(i, 1);
                         if (shield <= 0) {
@@ -504,8 +507,8 @@
 
             for (let i = floatingTexts.length - 1; i >= 0; i--) {
                 const ft = floatingTexts[i];
-                ft.y -= 1;
-                ft.alpha -= 0.02;
+                ft.y -= 0.8;
+                ft.alpha -= 0.015;
                 ft.life--;
                 if (ft.life <= 0 || ft.alpha <= 0) {
                     floatingTexts.splice(i, 1);
@@ -593,7 +596,7 @@
                     ctx.fill();
                     ctx.stroke();
 
-                    // Text
+                    // Word Text inside Gate
                     ctx.fillStyle = '#ffffff';
                     ctx.font = `bold ${Math.max(14, Math.round(20 * scale))}px Orbitron, sans-serif`;
                     ctx.textAlign = 'center';
@@ -673,13 +676,15 @@
                 ctx.restore();
             });
 
-            // Floating Text
+            // Floating Text (Score / Feedback)
             floatingTexts.forEach(ft => {
                 ctx.save();
                 ctx.globalAlpha = ft.alpha;
                 ctx.fillStyle = ft.color;
-                ctx.font = 'bold 24px Orbitron, sans-serif';
+                ctx.font = 'bold 26px Orbitron, sans-serif';
                 ctx.textAlign = 'center';
+                ctx.shadowColor = 'rgba(0,0,0,0.8)';
+                ctx.shadowBlur = 8;
                 ctx.fillText(ft.text, ft.x, ft.y);
                 ctx.restore();
             });
@@ -702,7 +707,7 @@
             score = 0;
             streak = 0;
             distance = 0;
-            speed = 0.4; // 0.4x RELAXED SPEED
+            speed = 0.3; // SUPER RELAXED 0.3x SPEED
             shield = 3;
             gatesPassed = 0;
             targetLane = 1;
