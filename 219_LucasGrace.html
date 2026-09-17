@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fantasy Bridge Vocabulary Quest</title>
+    <!-- Tailwind CSS for utility styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts for fantasy-themed typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Quicksand', sans-serif;
+            background-color: #0d1b2a;
+            overflow-x: hidden;
+            color: #f1f5f9;
+        }
+
+        .fantasy-font {
+            font-family: 'Cinzel', serif;
+        }
+
+        /* Magical Glowing Background Animation */
+        .magical-bg {
+            background: linear-gradient(135deg, #1a0b2e 0%, #0f172a 50%, #062c22 100%);
+            position: relative;
+        }
+
+        /* Sparkle floating particles */
+        .particle {
+            position: absolute;
+            background: rgba(255, 223, 133, 0.7);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: floatSparkle 6s infinite ease-in-out;
+        }
+
+        @keyframes floatSparkle {
+            0%, 100% { transform: translateY(0) scale(0.8); opacity: 0.3; }
+            50% { transform: translateY(-40px) scale(1.2); opacity: 0.9; filter: drop-shadow(0 0 6px #fbbf24); }
+        }
+
+        /* Fantasy Bridge Scene Styling */
+        .scene-container {
+            background: linear-gradient(to bottom, #1e1b4b 0%, #064e3b 60%, #022c22 100%);
+            position: relative;
+            overflow: hidden;
+            border: 3px solid #d97706;
+            box-shadow: 0 0 25px rgba(217, 119, 6, 0.4);
+        }
+
+        /* Stream water beneath bridge */
+        .stream {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 35%;
+            background: linear-gradient(180deg, #0284c7 0%, #0369a1 100%);
+            opacity: 0.85;
+        }
+
+        .stream-ripple {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(255,255,255,0.15) 45px, transparent 50px);
+            animation: flow 8s linear infinite;
+        }
+
+        @keyframes flow {
+            from { background-position: 0 0; }
+            to { background-position: 400px 0; }
+        }
+
+        /* Wooden Brown Bridge */
+        .bridge {
+            position: absolute;
+            bottom: 20%;
+            left: 5%;
+            right: 5%;
+            height: 32px;
+            background: linear-gradient(180deg, #78350f 0%, #451a03 100%);
+            border-top: 4px solid #b45309;
+            border-bottom: 4px solid #292524;
+            border-radius: 4px;
+            box-shadow: 0 8px 15px rgba(0,0,0,0.6);
+        }
+
+        .bridge-planks {
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(90deg, #92400e, #92400e 12px, #451a03 14px, #451a03 18px);
+        }
+
+        .bridge-posts {
+            position: absolute;
+            top: -24px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 10px;
+        }
+
+        .post {
+            width: 10px;
+            height: 28px;
+            background: #78350f;
+            border-radius: 2px;
+            border-top: 3px solid #d97706;
+            box-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .bridge-rope {
+            position: absolute;
+            top: -18px;
+            left: 10px;
+            right: 10px;
+            height: 4px;
+            background: #d97706;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+        }
+
+        /* Hero Character */
+        .hero {
+            position: absolute;
+            bottom: 30%;
+            left: 5%;
+            transform: translateX(-50%);
+            transition: left 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 20;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+        }
+
+        .hero-bounce {
+            animation: heroIdle 1.5s ease-in-out infinite alternate;
+        }
+
+        @keyframes heroIdle {
+            from { transform: translateY(0); }
+            to { transform: translateY(-6px); }
+        }
+
+        /* Quest Glass Card */
+        .glass-card {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            border: 2px solid rgba(217, 119, 6, 0.3);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5), inset 0 0 15px rgba(217, 119, 6, 0.1);
+        }
+
+        /* Shake animation for incorrect answer */
+        .shake {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-2px, 0, 0); }
+            20%, 80% { transform: translate3d(4px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+            40%, 60% { transform: translate3d(6px, 0, 0); }
+        }
+
+        /* Option buttons */
+        .option-btn {
+            transition: all 0.25s ease;
+            background: rgba(30, 41, 59, 0.9);
+            border: 2px solid #334155;
+        }
+
+        .option-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            border-color: #f59e0b;
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
+            background: rgba(45, 55, 72, 0.95);
+        }
+
+        .option-btn.correct {
+            background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
+            border-color: #34d399 !important;
+            color: #ffffff !important;
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.6) !important;
+        }
+
+        .option-btn.incorrect {
+            background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%) !important;
+            border-color: #fca5a5 !important;
+            color: #ffffff !important;
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.6) !important;
+        }
+
+        /* Glowing Finish Portal */
+        .portal {
+            position: absolute;
+            right: 4%;
+            bottom: 28%;
+            width: 45px;
+            height: 70px;
+            background: radial-gradient(ellipse at center, #fbbf24 0%, #d97706 60%, transparent 100%);
+            border-radius: 50%;
+            animation: pulsePortal 2s infinite ease-in-out;
+            filter: drop-shadow(0 0 10px #f59e0b);
+        }
+
+        @keyframes pulsePortal {
+            0%, 100% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.1); opacity: 1; filter: drop-shadow(0 0 20px #f59e0b); }
+        }
+    </style>
+</head>
+<body class="magical-bg min-h-screen flex flex-col items-center justify-between p-3 sm:p-6 relative">
+
+    <div id="particles-container"></div>
+
+    <!-- MAIN HEADER -->
+    <header class="text-center z-10 my-2">
+        <h1 class="fantasy-font text-3xl sm:text-4xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-amber-400 to-yellow-500 tracking-wider drop-shadow-lg">
+            <i class="fa-solid font-normal fa-wand-magic-sparkles mr-2 text-amber-400"></i> Bridge Quest
+        </h1>
+        <p class="text-amber-200/80 text-xs sm:text-sm mt-1 font-semibold tracking-wide">
+            Answer the vocabulary riddles to cross the ancient wooden bridge!
+        </p>
+    </header>
+
+    <!-- MAIN GAME WORKSPACE -->
+    <main class="w-full max-w-3xl z-10 flex flex-col gap-4 my-auto">
+
+        <!-- SCENE / VISUAL BRIDGE CONTAINER -->
+        <div class="scene-container rounded-2xl h-44 sm:h-52 w-full relative shadow-2xl overflow-hidden">
+            <!-- Sky / Forest Backdrop decor -->
+            <div class="absolute top-2 left-4 text-emerald-300/30 text-xs fantasy-font"><i class="fa-solid fa-tree"></i> Whispering Woods</div>
+            <div class="absolute top-2 right-4 text-emerald-300/30 text-xs fantasy-font">Enchanted Gateway <i class="fa-solid fa-dungeon"></i></div>
+
+            <!-- River Stream -->
+            <div class="stream">
+                <div class="stream-ripple"></div>
+            </div>
+
+            <!-- Brown Wooden Bridge -->
+            <div class="bridge">
+                <div class="bridge-planks"></div>
+                <div class="bridge-rope"></div>
+                <div class="bridge-posts">
+                    <div class="post"></div>
+                    <div class="post"></div>
+                    <div class="post"></div>
+                    <div class="post"></div>
+                    <div class="post"></div>
+                    <div class="post"></div>
+                </div>
+            </div>
+
+            <!-- Goal Portal -->
+            <div class="portal flex items-center justify-center">
+                <i class="fa-solid fa-star text-amber-100 text-xs animate-spin"></i>
+            </div>
+
+            <!-- Animated Hero Character -->
+            <div id="hero" class="hero hero-bounce flex flex-col items-center">
+                <div class="bg-amber-400 text-slate-900 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md mb-1 border border-amber-200">
+                    Hero
+                </div>
+                <!-- Hero Sprite Icon -->
+                <div class="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-tr from-amber-600 to-yellow-400 rounded-full flex items-center justify-center border-2 border-amber-200 shadow-xl text-slate-950 text-xl sm:text-2xl">
+                    <i class="fa-solid fa-user-ninja"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- GAME CARD / QUESTION AREA -->
+        <div id="game-card" class="glass-card rounded-2xl p-4 sm:p-6 text-slate-100 transition-all duration-300 relative">
+            
+            <!-- Progress Bar & Score Bar -->
+            <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-700/60 text-xs sm:text-sm">
+                <div class="flex items-center gap-2">
+                    <span class="text-amber-400 font-bold fantasy-font">Question:</span>
+                    <span id="question-number" class="bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700 font-bold text-amber-300">1/11</span>
+                </div>
+
+                <!-- Visual Progress Bar -->
+                <div class="w-1/3 bg-slate-800 h-3 rounded-full overflow-hidden border border-slate-700 p-0.5">
+                    <div id="progress-bar-fill" class="bg-gradient-to-r from-amber-500 to-yellow-400 h-full rounded-full transition-all duration-500" style="width: 0%;"></div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <span class="text-amber-400 font-bold fantasy-font">Score:</span>
+                    <span id="score-display" class="bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700 font-bold text-emerald-400">0</span>
+                </div>
+            </div>
+
+            <!-- Question Prompt Area -->
+            <div id="question-container" class="mb-6">
+                <span id="question-type-badge" class="inline-block bg-amber-500/20 text-amber-300 text-xs font-semibold px-2.5 py-1 rounded-md mb-2 border border-amber-500/30">
+                    Definition Quest
+                </span>
+                <h2 id="question-text" class="text-lg sm:text-xl font-bold text-slate-100 leading-relaxed">
+                    Which word means "to hold something very tightly"?
+                </h2>
+            </div>
+
+            <!-- Multiple Choice Options -->
+            <div id="options-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                <!-- Buttons injected dynamically -->
+            </div>
+
+            <!-- Instant Feedback Message Box -->
+            <div id="feedback-message" class="hidden text-center py-2 px-4 rounded-xl font-bold text-sm transition-all duration-300">
+                <!-- Feedback injected dynamically -->
+            </div>
+        </div>
+
+        <!-- SUMMARY / RESULTS SCREEN (Hidden by default) -->
+        <div id="results-card" class="glass-card rounded-2xl p-6 text-center hidden">
+            <div class="w-20 h-20 bg-amber-500/20 text-amber-400 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-amber-400/50 shadow-lg text-4xl">
+                <i class="fa-solid fa-trophy animate-bounce"></i>
+            </div>
+            <h2 class="fantasy-font text-2xl sm:text-3xl font-extrabold text-amber-300 mb-2">Quest Completed!</h2>
+            <p class="text-slate-300 text-sm sm:text-base mb-4">You have successfully crossed the ancient wooden bridge and conquered all vocabulary challenges!</p>
+            
+            <div class="bg-slate-800/80 rounded-xl p-4 max-w-sm mx-auto mb-6 border border-slate-700">
+                <div class="text-slate-400 text-xs uppercase tracking-widest font-semibold mb-1">Final Score</div>
+                <div id="final-score" class="text-4xl font-black text-emerald-400">0 / 11</div>
+                <div id="performance-comment" class="text-xs text-amber-200 mt-2 font-medium">Master of Vocabulary!</div>
+            </div>
+
+            <button id="restart-btn" class="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-slate-950 font-extrabold px-6 py-3 rounded-xl shadow-lg transform transition active:scale-95 hover:shadow-amber-500/20 flex items-center justify-center gap-2 mx-auto">
+                <i class="fa-solid fa-rotate-right"></i> Play Quest Again
+            </button>
+        </div>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="text-center text-xs text-slate-400/80 z-10 my-2">
+        Created for young scholars to master coding & language arts • AI Game Builder
+    </footer>
+
+    <script>
+        // Vocabulary dataset provided by student
+        const vocabularyList = [
+            { word: "grip", definition: "to hold tightly", sentence: "Make sure you ____ the rope tightly while climbing." },
+            { word: "adjustment", definition: "a small change made to something", sentence: "He made a quick ____ to the chair height so he could reach the desk." },
+            { word: "strain", definition: "force or pressure causing stress", sentence: "Lifting heavy boxes put too much ____ on his back." },
+            { word: "flexible", definition: "able to bend easily without breaking", sentence: "Gymnasts have very ____ bodies that allow them to twist easily." },
+            { word: "loosen", definition: "to make or become less tight", sentence: "You should ____ your shoelaces before taking off your shoes." },
+            { word: "slightly", definition: "to a small degree or extent", sentence: "The temperature dropped ____, making the evening pleasant." },
+            { word: "demonstrate", definition: "to show or clearly prove something", sentence: "The science teacher will ____ how the experiment works today." },
+            { word: "waste", definition: "using or expending carelessly", sentence: "Do not ____ clean water by leaving the faucet running." },
+            { word: "energy", definition: "the power or strength required for activity", sentence: "Eating a healthy breakfast gives you plenty of ____ for the day." },
+            { word: "biodegradable", definition: "capable of being decomposed by living organisms", sentence: "Paper bags are ____ and break down naturally in the soil." },
+            { word: "preserve", definition: "to protect or keep in original state", sentence: "National parks help ____ forests and wildlife for future generations." }
+        ];
+
+        // State variables
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let questions = [];
+        let canAnswer = true;
+
+        // HTML Elements
+        const hero = document.getElementById("hero");
+        const gameCard = document.getElementById("game-card");
+        const resultsCard = document.getElementById("results-card");
+        const questionNumber = document.getElementById("question-number");
+        const progressBarFill = document.getElementById("progress-bar-fill");
+        const scoreDisplay = document.getElementById("score-display");
+        const questionText = document.getElementById("question-text");
+        const optionsGrid = document.getElementById("options-grid");
+        const feedbackMessage = document.getElementById("feedback-message");
+        const finalScore = document.getElementById("final-score");
+        const performanceComment = document.getElementById("performance-comment");
+        const restartBtn = document.getElementById("restart-btn");
+
+        function initParticles() {
+            const container = document.getElementById("particles-container");
+            const particleCount = 20;
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement("div");
+                particle.className = "particle";
+                const size = Math.random() * 4 + 2;
+                particle.style.width = `${size}px`;
+                particle.style.height = `${size}px`;
+                particle.style.left = `${Math.random() * 100}%`;
+                particle.style.top = `${Math.random() * 100}%`;
+                particle.style.animationDelay = `${Math.random() * 5}s`;
+                particle.style.animationDuration = `${Math.random() * 4 + 4}s`;
+                container.appendChild(particle);
+            }
+        }
+
+        // Shuffle array helper
+        function shuffleArray(array) {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        function prepareQuestions() {
+            const shuffledVocab = shuffleArray(vocabularyList);
+            questions = shuffledVocab.map((item, index) => {
+                // Alternate between definition quiz and sentence fill-in-the-blank
+                const isDefinitionType = index % 2 === 0;
+                
+                // Select 3 random incorrect distractor words
+                const otherWords = vocabularyList
+                    .filter(v => v.word !== item.word)
+                    .map(v => v.word);
+                const shuffledDistractors = shuffleArray(otherWords).slice(0, 3);
+                
+                const options = shuffleArray([item.word, ...shuffledDistractors]);
+
+                return {
+                    word: item.word,
+                    type: isDefinitionType ? "Definition Quest" : "Fill in the Blank",
+                    prompt: isDefinitionType 
+                        ? `Which word means: "${item.definition}"?` 
+                        : `Complete the sentence: "${item.sentence}"`,
+                    correctAnswer: item.word,
+                    options: options
+                };
+            });
+        }
+
+        function renderQuestion() {
+            canAnswer = true;
+            feedbackMessage.className = "hidden text-center py-2 px-4 rounded-xl font-bold text-sm transition-all duration-300";
+            
+            const q = questions[currentQuestionIndex];
+            
+            // Update HUD
+            questionNumber.textContent = `${currentQuestionIndex + 1}/${questions.length}`;
+            scoreDisplay.textContent = score;
+            const progressPercent = (currentQuestionIndex / questions.length) * 100;
+            progressBarFill.style.width = `${progressPercent}%`;
+
+            // Update Hero position on the bridge (From 5% to 85% horizontal across scene)
+            const bridgeProgress = 5 + (currentQuestionIndex / questions.length) * 80;
+            hero.style.left = `${bridgeProgress}%`;
+
+            // Update Question content
+            document.getElementById("question-type-badge").textContent = q.type;
+            questionText.textContent = q.prompt;
+
+            // Render Option Buttons
+            optionsGrid.innerHTML = "";
+            q.options.forEach(option => {
+                const btn = document.createElement("button");
+                btn.className = "option-btn text-left p-3.5 rounded-xl font-bold text-slate-200 text-sm sm:text-base flex items-center justify-between";
+                btn.innerHTML = `<span>${option}</span> <i class="fa-regular fa-circle-check opacity-30"></i>`;
+                btn.onclick = () => handleAnswerSelect(option, btn);
+                optionsGrid.appendChild(btn);
+            });
+        }
+
+        function handleAnswerSelect(selectedOption, buttonEl) {
+            if (!canAnswer) return;
+            canAnswer = false;
+
+            const q = questions[currentQuestionIndex];
+            const isCorrect = selectedOption === q.correctAnswer;
+            const allOptionBtns = optionsGrid.querySelectorAll("button");
+
+            // Disable all option buttons
+            allOptionBtns.forEach(btn => btn.disabled = true);
+
+            if (isCorrect) {
+                score++;
+                scoreDisplay.textContent = score;
+                buttonEl.classList.add("correct");
+                showFeedback(true, "✨ Excellent! Your knowledge powers you forward!");
+            } else {
+                buttonEl.classList.add("incorrect");
+                gameCard.classList.add("shake");
+                setTimeout(() => gameCard.classList.remove("shake"), 500);
+
+                // Highlight the true answer
+                allOptionBtns.forEach(btn => {
+                    if (btn.textContent.trim().startsWith(q.correctAnswer)) {
+                        btn.classList.add("correct");
+                    }
+                });
+                showFeedback(false, `Oops! The correct word was "${q.correctAnswer}".`);
+            }
+
+            // Wait brief moment before continuing
+            setTimeout(() => {
+                currentQuestionIndex++;
+                if (currentQuestionIndex < questions.length) {
+                    renderQuestion();
+                } else {
+                    finishGame();
+                }
+            }, 1800);
+        }
+
+        function showFeedback(isSuccess, message) {
+            feedbackMessage.textContent = message;
+            feedbackMessage.classList.remove("hidden");
+            if (isSuccess) {
+                feedbackMessage.className = "text-center py-2 px-4 rounded-xl font-bold text-sm bg-emerald-500/20 text-emerald-300 border border-emerald-500/40";
+            } else {
+                feedbackMessage.className = "text-center py-2 px-4 rounded-xl font-bold text-sm bg-rose-500/20 text-rose-300 border border-rose-500/40";
+            }
+        }
+
+        function finishGame() {
+            // Move hero to the portal
+            hero.style.left = "88%";
+            
+            gameCard.classList.add("hidden");
+            resultsCard.classList.remove("hidden");
+
+            finalScore.textContent = `${score} / ${questions.length}`;
+            
+            const percentage = (score / questions.length) * 100;
+            if (percentage === 100) {
+                performanceComment.textContent = "🏆 Flawless Victory! You are a true Vocabulary Master!";
+            } else if (percentage >= 70) {
+                performanceComment.textContent = "🌟 Great Job! You safely crossed the bridge!";
+            } else {
+                performanceComment.textContent = "📚 Good effort! Review the words and try again to master the quest.";
+            }
+        }
+
+        function resetGame() {
+            currentQuestionIndex = 0;
+            score = 0;
+            prepareQuestions();
+            resultsCard.classList.add("hidden");
+            gameCard.classList.remove("hidden");
+            renderQuestion();
+        }
+
+        // Event Listeners
+        restartBtn.addEventListener("click", resetGame);
+
+        // Window load setup
+        window.onload = function() {
+            initParticles();
+            prepareQuestions();
+            renderQuestion();
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Whack-A-Word Arcade</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #1a1a2e;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+
+    h1 {
+      margin-bottom: 5px;
+      color: #e94560;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    .status-bar {
+      display: flex;
+      gap: 30px;
+      font-size: 1.2rem;
+      margin-bottom: 15px;
+      background: #16213e;
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: 1px solid #0f3460;
+    }
+
+    .definition-box {
+      background: #0f3460;
+      padding: 15px 25px;
+      border-radius: 10px;
+      font-size: 1.2rem;
+      text-align: center;
+      width: 80%;
+      max-width: 600px;
+      min-height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+      border-left: 5px solid #e94560;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      width: 90%;
+      max-width: 600px;
+    }
+
+    .hole {
+      width: 100%;
+      height: 110px;
+      background: #0f3460;
+      border-radius: 50% / 30%;
+      position: relative;
+      overflow: hidden;
+      border: 3px solid #16213e;
+      box-shadow: inset 0 10px 15px rgba(0, 0, 0, 0.6);
+    }
+
+    .mole {
+      width: 80%;
+      height: 80%;
+      background: #e94560;
+      border-radius: 12px 12px 0 0;
+      position: absolute;
+      bottom: -100%;
+      left: 10%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-weight: bold;
+      color: #fff;
+      padding: 5px;
+      box-sizing: border-box;
+      cursor: pointer;
+      user-select: none;
+      transition: bottom 0.2s ease-out;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+    }
+
+    .mole.up {
+      bottom: 10%;
+    }
+
+    .btn {
+      margin-top: 25px;
+      padding: 12px 30px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: #fff;
+      background: #e94560;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn:hover {
+      background: #c0354e;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Whack-A-Word</h1>
+
+  <div class="status-bar">
+    <div>Time Left: <span id="timer">60</span>s</div>
+    <div>Score: <span id="score">0</span></div>
+  </div>
+
+  <div class="definition-box" id="definition">Click "Start Game" to begin!</div>
+
+  <div class="grid">
+    <div class="hole"><div class="mole"></div></div>
+    <div class="hole"><div class="mole"></div></div>
+    <div class="hole"><div class="mole"></div></div>
+    <div class="hole"><div class="mole"></div></div>
+    <div class="hole"><div class="mole"></div></div>
+    <div class="hole"><div class="mole"></div></div>
+  </div>
+
+  <button class="btn" id="start-btn" onclick="startGame()">Start Game</button>
+
+  <script>
+    const vocabulary = [
+      { word: "Recipe", definition: "A set of instructions for preparing a particular dish." },
+      { word: "Pasta", definition: "A dish originally from Italy consisting of dough made from durum wheat and water." },
+      { word: "Variation", definition: "A change or slight difference in condition, amount, or level." },
+      { word: "Combination", definition: "A joining or merging of different parts or qualities." },
+      { word: "Ultimately", definition: "At the most basic level; in the end; finally." },
+      { word: "Generation", definition: "All of the people born and living at about the same time." },
+      { word: "Deserve", definition: "To be worthy of or entitled to something because of actions or qualities." },
+      { word: "Craftsmanship", definition: "Skill in a particular craft; quality of design and work shown in something made by hand." },
+      { word: "Take seriously", definition: "To treat someone or something as important and worthy of attention." },
+      { word: "Stir up", definition: "To cause or excite strong feelings, anger, or trouble." }
+    ];
+
+    const moles = document.querySelectorAll('.mole');
+    const scoreDisplay = document.getElementById('score');
+    const timerDisplay = document.getElementById('timer');
+    const definitionDisplay = document.getElementById('definition');
+    const startBtn = document.getElementById('start-btn');
+
+    let score = 0;
+    let timeLeft = 60;
+    let gameInterval;
+    let timerInterval;
+    let currentTarget = null;
+    let activeMoles = [];
+
+    function getRandomItem(array) {
+      return array[Math.floor(Math.random() * array.length)];
+    }
+
+    function selectNewTarget() {
+      currentTarget = getRandomItem(vocabulary);
+      definitionDisplay.textContent = `Definition: "${currentTarget.definition}"`;
+    }
+
+    function popMoles() {
+      // Clear previous mole states
+      moles.forEach(mole => {
+        mole.classList.remove('up');
+        mole.textContent = '';
+        mole.onclick = null;
+      });
+
+      // Pick 2-4 random holes to show moles simultaneously
+      const moleCount = Math.floor(Math.random() * 3) + 2; 
+      const selectedIndices = [];
+
+      while (selectedIndices.length < moleCount) {
+        const index = Math.floor(Math.random() * moles.length);
+        if (!selectedIndices.includes(index)) {
+          selectedIndices.push(index);
+        }
+      }
+
+      // Ensure target word appears higher frequency (70% chance to guarantee inclusion)
+      let wordsForMoles = [];
+      const includeTarget = Math.random() < 0.7;
+
+      if (includeTarget) {
+        wordsForMoles.push(currentTarget.word);
+      }
+
+      // Fill remaining mole slots with random distinct distractor words
+      while (wordsForMoles.length < moleCount) {
+        const randomWord = getRandomItem(vocabulary).word;
+        if (!wordsForMoles.includes(randomWord) && randomWord !== currentTarget.word) {
+          wordsForMoles.push(randomWord);
+        }
+      }
+
+      // Shuffle word placement among selected moles
+      wordsForMoles.sort(() => Math.random() - 0.5);
+
+      // Assign words and click events to chosen moles
+      selectedIndices.forEach((holeIndex, i) => {
+        const mole = moles[holeIndex];
+        const word = wordsForMoles[i];
+
+        mole.textContent = word;
+        mole.classList.add('up');
+
+        mole.onclick = () => {
+          if (word === currentTarget.word) {
+            score += 10;
+            scoreDisplay.textContent = score;
+            mole.classList.remove('up');
+            selectNewTarget(); // Change definition upon correct hit
+          } else {
+            score = Math.max(0, score - 5); // Penalty for wrong hit
+            scoreDisplay.textContent = score;
+            mole.classList.remove('up');
+          }
+        };
+      });
+    }
+
+    function startGame() {
+      score = 0;
+      timeLeft = 60;
+      scoreDisplay.textContent = score;
+      timerDisplay.textContent = timeLeft;
+      startBtn.disabled = true;
+
+      selectNewTarget();
+      popMoles();
+
+      // Cycle moles every 1.5 seconds
+      gameInterval = setInterval(popMoles, 1500);
+
+      // 60-second countdown timer
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        timerDisplay.textContent = timeLeft;
+
+        if (timeLeft <= 0) {
+          clearInterval(gameInterval);
+          clearInterval(timerInterval);
+          moles.forEach(mole => mole.classList.remove('up'));
+          definitionDisplay.textContent = `Game Over! Final Score: ${score}`;
+          startBtn.disabled = false;
+        }
+      }, 1000);
+    }
+  </script>
+</body>
+</html>

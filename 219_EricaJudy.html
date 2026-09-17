@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Def-Defender: Grade 11 Vocab Arcade</title>
+    <style>
+        body {
+            background-color: #0d0d1a;
+            color: #00ffcc;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #game-container {
+            position: relative;
+            width: 700px;
+            height: 500px;
+            background: radial-gradient(circle, #1a1a3a 0%, #050510 100%);
+            border: 3px solid #00ffcc;
+            box-shadow: 0 0 20px #00ffcc;
+            overflow: hidden;
+            border-radius: 8px;
+        }
+
+        #hud {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 16px;
+            font-weight: bold;
+            z-index: 10;
+        }
+
+        #target-display {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            background: rgba(0, 255, 204, 0.15);
+            border: 2px solid #00ffcc;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            font-size: 14px;
+            box-shadow: 0 0 10px #00ffcc;
+            z-index: 10;
+        }
+
+        .alien {
+            position: absolute;
+            background: #2a004e;
+            border: 2px solid #ff00ff;
+            color: #ffffff;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 13px;
+            box-shadow: 0 0 8px #ff00ff;
+            cursor: pointer;
+            transition: transform 0.1s;
+            user-select: none;
+        }
+
+        .alien:hover {
+            transform: scale(1.1);
+            border-color: #ffff00;
+        }
+
+        #player-ship {
+            position: absolute;
+            bottom: 65px;
+            left: 325px;
+            width: 50px;
+            height: 30px;
+            background: #00ffcc;
+            clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+            box-shadow: 0 0 15px #00ffcc;
+        }
+
+        .laser {
+            position: absolute;
+            width: 4px;
+            height: 15px;
+            background: #ff0055;
+            box-shadow: 0 0 8px #ff0055;
+        }
+
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 5, 16, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+        }
+
+        button {
+            background: #00ffcc;
+            color: #050510;
+            border: none;
+            padding: 12px 24px;
+            font-size: 18px;
+            font-weight: bold;
+            font-family: inherit;
+            cursor: pointer;
+            border-radius: 5px;
+            box-shadow: 0 0 10px #00ffcc;
+            margin-top: 15px;
+        }
+
+        button:hover {
+            background: #ffffff;
+            box-shadow: 0 0 20px #ffffff;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="hud">
+            <div>SCORE: <span id="score-val">0</span></div>
+            <div>SHIELD ENERGY: <span id="shield-val">100%</span></div>
+        </div>
+
+        <div id="player-ship"></div>
+
+        <div id="target-display">
+            <strong>TARGET DEFINITION:</strong> <span id="def-text">Loading target...</span>
+        </div>
+
+        <div id="overlay">
+            <h1 id="game-title" style="color: #00ffcc; text-shadow: 0 0 10px #00ffcc;">DEF-DEFENDER</h1>
+            <p id="game-instructions" style="text-align: center; max-width: 80%;">
+                Alien invaders are attacking! Read the Target Definition on your shield at the bottom, then click on the alien carrying the matching vocabulary word to blast it down. 
+                <br><br><span style="color: #ff0055;">Warning: Shooting incorrect words will drain your shield energy!</span>
+            </p>
+            <button id="start-btn" onclick="startGame()">INITIALIZE DEFENSES</button>
+        </div>
+    </div>
+
+    <script>
+        const vocabData = [
+            { word: "breakthrough", def: "A sudden, dramatic, and important discovery or development." },
+            { word: "laboratory", def: "A room or building equipped for scientific experiments or research." },
+            { word: "workshop", def: "A room or building in which goods are manufactured or repaired, or a class for practical learning." },
+            { word: "calculation", def: "A mathematical determination of the size or number of something." },
+            { word: "envision", def: "To imagine as a future possibility; visualize." },
+            { word: "striking", def: "Attracting attention or notice through being unusual, extreme, or prominent." },
+            { word: "insight", def: "The capacity to gain an accurate and deep intuitive understanding of a person or thing." }
+        ];
+
+        let score = 0;
+        let shield = 100;
+        let currentTarget = null;
+        let activeAliens = [];
+        let gameInterval = null;
+        let moveInterval = null;
+
+        const container = document.getElementById('game-container');
+        const scoreVal = document.getElementById('score-val');
+        const shieldVal = document.getElementById('shield-val');
+        const defText = document.getElementById('def-text');
+        const overlay = document.getElementById('overlay');
+        const playerShip = document.getElementById('player-ship');
+
+        function startGame() {
+            score = 0;
+            shield = 100;
+            scoreVal.textContent = score;
+            shieldVal.textContent = shield + '%';
+            overlay.style.display = 'none';
+
+            clearAliens();
+            nextRound();
+
+            clearInterval(gameInterval);
+            clearInterval(moveInterval);
+            moveInterval = setInterval(moveAliens, 50);
+        }
+
+        function clearAliens() {
+            activeAliens.forEach(alien => alien.element.remove());
+            activeAliens = [];
+        }
+
+        function nextRound() {
+            clearAliens();
+            
+            // Choose random word target
+            currentTarget = vocabData[Math.floor(Math.random() * vocabData.length)];
+            defText.textContent = `"${currentTarget.def}"`;
+
+            // Select distractor words along with correct word
+            let choices = [currentTarget];
+            let remainingWords = vocabData.filter(v => v.word !== currentTarget.word);
+            
+            // Pick 2 or 3 random extra words
+            remainingWords.sort(() => 0.5 - Math.random());
+            choices.push(...remainingWords.slice(0, 2));
+            choices.sort(() => 0.5 - Math.random());
+
+            // Spawn alien ships
+            choices.forEach((item, index) => {
+                const alienEl = document.createElement('div');
+                alienEl.className = 'alien';
+                alienEl.textContent = item.word.toUpperCase();
+                
+                // Position randomly across top
+                const xPos = 40 + (index * 200) + Math.floor(Math.random() * 40);
+                const yPos = 40 + Math.floor(Math.random() * 30);
+                
+                alienEl.style.left = xPos + 'px';
+                alienEl.style.top = yPos + 'px';
+
+                alienEl.onclick = () => shootTarget(alienEl, item.word, xPos);
+
+                container.appendChild(alienEl);
+                activeAliens.push({ element: alienEl, word: item.word, x: xPos, y: yPos, speed: 0.3 + Math.random() * 0.3 });
+            });
+        }
+
+        function shootTarget(alienElement, word, targetX) {
+            // Move player ship underneath target
+            playerShip.style.left = (targetX + 20) + 'px';
+
+            // Create laser
+            const laser = document.createElement('div');
+            laser.className = 'laser';
+            laser.style.left = (targetX + 43) + 'px';
+            laser.style.bottom = '95px';
+            container.appendChild(laser);
+
+            // Animate laser
+            let laserBottom = 95;
+            const laserAnim = setInterval(() => {
+                laserBottom += 20;
+                laser.style.bottom = laserBottom + 'px';
+                if (laserBottom > 400) {
+                    clearInterval(laserAnim);
+                    laser.remove();
+                }
+            }, 10);
+
+            // Check hit
+            if (word === currentTarget.word) {
+                score += 100;
+                scoreVal.textContent = score;
+                setTimeout(() => {
+                    nextRound();
+                }, 300);
+            } else {
+                shield -= 20;
+                shieldVal.textContent = shield + '%';
+                alienElement.style.borderColor = '#ff0000';
+                
+                if (shield <= 0) {
+                    gameOver();
+                }
+            }
+        }
+
+        function moveAliens() {
+            activeAliens.forEach(alien => {
+                alien.y += alien.speed;
+                alien.element.style.top = alien.y + 'px';
+
+                // Check if aliens invade bottom boundary
+                if (alien.y > 380) {
+                    shield -= 10;
+                    shieldVal.textContent = Math.max(0, shield) + '%';
+                    if (shield <= 0) {
+                        gameOver();
+                    } else {
+                        nextRound();
+                    }
+                }
+            });
+        }
+
+        function gameOver() {
+            clearInterval(moveInterval);
+            overlay.style.display = 'flex';
+            document.getElementById('game-title').textContent = "SHIELD CRITICAL - GAME OVER";
+            document.getElementById('game-instructions').innerHTML = `Final Score: <strong>${score}</strong> points!<br>Reinforce your vocabulary and try again.`;
+            document.getElementById('start-btn').textContent = "REBOOT SYSTEMS";
+        }
+    </script>
+</body>
+</html>

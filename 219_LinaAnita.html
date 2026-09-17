@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Train Vocabulary Track Builder</title>
+    <style>
+        :root {
+            --bg-color: #1a1a24;
+            --panel-bg: #2a2a38;
+            --accent-green: #4caf50;
+            --accent-red: #f44336;
+            --accent-gold: #ffc107;
+            --track-color: #555566;
+            --track-active: #ffc107;
+            --text-color: #ffffff;
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            margin: 0 0 10px 0;
+            color: var(--accent-gold);
+            font-size: 28px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        #game-container {
+            width: 800px;
+            background-color: var(--panel-bg);
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #dashboard {
+            padding: 15px 20px;
+            background-color: rgba(0,0,0,0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #333344;
+        }
+
+        .stat-box {
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .stat-value {
+            color: var(--accent-gold);
+        }
+
+        #payload-card {
+            background-color: #3b3b52;
+            padding: 15px 20px;
+            margin: 15px 20px 5px 20px;
+            border-radius: 8px;
+            border-left: 5px solid var(--accent-gold);
+        }
+
+        #payload-card h3 {
+            margin: 0 0 5px 0;
+            font-size: 12px;
+            color: #aaa;
+            text-transform: uppercase;
+        }
+
+        #definition-text {
+            font-size: 16px;
+            font-style: italic;
+            line-height: 1.4;
+        }
+
+        #railway-area {
+            position: relative;
+            width: 800px;
+            height: 380px;
+            background-color: #222230;
+        }
+
+        svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .track {
+            stroke: var(--track-color);
+            stroke-width: 6;
+            fill: none;
+            stroke-dasharray: 8 4;
+            transition: stroke 0.3s;
+        }
+
+        .track.active {
+            stroke: var(--track-active);
+        }
+
+        .switch-node {
+            cursor: pointer;
+        }
+
+        .switch-node circle {
+            fill: var(--accent-gold);
+            transition: transform 0.2s, fill 0.2s;
+        }
+
+        .switch-node:hover circle {
+            transform: scale(1.3);
+            fill: #ffe082;
+        }
+
+        .station {
+            rx: 6;
+            ry: 6;
+            fill: #3b3b52;
+            stroke: var(--accent-gold);
+            stroke-width: 2;
+        }
+
+        .station-text {
+            fill: var(--text-color);
+            font-size: 13px;
+            font-weight: bold;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            pointer-events: none;
+        }
+
+        #train {
+            transition: transform 0.05s linear;
+        }
+
+        #controls {
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: rgba(0,0,0,0.2);
+            border-top: 2px solid #333344;
+        }
+
+        button {
+            background-color: var(--accent-green);
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #2e7d32;
+            transition: all 0.1s;
+        }
+
+        button:hover {
+            background-color: #66bb6a;
+        }
+
+        button:active {
+            transform: translateY(4px);
+            box-shadow: none;
+        }
+
+        button:disabled {
+            background-color: #555;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+
+        #message {
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .success-msg { color: var(--accent-green); }
+        .error-msg { color: var(--accent-red); }
+    </style>
+</head>
+<body>
+
+    <h1>Train Track Vocabulary Puzzle</h1>
+
+    <div id="game-container">
+        <div id="dashboard">
+            <div class="stat-box">Score: <span id="score" class="stat-value">0</span></div>
+            <div class="stat-box">Train Payload: <span class="stat-value">Definition Wagon</span></div>
+            <div class="stat-box">Level: <span id="level" class="stat-value">1</span> / 7</div>
+        </div>
+
+        <div id="payload-card">
+            <h3>Current Cargo Definition</h3>
+            <div id="definition-text">Loading cargo definition...</div>
+        </div>
+
+        <div id="railway-area">
+            <svg id="svg-board">
+                <!-- Tracks drawn via JS -->
+                <g id="tracks-group"></g>
+                <!-- Stations drawn via JS -->
+                <g id="stations-group"></g>
+                <!-- Switches drawn via JS -->
+                <g id="switches-group"></g>
+                <!-- Train -->
+                <g id="train" style="display: none;">
+                    <rect x="-15" y="-10" width="30" height="20" rx="3" fill="#f44336" />
+                    <circle cx="-8" cy="-10" r="3" fill="#111" />
+                    <circle cx="8" cy="-10" r="3" fill="#111" />
+                    <circle cx="-8" cy="10" r="3" fill="#111" />
+                    <circle cx="8" cy="10" r="3" fill="#111" />
+                    <rect x="2" y="-6" width="8" height="12" fill="#fff" opacity="0.5" />
+                </g>
+            </svg>
+        </div>
+
+        <div id="controls">
+            <div id="message">Click switches on the track to change direction!</div>
+            <button id="dispatch-btn" onclick="dispatchTrain()">DISPATCH TRAIN</button>
+        </div>
+    </div>
+
+    <script>
+        const vocabulary = [
+            { word: "communication", def: "The imparting or exchanging of information, news, or ideas." },
+            { word: "conventional", def: "Based on or in accordance with what is generally done or accepted." },
+            { word: "fascinating", def: "Extremely interesting or captivating." },
+            { word: "generate", def: "To produce, create, or bring into existence." },
+            { word: "scent", def: "A distinctive smell, especially one that is pleasant." },
+            { word: "prompt", def: "Done without delay; immediate, or to cause an action." },
+            { word: "nutrient", def: "A substance that provides nourishment essential for growth and maintenance." }
+        ];
+
+        let currentLevel = 0;
+        let score = 0;
+        let isMoving = false;
+        let activeWords = [];
+
+        // Switch States: 0 = Upper path, 1 = Lower path
+        let switchStates = { S1: 0, S2: 0, S3: 0 };
+
+        // Railway Nodes (Coordinates)
+        const nodes = {
+            START: { x: 40, y: 190 },
+            S1: { x: 200, y: 190 },
+            S2: { x: 420, y: 110 },
+            S3: { x: 420, y: 270 },
+            ST1: { x: 680, y: 60 },
+            ST2: { x: 680, y: 150 },
+            ST3: { x: 680, y: 230 },
+            ST4: { x: 680, y: 320 }
+        };
+
+        function initLevel() {
+            if (currentLevel >= vocabulary.length) {
+                document.getElementById('definition-text').innerText = "Game Completed! Excellent work mastering your vocabulary!";
+                document.getElementById('dispatch-btn').disabled = true;
+                return;
+            }
+
+            isMoving = false;
+            document.getElementById('dispatch-btn').disabled = false;
+            document.getElementById('message').innerText = "Click switches on the track to route the train!";
+            document.getElementById('message').className = "";
+            document.getElementById('level').innerText = currentLevel + 1;
+            document.getElementById('train').style.display = "none";
+
+            // Target word for current round
+            const targetObj = vocabulary[currentLevel];
+            document.getElementById('definition-text').innerText = `"${targetObj.def}"`;
+
+            // Pick 3 distractors
+            let distractors = vocabulary.filter(v => v.word !== targetObj.word);
+            distractors = distractors.sort(() => 0.5 - Math.random()).slice(0, 3);
+
+            // Combine and shuffle stations
+            activeWords = [targetObj, ...distractors].sort(() => 0.5 - Math.random());
+
+            // Reset Switches
+            switchStates = { S1: 0, S2: 0, S3: 0 };
+
+            renderBoard();
+        }
+
+        function renderBoard() {
+            const tracksGroup = document.getElementById('tracks-group');
+            const stationsGroup = document.getElementById('stations-group');
+            const switchesGroup = document.getElementById('switches-group');
+
+            tracksGroup.innerHTML = '';
+            stationsGroup.innerHTML = '';
+            switchesGroup.innerHTML = '';
+
+            // Draw Static Base Tracks
+            drawTrack(nodes.START, nodes.S1);
+            
+            // Draw Dynamic Paths based on switch states
+            drawTrack(nodes.S1, nodes.S2, switchStates.S1 === 0);
+            drawTrack(nodes.S1, nodes.S3, switchStates.S1 === 1);
+
+            drawTrack(nodes.S2, nodes.ST1, switchStates.S1 === 0 && switchStates.S2 === 0);
+            drawTrack(nodes.S2, nodes.ST2, switchStates.S1 === 0 && switchStates.S2 === 1);
+
+            drawTrack(nodes.S3, nodes.ST3, switchStates.S1 === 1 && switchStates.S3 === 0);
+            drawTrack(nodes.S3, nodes.ST4, switchStates.S1 === 1 && switchStates.S3 === 1);
+
+            // Draw Switches
+            createSwitchUI('S1', nodes.S1);
+            createSwitchUI('S2', nodes.S2);
+            createSwitchUI('S3', nodes.S3);
+
+            // Draw Stations
+            const stationNodes = [nodes.ST1, nodes.ST2, nodes.ST3, nodes.ST4];
+            stationNodes.forEach((node, index) => {
+                const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                rect.setAttribute("x", node.x);
+                rect.setAttribute("y", node.y - 20);
+                rect.setAttribute("width", 100);
+                rect.setAttribute("height", 40);
+                rect.setAttribute("class", "station");
+
+                const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                text.setAttribute("x", node.x + 50);
+                text.setAttribute("y", node.y);
+                text.setAttribute("class", "station-text");
+                text.textContent = activeWords[index].word;
+
+                stationsGroup.appendChild(rect);
+                stationsGroup.appendChild(text);
+            });
+        }
+
+        function drawTrack(p1, p2, isActive = false) {
+            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            const d = `M ${p1.x} ${p1.y} C ${(p1.x + p2.x)/2} ${p1.y}, ${(p1.x + p2.x)/2} ${p2.y}, ${p2.x} ${p2.y}`;
+            path.setAttribute("d", d);
+            path.setAttribute("class", `track ${isActive ? 'active' : ''}`);
+            document.getElementById('tracks-group').appendChild(path);
+        }
+
+        function createSwitchUI(id, node) {
+            const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            g.setAttribute("class", "switch-node");
+            g.setAttribute("onclick", `toggleSwitch('${id}')`);
+
+            const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            circle.setAttribute("cx", node.x);
+            circle.setAttribute("cy", node.y);
+            circle.setAttribute("r", 12);
+
+            g.appendChild(circle);
+            document.getElementById('switches-group').appendChild(g);
+        }
+
+        function toggleSwitch(id) {
+            if (isMoving) return;
+            switchStates[id] = switchStates[id] === 0 ? 1 : 0;
+            renderBoard();
+        }
+
+        function dispatchTrain() {
+            if (isMoving) return;
+            isMoving = true;
+            document.getElementById('dispatch-btn').disabled = true;
+
+            // Determine Path
+            const path = [nodes.START, nodes.S1];
+            let targetStationIndex = 0;
+
+            if (switchStates.S1 === 0) {
+                path.push(nodes.S2);
+                if (switchStates.S2 === 0) {
+                    path.push(nodes.ST1);
+                    targetStationIndex = 0;
+                } else {
+                    path.push(nodes.ST2);
+                    targetStationIndex = 1;
+                }
+            } else {
+                path.push(nodes.S3);
+                if (switchStates.S3 === 0) {
+                    path.push(nodes.ST3);
+                    targetStationIndex = 2;
+                } else {
+                    path.push(nodes.ST4);
+                    targetStationIndex = 3;
+                }
+            }
+
+            animateTrain(path, () => checkResult(targetStationIndex));
+        }
+
+        function animateTrain(pathNodes, callback) {
+            const train = document.getElementById('train');
+            train.style.display = "block";
+
+            let segment = 0;
+            let progress = 0;
+            const speed = 0.03;
+
+            function step() {
+                if (segment < pathNodes.length - 1) {
+                    const p1 = pathNodes[segment];
+                    const p2 = pathNodes[segment + 1];
+
+                    // Cubic Bezier interpolation
+                    const cx1 = (p1.x + p2.x) / 2;
+                    const cy1 = p1.y;
+                    const cx2 = (p1.x + p2.x) / 2;
+                    const cy2 = p2.y;
+
+                    const t = progress;
+                    const x = Math.pow(1-t, 3)*p1.x + 3*Math.pow(1-t, 2)*t*cx1 + 3*(1-t)*Math.pow(t, 2)*cx2 + Math.pow(t, 3)*p2.x;
+                    const y = Math.pow(1-t, 3)*p1.y + 3*Math.pow(1-t, 2)*t*cy1 + 3*(1-t)*Math.pow(t, 2)*cy2 + Math.pow(t, 3)*p2.y;
+
+                    // Angle calculation for train rotation
+                    const deltaT = 0.01;
+                    const tNext = t + deltaT;
+                    const xNext = Math.pow(1-tNext, 3)*p1.x + 3*Math.pow(1-tNext, 2)*tNext*cx1 + 3*(1-tNext)*Math.pow(tNext, 2)*cx2 + Math.pow(tNext, 3)*p2.x;
+                    const yNext = Math.pow(1-tNext, 3)*p1.y + 3*Math.pow(1-tNext, 2)*tNext*cy1 + 3*(1-tNext)*Math.pow(tNext, 2)*cy2 + Math.pow(tNext, 3)*p2.y;
+                    
+                    const angle = Math.atan2(yNext - y, xNext - x) * (180 / Math.PI);
+
+                    train.setAttribute("transform", `translate(${x}, ${y}) rotate(${angle})`);
+
+                    progress += speed;
+                    if (progress >= 1) {
+                        progress = 0;
+                        segment++;
+                    }
+                    requestAnimationFrame(step);
+                } else {
+                    callback();
+                }
+            }
+            requestAnimationFrame(step);
+        }
+
+        function checkResult(selectedIndex) {
+            const chosenWord = activeWords[selectedIndex].word;
+            const correctWord = vocabulary[currentLevel].word;
+            const messageEl = document.getElementById('message');
+
+            if (chosenWord === correctWord) {
+                score += 100;
+                document.getElementById('score').innerText = score;
+                messageEl.innerText = "Correct! The train arrived at the matching station!";
+                messageEl.className = "success-msg";
+                setTimeout(() => {
+                    currentLevel++;
+                    initLevel();
+                }, 2000);
+            } else {
+                messageEl.innerText = `Wrong station! Selected "${chosenWord}", but definition matched "${correctWord}". Try again!`;
+                messageEl.className = "error-msg";
+                document.getElementById('dispatch-btn').disabled = false;
+                isMoving = false;
+            }
+        }
+
+        // Start Game
+        initLevel();
+    </script>
+</body>
+</html>

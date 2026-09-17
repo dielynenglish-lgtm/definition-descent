@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marble Popper: Match-3 Definitions</title>
+<style>
+* {
+box-sizing: border-box;
+margin: 0;
+padding: 0;
+}
+body {
+background-color: #1a1a2e;
+color: #ffffff;
+font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+min-height: 100vh;
+padding: 20px;
+}
+h1 {
+margin-bottom: 10px;
+font-size: 24px;
+color: #4ecca3;
+text-align: center;
+}
+p.subtitle {
+margin-bottom: 15px;
+font-size: 14px;
+color: #a0a0c0;
+text-align: center;
+}
+#game-container {
+position: relative;
+border-radius: 16px;
+overflow: hidden;
+box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+border: 2px solid #232946;
+}
+canvas {
+background: #0f0f1b;
+display: block;
+cursor: crosshair;
+}
+#hud {
+position: absolute;
+top: 15px;
+left: 20px;
+right: 20px;
+display: flex;
+justify-content: space-between;
+align-items: center;
+pointer-events: none;
+font-weight: bold;
+font-size: 16px;
+text-shadow: 1px 1px 4px rgba(0,0,0,0.8);
+}
+.hud-card {
+background: rgba(15, 15, 27, 0.7);
+padding: 8px 16px;
+border-radius: 20px;
+border: 1px solid rgba(255,255,255,0.1);
+}
+#game-over-modal {
+position: absolute;
+top: 0;
+left: 0;
+width: 100%;
+height: 100%;
+background: rgba(15, 15, 27, 0.92);
+display: none;
+flex-direction: column;
+justify-content: center;
+align-items: center;
+z-index: 10;
+}
+#game-over-modal h2 {
+font-size: 36px;
+color: #e94560;
+margin-bottom: 10px;
+}
+#game-over-modal p {
+font-size: 18px;
+margin-bottom: 20px;
+color: #dcdde1;
+}
+button {
+padding: 12px 30px;
+font-size: 16px;
+font-weight: bold;
+color: #fff;
+background: linear-gradient(135deg, #4ecca3, #239274);
+border: none;
+border-radius: 25px;
+cursor: pointer;
+box-shadow: 0 4px 15px rgba(78, 204, 164, 0.4);
+transition: transform 0.2s, box-shadow 0.2s;
+}
+button:hover {
+transform: translateY(-2px);
+box-shadow: 0 6px 20px rgba(78, 204, 164, 0.6);
+}
+.word-list {
+margin-top: 15px;
+display: flex;
+flex-wrap: wrap;
+gap: 8px;
+max-width: 800px;
+justify-content: center;
+}
+.word-badge {
+background: #232946;
+color: #b8c1ec;
+padding: 4px 10px;
+border-radius: 12px;
+font-size: 12px;
+border: 1px solid #4ecca3;
+}
+</style>
+</head>
+<body>
+
+<h1>Marble Popper: Match-3 Definitions</h1>
+<p class="subtitle">瞄準並將單字彈珠射向正確的中文釋義彈珠，阻止彈珠推進至終點危險坑洞！</p>
+
+<div id="game-container">
+<canvas id="canvas" width="800" height="600"></canvas>
+<div id="hud">
+<div class="hud-card">得分: <span id="score-text" style="color:#4ecca3;">0</span></div>
+<div class="hud-card">當前發射單字: <span id="target-word-text" style="color:#f9ca24;">-</span></div>
+</div>
+<div id="game-over-modal">
+<h2>GAME OVER</h2>
+<p>彈珠掉入危險坑洞！最終得分: <span id="final-score" style="color:#4ecca3;">0</span></p>
+<button onclick="restartGame()">重新開始</button>
+</div>
+</div>
+
+<div class="word-list">
+<span class="word-badge">Presentation 簡報/發布會</span>
+<span class="word-badge">Boost 促進/提升</span>
+<span class="word-badge">Accomplish 完成/實現</span>
+<span class="word-badge">Purchase 購買</span>
+<span class="word-badge">Trigger 引發/觸發</span>
+<span class="word-badge">Psychology 心理學</span>
+<span class="word-badge">Stability 穩定/穩定性</span>
+<span class="word-badge">Polite 有禮貌的</span>
+<span class="word-badge">Option 選擇/選項</span>
+<span class="word-badge">Decade 十年</span>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const scoreText = document.getElementById('score-text');
+const targetWordText = document.getElementById('target-word-text');
+const gameOverModal = document.getElementById('game-over-modal');
+const finalScore = document.getElementById('final-score');
+
+// 題目要求的單字庫
+const VOCABULARY = [
+{ word: "Presentation", def: "簡報/發布會", color: "#e74c3c" },
+{ word: "Boost", def: "促進/提升", color: "#e67e22" },
+{ word: "Accomplish", def: "完成/實現", color: "#f1c40f" },
+{ word: "Purchase", def: "購買", color: "#2ecc71" },
+{ word: "Trigger", def: "引發/觸發", color: "#1abc9c" },
+{ word: "Psychology", def: "心理學", color: "#3498db" },
+{ word: "Stability", def: "穩定/穩定性", color: "#9b59b6" }
+];
+
+const MARBLE_RADIUS = 22;
+const LAUNCHER = { x: 400, y: 300 };
+
+// 構建自訂曲線軌道 (S 型彎曲軌道路徑 Pathfinding Array)
+let trackPoints = [];
+function buildTrack() {
+trackPoints = [];
+for (let t = 0; t <= 1; t += 0.0008) {
+let x = 80 + 640 * t;
+let y = 120 + 380 * Math.sin(t * Math.PI * 2.2);
+trackPoints.push({ x: x, y: y });
+}
+}
+buildTrack();
+
+let marbles = [];
+let bullet = null;
+let currentWordObj = null;
+let score = 0;
+let gameOver = false;
+let mousePos = { x: 400, y: 100 };
+let spawnTimer = 0;
+
+function getRandomVocab() {
+return VOCABULARY[Math.floor(Math.random() * VOCABULARY.length)];
+}
+
+function initGame() {
+marbles = [];
+bullet = null;
+score = 0;
+gameOver = false;
+spawnTimer = 0;
+scoreText.innerText = score;
+gameOverModal.style.display = 'none';
+
+for (let i = 0; i < 6; i++) {
+spawnMarble(-i * 55);
+}
+prepareNextBullet();
+}
+
+function spawnMarble(trackIndex = 0) {
+const vocab = getRandomVocab();
+marbles.push({
+trackIndex: trackIndex,
+vocab: vocab,
+text: vocab.def
+});
+}
+
+function prepareNextBullet() {
+currentWordObj = getRandomVocab();
+targetWordText.innerText = currentWordObj.word;
+}
+
+canvas.addEventListener('mousemove', (e) => {
+const rect = canvas.getBoundingClientRect();
+mousePos.x = e.clientX - rect.left;
+mousePos.y = e.clientY - rect.top;
+});
+
+canvas.addEventListener('click', () => {
+if (gameOver || bullet) return;
+
+const angle = Math.atan2(mousePos.y - LAUNCHER.y, mousePos.x - LAUNCHER.x);
+const speed = 14;
+
+bullet = {
+x: LAUNCHER.x,
+y: LAUNCHER.y,
+vx: Math.cos(angle) * speed,
+vy: Math.sin(angle) * speed,
+vocab: currentWordObj,
+text: currentWordObj.word
+};
+
+prepareNextBullet();
+});
+
+function update() {
+if (gameOver) return;
+
+spawnTimer++;
+if (spawnTimer % 80 === 0 && marbles.length < 25) {
+spawnMarble(0);
+}
+
+for (let i = 0; i < marbles.length; i++) {
+marbles[i].trackIndex += 0.85;
+let idx = Math.floor(marbles[i].trackIndex);
+
+if (idx >= trackPoints.length - 1) {
+triggerGameOver();
+return;
+}
+}
+
+if (bullet) {
+bullet.x += bullet.vx;
+bullet.y += bullet.vy;
+
+if (bullet.x < 0 || bullet.x > canvas.width || bullet.y < 0 || bullet.y > canvas.height) {
+bullet = null;
+} else {
+for (let i = 0; i < marbles.length; i++) {
+let m = marbles[i];
+let ptIdx = Math.max(0, Math.floor(m.trackIndex));
+if (ptIdx >= trackPoints.length) continue;
+
+let pt = trackPoints[ptIdx];
+let dist = Math.hypot(bullet.x - pt.x, bullet.y - pt.y);
+
+if (dist < MARBLE_RADIUS * 1.8) {
+if (m.vocab.word === bullet.vocab.word) {
+marbles.splice(i, 1);
+score += 100;
+scoreText.innerText = score;
+} else {
+marbles.splice(i, 0, {
+trackIndex: m.trackIndex - 35,
+vocab: bullet.vocab,
+text: bullet.vocab.word
+});
+}
+bullet = null;
+break;
+}
+}
+}
+}
+}
+
+function draw() {
+ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+ctx.beginPath();
+ctx.strokeStyle = '#232946';
+ctx.lineWidth = 46;
+ctx.lineCap = 'round';
+for (let i = 0; i < trackPoints.length; i++) {
+if (i === 0) ctx.moveTo(trackPoints[i].x, trackPoints[i].y);
+else ctx.lineTo(trackPoints[i].x, trackPoints[i].y);
+}
+ctx.stroke();
+
+const endPt = trackPoints[trackPoints.length - 1];
+ctx.beginPath();
+ctx.arc(endPt.x, endPt.y, 28, 0, Math.PI * 2);
+ctx.fillStyle = '#e94560';
+ctx.fill();
+ctx.strokeStyle = '#fff';
+ctx.lineWidth = 3;
+ctx.stroke();
+
+ctx.fillStyle = '#fff';
+ctx.font = 'bold 12px sans-serif';
+ctx.textAlign = 'center';
+ctx.fillText('坑洞', endPt.x, endPt.y + 4);
+
+for (let m of marbles) {
+let ptIdx = Math.max(0, Math.floor(m.trackIndex));
+if (ptIdx < trackPoints.length) {
+let pt = trackPoints[ptIdx];
+
+ctx.beginPath();
+ctx.arc(pt.x, pt.y, MARBLE_RADIUS, 0, Math.PI * 2);
+ctx.fillStyle = m.vocab.color;
+ctx.fill();
+ctx.strokeStyle = '#ffffff';
+ctx.lineWidth = 2;
+ctx.stroke();
+
+ctx.fillStyle = '#ffffff';
+ctx.font = 'bold 11px sans-serif';
+ctx.textAlign = 'center';
+ctx.fillText(m.text, pt.x, pt.y + 4);
+}
+}
+
+if (bullet) {
+ctx.beginPath();
+ctx.arc(bullet.x, bullet.y, MARBLE_RADIUS, 0, Math.PI * 2);
+ctx.fillStyle = bullet.vocab.color;
+ctx.fill();
+ctx.strokeStyle = '#ffffff';
+ctx.lineWidth = 2.5;
+ctx.stroke();
+
+ctx.fillStyle = '#ffffff';
+ctx.font = 'bold 11px sans-serif';
+ctx.textAlign = 'center';
+ctx.fillText(bullet.text, bullet.x, bullet.y + 4);
+}
+
+ctx.beginPath();
+ctx.arc(LAUNCHER.x, LAUNCHER.y, 36, 0, Math.PI * 2);
+ctx.fillStyle = '#16213e';
+ctx.fill();
+ctx.strokeStyle = '#4ecca3';
+ctx.lineWidth = 3;
+ctx.stroke();
+
+if (currentWordObj) {
+ctx.beginPath();
+ctx.arc(LAUNCHER.x, LAUNCHER.y, MARBLE_RADIUS, 0, Math.PI * 2);
+ctx.fillStyle = currentWordObj.color;
+ctx.fill();
+ctx.strokeStyle = '#ffffff';
+ctx.lineWidth = 2;
+ctx.stroke();
+
+ctx.fillStyle = '#ffffff';
+ctx.font = 'bold 11px sans-serif';
+ctx.textAlign = 'center';
+ctx.fillText(currentWordObj.word, LAUNCHER.x, LAUNCHER.y + 4);
+}
+
+ctx.beginPath();
+ctx.moveTo(LAUNCHER.x, LAUNCHER.y);
+ctx.lineTo(mousePos.x, mousePos.y);
+ctx.strokeStyle = 'rgba(78, 204, 164, 0.4)';
+ctx.lineWidth = 2;
+ctx.setLineDash([5, 5]);
+ctx.stroke();
+ctx.setLineDash([]);
+}
+
+function gameLoop() {
+update();
+draw();
+requestAnimationFrame(gameLoop);
+}
+
+function triggerGameOver() {
+gameOver = true;
+finalScore.innerText = score;
+gameOverModal.style.display = 'flex';
+}
+
+function restartGame() {
+initGame();
+}
+
+initGame();
+gameLoop();
+</script>
+</body>
+</html>

@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Intergalactic Vocab-Defender</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background-color: #050515;
+      color: #fff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    #game-container {
+      position: relative;
+      width: 800px;
+      height: 600px;
+      background: radial-gradient(circle, #0a0a28 0%, #020208 100%);
+      border: 3px solid #00f3ff;
+      box-shadow: 0 0 20px #00f3ff;
+      margin-top: 20px;
+      overflow: hidden;
+    }
+
+    /* Screen Shake effect for wrong hits */
+    .shake {
+      animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+    }
+    @keyframes shake {
+      10%, 90% { transform: translate3d(-4px, 0, 0); }
+      20%, 80% { transform: translate3d(6px, 0, 0); }
+      30%, 50%, 70% { transform: translate3d(-8px, 0, 0); }
+      40%, 60% { transform: translate3d(8px, 0, 0); }
+    }
+
+    /* Top Stats Bar */
+    #hud {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 20px;
+      background: rgba(0, 0, 0, 0.7);
+      border-bottom: 1px solid #00f3ff;
+      font-size: 18px;
+      font-weight: bold;
+      letter-spacing: 1px;
+    }
+
+    .hud-item span {
+      color: #00f3ff;
+      font-size: 22px;
+    }
+
+    /* Mission Briefing (Definition Flash) */
+    #briefing-box {
+      text-align: center;
+      background: rgba(10, 20, 50, 0.9);
+      border-bottom: 2px solid #ff0077;
+      padding: 12px;
+      box-shadow: 0 4px 10px rgba(255, 0, 119, 0.3);
+    }
+    #briefing-title {
+      color: #ff0077;
+      font-size: 12px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    #definition-display {
+      font-size: 16px;
+      color: #ffe600;
+      animation: pulse 1.5s infinite alternate;
+    }
+    @keyframes pulse {
+      from { opacity: 0.8; }
+      to { opacity: 1; text-shadow: 0 0 8px #ffe600; }
+    }
+
+    /* Play Area Elements */
+    .alien {
+      position: absolute;
+      width: 110px;
+      height: 45px;
+      background: linear-gradient(180deg, #ff0077 0%, #880044 100%);
+      border: 2px solid #ff66cc;
+      border-radius: 8px;
+      color: #ffffff;
+      font-weight: bold;
+      font-size: 13px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      box-shadow: 0 0 10px #ff0077;
+      transition: top 0.05s linear, left 0.05s linear;
+    }
+
+    #ship {
+      position: absolute;
+      bottom: 20px;
+      left: 375px;
+      width: 50px;
+      height: 40px;
+      background: #00f3ff;
+      clip-path: polygon(50% 0%, 0% 100%, 50% 80%, 100% 100%);
+      box-shadow: 0 0 15px #00f3ff;
+    }
+
+    #ship.stalled {
+      background: #555555;
+      box-shadow: none;
+    }
+
+    .laser {
+      position: absolute;
+      width: 4px;
+      height: 16px;
+      background: #00ff66;
+      box-shadow: 0 0 8px #00ff66;
+      border-radius: 2px;
+    }
+
+    /* Particle Explosions */
+    .particle {
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      background: #ffe600;
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    /* Overlays (Start/End Screen & Leaderboard) */
+    .overlay {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(5, 5, 20, 0.92);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .overlay h1 {
+      font-size: 36px;
+      color: #00f3ff;
+      text-shadow: 0 0 10px #00f3ff;
+      margin-bottom: 10px;
+    }
+
+    .overlay p {
+      font-size: 16px;
+      max-width: 550px;
+      line-height: 1.5;
+      margin-bottom: 20px;
+      color: #cccccc;
+    }
+
+    .btn {
+      padding: 12px 30px;
+      font-size: 18px;
+      font-weight: bold;
+      color: #050515;
+      background: #00f3ff;
+      border: none;
+      border-radius: 25px;
+      cursor: pointer;
+      box-shadow: 0 0 15px #00f3ff;
+      transition: all 0.2s;
+    }
+    .btn:hover {
+      transform: scale(1.05);
+      background: #ffe600;
+      box-shadow: 0 0 15px #ffe600;
+    }
+
+    /* Leaderboard Table */
+    .leaderboard {
+      width: 80%;
+      max-width: 400px;
+      margin: 15px 0;
+      border-collapse: collapse;
+    }
+    .leaderboard th, .leaderboard td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #333;
+      text-align: left;
+    }
+    .leaderboard th {
+      color: #ff0077;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      background: #ffe600;
+      color: #000;
+      border-radius: 12px;
+      font-weight: bold;
+      font-size: 12px;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="game-container">
+    <!-- HUD -->
+    <div id="hud">
+      <div class="hud-item">SCORE: <span id="score">0</span></div>
+      <div class="hud-item">WARP DRIVE: <span id="timer">60</span>s</div>
+    </div>
+
+    <!-- Mission Briefing -->
+    <div id="briefing-box">
+      <div id="briefing-title">MISSION BRIEFING - MATCH DEFINITION TO ALIEN</div>
+      <div id="definition-display">Loading Mission...</div>
+    </div>
+
+    <!-- Player Ship -->
+    <div id="ship"></div>
+
+    <!-- Start Overlay -->
+    <div id="start-overlay" class="overlay">
+      <h1>INTERGALACTIC VOCAB-DEFENDER</h1>
+      <p>Defend Earth from alien word-ships! Maneuver your ship using <b>LEFT/RIGHT arrows</b> (or <b>A/D</b>) and press <b>SPACE</b> to fire your lasers. Match the mission definition to the correct alien word!</p>
+      <button class="btn" onclick="startGame()">LAUNCH MISSION</button>
+    </div>
+
+    <!-- Game Over / Leaderboard Overlay -->
+    <div id="end-overlay" class="overlay" style="display: none;">
+      <span class="badge">VICTORY BADGE UNLOCKED!</span>
+      <h1>MISSION COMPLETED</h1>
+      <p>Your Final Score: <b id="final-score" style="color: #00f3ff; font-size: 24px;">0</b></p>
+      
+      <h3>GALACTIC ACE LEADERBOARD</h3>
+      <table class="leaderboard">
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Pilot</th>
+            <th>Score</th>
+          </tr>
+        </thead>
+        <tbody id="leaderboard-body">
+          <!-- Populated by JS -->
+        </tbody>
+      </table>
+
+      <button class="btn" onclick="startGame()" style="margin-top: 15px;">PLAY AGAIN</button>
+    </div>
+  </div>
+
+  <script>
+    // 100% Grade 11 Vocabulary Dataset based on provided list
+    const vocabList = [
+      { word: "unidentified", def: "Not recognized or not seen before; unknown identity." },
+      { word: "phenomenon", def: "A remarkable event or situation that can be observed." },
+      { word: "radar", def: "A system using radio waves to detect presence or velocity of objects." },
+      { word: "sensor", def: "A device that detects physical inputs like light, heat, or motion." },
+      { word: "personnel", def: "People employed in an organization, service, or military force." },
+      { word: "strengthen", def: "To make or become stronger, firmer, or more resilient." },
+      { word: "mysterious", def: "Difficult or impossible to understand, explain, or identify." }
+    ];
+
+    // Game state variables
+    let score = 0;
+    let timeLeft = 60;
+    let gameInterval, timerInterval, alienMoveInterval;
+    let currentTarget = null;
+    let isStalled = false;
+    let lasers = [];
+    let aliens = [];
+    let alienDirection = 1; // 1 = right, -1 = left
+    let alienSpeed = 2;
+
+    const ship = document.getElementById('ship');
+    const container = document.getElementById('game-container');
+    const scoreEl = document.getElementById('score');
+    const timerEl = document.getElementById('timer');
+    const defEl = document.getElementById('definition-display');
+    
+    let shipX = 375;
+    const keys = {};
+
+    // Key listeners
+    window.addEventListener('keydown', e => {
+      keys[e.code] = true;
+      if (e.code === 'Space') fireLaser();
+    });
+    window.addEventListener('keyup', e => keys[e.code] = false);
+
+    function startGame() {
+      // Reset state
+      score = 0;
+      timeLeft = 60;
+      shipX = 375;
+      isStalled = false;
+      scoreEl.innerText = score;
+      timerEl.innerText = timeLeft;
+      ship.className = '';
+      
+      document.getElementById('start-overlay').style.display = 'none';
+      document.getElementById('end-overlay').style.display = 'none';
+
+      // Clear existing entities
+      document.querySelectorAll('.alien, .laser, .particle').forEach(el => el.remove());
+      lasers = [];
+      aliens = [];
+
+      // Select initial target definition & spawn fleet
+      nextRound();
+
+      // Start loops
+      clearInterval(gameInterval);
+      clearInterval(timerInterval);
+      clearInterval(alienMoveInterval);
+
+      gameInterval = setInterval(updateGame, 1000 / 60); // 60 FPS
+      timerInterval = setInterval(updateTimer, 1000);
+      alienMoveInterval = setInterval(moveAliens, 50);
+    }
+
+    function nextRound() {
+      // Pick random word as target
+      currentTarget = vocabList[Math.floor(Math.random() * vocabList.length)];
+      defEl.innerText = `"${currentTarget.def}"`;
+
+      // Clear existing aliens
+      aliens.forEach(a => a.el.remove());
+      aliens = [];
+
+      // Generate 3 unique distractors + 1 correct target
+      let options = [currentTarget.word];
+      while (options.length < Math.min(4, vocabList.length)) {
+        let randWord = vocabList[Math.floor(Math.random() * vocabList.length)].word;
+        if (!options.includes(randWord)) options.push(randWord);
+      }
+      
+      // Shuffle options
+      options.sort(() => Math.random() - 0.5);
+
+      // Spawn alien fleet near the top
+      options.forEach((word, index) => {
+        const alienEl = document.createElement('div');
+        alienEl.className = 'alien';
+        alienEl.innerText = word;
+        container.appendChild(alienEl);
+
+        const x = 50 + index * 170;
+        const y = 110;
+        alienEl.style.left = x + 'px';
+        alienEl.style.top = y + 'px';
+
+        aliens.push({ el: alienEl, word: word, x: x, y: y });
+      });
+    }
+
+    function updateGame() {
+      // Handle ship movement
+      if (!isStalled) {
+        if ((keys['ArrowLeft'] || keys['KeyA']) && shipX > 10) shipX -= 6;
+        if ((keys['ArrowRight'] || keys['KeyD']) && shipX < 740) shipX += 6;
+        ship.style.left = shipX + 'px';
+      }
+
+      // Update lasers
+      lasers.forEach((laser, lIndex) => {
+        laser.y -= 8;
+        laser.el.style.top = laser.y + 'px';
+
+        // Check collision with aliens
+        aliens.forEach((alien, aIndex) => {
+          if (
+            laser.x > alien.x &&
+            laser.x < alien.x + 110 &&
+            laser.y > alien.y &&
+            laser.y < alien.y + 45
+          ) {
+            // Laser hit an alien!
+            handleHit(alien, aIndex);
+            laser.el.remove();
+            lasers.splice(lIndex, 1);
+          }
+        });
+
+        // Remove off-screen lasers
+        if (laser.y < 0) {
+          if (laser.el.parentNode) laser.el.remove();
+          lasers.splice(lIndex, 1);
+        }
+      });
+    }
+
+    function moveAliens() {
+      let touchEdge = false;
+      aliens.forEach(alien => {
+        alien.x += alienSpeed * alienDirection;
+        if (alien.x > 670 || alien.x < 20) touchEdge = true;
+      });
+
+      if (touchEdge) {
+        alienDirection *= -1;
+        aliens.forEach(alien => {
+          alien.y += 12; // Descend faster as time moves on
+        });
+      }
+
+      aliens.forEach(alien => {
+        alien.el.style.left = alien.x + 'px';
+        alien.el.style.top = alien.y + 'px';
+      });
+    }
+
+    function fireLaser() {
+      if (isStalled) return;
+      const laserEl = document.createElement('div');
+      laserEl.className = 'laser';
+      const x = shipX + 23;
+      const y = 540;
+      laserEl.style.left = x + 'px';
+      laserEl.style.top = y + 'px';
+      container.appendChild(laserEl);
+      lasers.push({ el: laserEl, x: x, y: y });
+    }
+
+    function handleHit(alien, index) {
+      if (alien.word === currentTarget.word) {
+        // CORRECT HIT!
+        score += 100;
+        scoreEl.innerText = score;
+        createExplosion(alien.x + 55, alien.y + 22);
+        nextRound();
+      } else {
+        // WRONG HIT!
+        score = Math.max(0, score - 50);
+        scoreEl.innerText = score;
+        
+        // Trigger glitch & screen shake
+        container.classList.add('shake');
+        setTimeout(() => container.classList.remove('shake'), 400);
+
+        // Stall lasers for 2 seconds
+        isStalled = true;
+        ship.classList.add('stalled');
+        setTimeout(() => {
+          isStalled = false;
+          ship.classList.remove('stalled');
+        }, 2000);
+      }
+    }
+
+    function createExplosion(x, y) {
+      for (let i = 0; i < 20; i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        container.appendChild(p);
+        p.style.left = x + 'px';
+        p.style.top = y + 'px';
+
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 5 + 2;
+        let pX = x;
+        let pY = y;
+        let opacity = 1;
+
+        const particleInterval = setInterval(() => {
+          pX += Math.cos(angle) * speed;
+          pY += Math.sin(angle) * speed;
+          opacity -= 0.05;
+          p.style.left = pX + 'px';
+          p.style.top = pY + 'px';
+          p.style.opacity = opacity;
+
+          if (opacity <= 0) {
+            clearInterval(particleInterval);
+            p.remove();
+          }
+        }, 30);
+      }
+    }
+
+    function updateTimer() {
+      timeLeft--;
+      timerEl.innerText = timeLeft;
+
+      // Increase fleet speed slightly as time ticks down
+      if (timeLeft % 10 === 0 && timeLeft > 0) {
+        alienSpeed += 0.5;
+      }
+
+      if (timeLeft <= 0) {
+        endGame();
+      }
+    }
+
+    function endGame() {
+      clearInterval(gameInterval);
+      clearInterval(timerInterval);
+      clearInterval(alienMoveInterval);
+
+      document.getElementById('final-score').innerText = score;
+      
+      // Update Galactic Ace Leaderboard
+      const leaderboardBody = document.getElementById('leaderboard-body');
+      leaderboardBody.innerHTML = `
+        <tr><td>1</td><td><b>YOU (Defender)</b></td><td>${score} pts</td></tr>
+        <tr><td>2</td><td>Cadet Alpha</td><td>450 pts</td></tr>
+        <tr><td>3</td><td>StarPilot99</td><td>300 pts</td></tr>
+      `;
+
+      document.getElementById('end-overlay').style.display = 'flex';
+    }
+  </script>
+</body>
+</html>

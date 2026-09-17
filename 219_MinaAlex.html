@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Split-Screen Vocabulary Battle (2-Player)</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        p1: {
+                            DEFAULT: '#ef4444',
+                            dark: '#991b1b',
+                            light: '#fca5a5',
+                            accent: '#f87171'
+                        },
+                        p2: {
+                            DEFAULT: '#22c55e',
+                            dark: '#166534',
+                            light: '#86efac',
+                            accent: '#4ade80'
+                        }
+                    },
+                    animation: {
+                        'shake': 'shake 0.4s cubic-bezier(.36,.07,.19,.97) both',
+                        'pulse-fast': 'pulse 0.8s infinite'
+                    },
+                    keyframes: {
+                        shake: {
+                            '10%, 90%': { transform: 'translate3d(-2px, 0, 0)' },
+                            '20%, 80%': { transform: 'translate3d(4px, 0, 0)' },
+                            '30%, 50%, 70%': { transform: 'translate3d(-6px, 0, 0)' },
+                            '40%, 60%': { transform: 'translate3d(6px, 0, 0)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Tone.js for dynamic arcade sound effects -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- Font Awesome for Arcade Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Rajdhani:wght@600;700&display=swap');
+        
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .arcade-font {
+            font-family: 'Press Start 2P', cursive;
+        }
+
+        .key-badge {
+            box-shadow: 0 4px 0 rgba(0, 0, 0, 0.4);
+        }
+
+        .lockout-overlay {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(4px);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-white min-h-screen h-screen flex flex-col overflow-hidden">
+
+    <!-- Top Bar: Timer, Round & Global Status -->
+    <header class="bg-slate-900/90 border-b-2 border-slate-700 px-4 py-2 flex items-center justify-between z-20 shadow-lg shrink-0">
+        <!-- P1 Header Mini Info -->
+        <div class="flex items-center space-x-3 text-red-400">
+            <i class="fa-solid font-bold text-2xl fa-gamepad"></i>
+            <div>
+                <span class="arcade-font text-xs block text-red-500">PLAYER 1</span>
+                <span id="p1-score-display" class="text-2xl font-black leading-none">SCORE: 0</span>
+            </div>
+        </div>
+
+        <!-- Center Match Stats -->
+        <div class="flex items-center space-x-6">
+            <div class="text-center">
+                <span class="text-xs uppercase tracking-widest text-slate-400 block">Round</span>
+                <span id="round-display" class="arcade-font text-yellow-400 text-lg">1/10</span>
+            </div>
+
+            <!-- Timer -->
+            <div id="timer-container" class="bg-slate-800 border-2 border-slate-600 rounded-xl px-4 py-1 flex flex-col items-center min-w-[100px]">
+                <span class="text-[10px] uppercase tracking-widest text-slate-400">Time Left</span>
+                <span id="timer-display" class="arcade-font text-2xl text-cyan-400">60</span>
+            </div>
+
+            <button id="audio-toggle" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 p-2 rounded-lg transition" title="Toggle Sound">
+                <i id="audio-icon" class="fa-solid fa-volume-high"></i>
+            </button>
+        </div>
+
+        <!-- P2 Header Mini Info -->
+        <div class="flex items-center space-x-3 text-emerald-400 text-right">
+            <div>
+                <span class="arcade-font text-xs block text-emerald-500">PLAYER 2</span>
+                <span id="p2-score-display" class="text-2xl font-black leading-none">SCORE: 0</span>
+            </div>
+            <i class="fa-solid font-bold text-2xl fa-gamepad"></i>
+        </div>
+    </header>
+
+    <!-- Main Split-Screen Play Area -->
+    <main class="flex-1 grid grid-cols-2 relative overflow-hidden">
+        <!-- Vertical Center Divider -->
+        <div class="absolute inset-y-0 left-1/2 -translate-x-1/2 w-1 bg-gradient-to-b from-slate-700 via-cyan-500 to-slate-700 z-10 shadow-[0_0_12px_rgba(6,182,212,0.8)]"></div>
+
+        <!-- ==================== PLAYER 1 (LEFT / RED) ==================== -->
+        <section id="p1-panel" class="bg-slate-900/40 p-4 md:p-6 flex flex-col justify-between border-r border-slate-800 relative transition-all duration-300">
+            <!-- P1 Lockout Overlay -->
+            <div id="p1-lockout" class="lockout-overlay absolute inset-0 z-30 flex-col items-center justify-center hidden">
+                <i class="fa-solid fa-ban text-red-500 text-6xl mb-2 animate-bounce"></i>
+                <span class="arcade-font text-red-400 text-xl tracking-wider">LOCKED OUT!</span>
+                <p class="text-slate-400 text-sm mt-2">Opponent can steal!</p>
+            </div>
+
+            <!-- Top Info / Definition -->
+            <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                    <span class="bg-red-950/80 text-red-400 border border-red-800 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span> Player 1 (LEFT)
+                    </span>
+                    <span class="text-xs text-slate-400 font-mono">KEYS: Q, W, A, S</span>
+                </div>
+
+                <!-- Definition Card -->
+                <div class="bg-gradient-to-br from-slate-900 to-red-950/40 border-2 border-red-500/30 rounded-2xl p-5 shadow-xl min-h-[140px] flex flex-col justify-center">
+                    <span class="text-xs uppercase tracking-widest text-red-400 font-semibold mb-1">Target Definition</span>
+                    <p id="p1-definition" class="text-lg md:text-xl font-medium text-slate-100 leading-snug">
+                        Loading definition...
+                    </p>
+                </div>
+            </div>
+
+            <!-- Option Grid (Q, W, A, S) -->
+            <div class="grid grid-cols-2 gap-3 md:gap-4 my-auto">
+                <!-- Option Q -->
+                <button onclick="handlePlayerChoice(1, 0)" class="p1-opt-btn bg-slate-800 hover:bg-red-900/40 border-2 border-red-600/40 hover:border-red-500 rounded-xl p-4 text-left transition-all duration-150 flex flex-col justify-between group h-28 relative shadow-lg active:scale-95">
+                    <div class="flex justify-between items-start w-full">
+                        <span class="key-badge arcade-font text-xs bg-red-600 text-white px-2 py-1 rounded-md">Q</span>
+                        <i class="fa-solid fa-crosshair text-red-500/0 group-hover:text-red-400/50 transition"></i>
+                    </div>
+                    <span id="p1-opt-0-text" class="text-slate-200 font-bold text-base md:text-lg group-hover:text-white truncate w-full">Option 1</span>
+                </button>
+
+                <!-- Option W -->
+                <button onclick="handlePlayerChoice(1, 1)" class="p1-opt-btn bg-slate-800 hover:bg-red-900/40 border-2 border-red-600/40 hover:border-red-500 rounded-xl p-4 text-left transition-all duration-150 flex flex-col justify-between group h-28 relative shadow-lg active:scale-95">
+                    <div class="flex justify-between items-start w-full">
+                        <span class="key-badge arcade-font text-xs bg-red-600 text-white px-2 py-1 rounded-md">W</span>
+                        <i class="fa-solid fa-crosshair text-red-500/0 group-hover:text-red-400/50 transition"></i>
+                    </div>
+                    <span id="p1-opt-1-text" class="text-slate-200 font-bold text-base md:text-lg group-hover:text-white truncate w-full">Option 2</span>
+                </button>
+
+                <!-- Option A -->
+                <button onclick="handlePlayerChoice(1, 2)" class="p1-opt-btn bg-slate-800 hover:bg-red-900/40 border-2 border-red-600/40 hover:border-red-500 rounded-xl p-4 text-left transition-all duration-150 flex flex-col justify-between group h-28 relative shadow-lg active:scale-95">
+                    <div class="flex justify-between items-start w-full">
+                        <span class="key-badge arcade-font text-xs bg-red-600 text-white px-2 py-1 rounded-md">A</span>
+                        <i class="fa-solid fa-crosshair text-red-500/0 group-hover:text-red-400/50 transition"></i>
+                    </div>
+                    <span id="p1-opt-2-text" class="text-slate-200 font-bold text-base md:text-lg group-hover:text-white truncate w-full">Option 3</span>
+                </button>
+
+                <!-- Option S -->
+                <button onclick="handlePlayerChoice(1, 3)" class="p1-opt-btn bg-slate-800 hover:bg-red-900/40 border-2 border-red-600/40 hover:border-red-500 rounded-xl p-4 text-left transition-all duration-150 flex flex-col justify-between group h-28 relative shadow-lg active:scale-95">
+                    <div class="flex justify-between items-start w-full">
+                        <span class="key-badge arcade-font text-xs bg-red-600 text-white px-2 py-1 rounded-md">S</span>
+                        <i class="fa-solid fa-crosshair text-red-500/0 group-hover:text-red-400/50 transition"></i>
+                    </div>
+                    <span id="p1-opt-3-text" class="text-slate-200 font-bold text-base md:text-lg group-hover:text-white truncate w-full">Option 4</span>
+                </button>
+            </div>
+
+            <!-- Footer status -->
+            <div class="text-xs text-slate-500 text-center font-mono">
+                Press [Q, W, A, S] to select answer
+            </div>
+        </section>
+
+        <!-- ==================== PLAYER 2 (RIGHT / GREEN) ==================== -->
+        <section id="p2-panel" class="bg-slate-900/40 p-4 md:p-6 flex flex-col justify-between border-l border-slate-800 relative transition-all duration-300">
+            <!-- P2 Lockout Overlay -->
+            <div id="p2-lockout" class="lockout-overlay absolute inset-0 z-30 flex-col items-center justify-center hidden">
+                <i class="fa-solid fa-ban text-emerald-500 text-6xl mb-2 animate-bounce"></i>
+                <span class="arcade-font text-emerald-400 text-xl tracking-wider">LOCKED OUT!</span>
+                <p class="text-slate-400 text-sm mt-2">Opponent can steal!</p>
+            </div>
+
+            <!-- Top Info / Definition -->
+            <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                    <span class="bg-emerald-950/80 text-emerald-400 border border-emerald-800 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span> Player 2 (RIGHT)
+                    </span>
+                    <span class="text-xs text-slate-400 font-mono">KEYS: I, O, K, L</span>
+                </div>
+
+                <!-- Definition Card -->
+                <div class="bg-gradient-to-br from-slate-900 to-emerald-950/40 border-2 border-emerald-500/30 rounded-2xl p-5 shadow-xl min-h-[140px] flex flex-col justify-center">
+                    <span class="text-xs uppercase tracking-widest text-emerald-400 font-semibold mb-1">Target Definition</span>
+                    <p id="p2-definition" class="text-lg md:text-xl font-medium text-slate-100 leading-snug">
+                        Loading definition...
+                    </p>
+                </div>
+            </div>
+
+            <!-- Option Grid (I, O, K, L) -->
+            <div class="grid grid-cols-2 gap-3 md:gap-4 my-auto">
+                <!-- Option I -->
+                <button onclick="handlePlayerChoice(2, 0)" class="p2-opt-btn bg-slate-800 hover:bg-emerald-900/40 border-2 border-emerald-600/40 hover:border-emerald-500 rounded-xl p-4 text-left transition-all duration-150 flex flex-col justify-between group h-28 relative shadow-lg active:scale-95">
+                    <div class="flex justify-between items-start w-full">
+                        <span class="key-badge arcade-font text-xs bg-emerald-600 text-white px-2 py-1 rounded-md">I</span>
+                        <i class="fa-solid fa-crosshair text-emerald-500/0 group-hover:text-emerald-400/50 transition"></i>
+                    </div>
+                    <span id="p2-opt-0-text" class="text-slate-200 font-bold text-base md:text-lg group-hover:text-white truncate w-full">Option 1</span>
+                </button>
+
+                <!-- Option O -->
+                <button onclick="handlePlayerChoice(2, 1)" class="p2-opt-btn bg-slate-800 hover:bg-emerald-900/40 border-2 border-emerald-600/40 hover:border-emerald-500 rounded-xl p-4 text-left transition-all duration-150 flex flex-col justify-between group h-28 relative shadow-lg active:scale-95">
+                    <div class="flex justify-between items-start w-full">
+                        <span class="key-badge arcade-font text-xs bg-emerald-600 text-white px-2 py-1 rounded-md">O</span>
+                        <i class="fa-solid fa-crosshair text-emerald-500/0 group-hover:text-emerald-400/50 transition"></i>
+                    </div>
+                    <span id="p2-opt-1-text" class="text-slate-200 font-bold text-base md:text-lg group-hover:text-white truncate w-full">Option 2</span>
+                </button>
+
+                <!-- Option K -->
+                <button onclick="handlePlayerChoice(2, 2)" class="p2-opt-btn bg-slate-800 hover:bg-emerald-900/40 border-2 border-emerald-600/40 hover:border-emerald-500 rounded-xl p-4 text-left transition-all duration-150 flex flex-col justify-between group h-28 relative shadow-lg active:scale-95">
+                    <div class="flex justify-between items-start w-full">
+                        <span class="key-badge arcade-font text-xs bg-emerald-600 text-white px-2 py-1 rounded-md">K</span>
+                        <i class="fa-solid fa-crosshair text-emerald-500/0 group-hover:text-emerald-400/50 transition"></i>
+                    </div>
+                    <span id="p2-opt-2-text" class="text-slate-200 font-bold text-base md:text-lg group-hover:text-white truncate w-full">Option 3</span>
+                </button>
+
+                <!-- Option L -->
+                <button onclick="handlePlayerChoice(2, 3)" class="p2-opt-btn bg-slate-800 hover:bg-emerald-900/40 border-2 border-emerald-600/40 hover:border-emerald-500 rounded-xl p-4 text-left transition-all duration-150 flex flex-col justify-between group h-28 relative shadow-lg active:scale-95">
+                    <div class="flex justify-between items-start w-full">
+                        <span class="key-badge arcade-font text-xs bg-emerald-600 text-white px-2 py-1 rounded-md">L</span>
+                        <i class="fa-solid fa-crosshair text-emerald-500/0 group-hover:text-emerald-400/50 transition"></i>
+                    </div>
+                    <span id="p2-opt-3-text" class="text-slate-200 font-bold text-base md:text-lg group-hover:text-white truncate w-full">Option 4</span>
+                </button>
+            </div>
+
+            <!-- Footer status -->
+            <div class="text-xs text-slate-500 text-center font-mono">
+                Press [I, O, K, L] to select answer
+            </div>
+        </section>
+    </main>
+
+    <!-- Mission Complete / Victory Screen Modal -->
+    <div id="victory-modal" class="fixed inset-0 bg-slate-950/95 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border-2 border-cyan-500/50 rounded-3xl p-8 max-w-lg w-full text-center shadow-[0_0_50px_rgba(6,182,212,0.3)] relative overflow-hidden">
+            <!-- Background Glow -->
+            <div class="absolute -top-24 -left-24 w-48 h-48 bg-red-500/20 rounded-full blur-3xl"></div>
+            <div class="absolute -bottom-24 -right-24 w-48 h-48 bg-emerald-500/20 rounded-full blur-3xl"></div>
+
+            <div class="relative z-10 space-y-6">
+                <!-- Title -->
+                <div>
+                    <h1 class="arcade-font text-yellow-400 text-2xl md:text-3xl mb-2 tracking-wide animate-pulse">MISSION COMPLETE</h1>
+                    <p class="text-slate-400 text-sm uppercase tracking-widest">Split-Screen Vocabulary Battle</p>
+                </div>
+
+                <!-- Winner Announcement -->
+                <div class="bg-slate-800/80 border border-slate-700 rounded-2xl p-6 shadow-inner">
+                    <div id="winner-crown" class="text-4xl text-yellow-400 mb-2">
+                        <i class="fa-solid fa-trophy"></i>
+                    </div>
+                    <h2 id="winner-text" class="arcade-font text-xl md:text-2xl text-white">PLAYER 1 WINS!</h2>
+                    <p id="winner-subtext" class="text-slate-400 text-sm mt-1">Outstanding lexical speed!</p>
+                </div>
+
+                <!-- Final Scoreboard -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-red-950/40 border border-red-700/50 p-4 rounded-xl">
+                        <span class="arcade-font text-xs text-red-400 block mb-1">PLAYER 1</span>
+                        <span id="final-p1-score" class="text-3xl font-black text-red-300">0</span>
+                    </div>
+                    <div class="bg-emerald-950/40 border border-emerald-700/50 p-4 rounded-xl">
+                        <span class="arcade-font text-xs text-emerald-400 block mb-1">PLAYER 2</span>
+                        <span id="final-p2-score" class="text-3xl font-black text-emerald-300">0</span>
+                    </div>
+                </div>
+
+                <!-- Action Button -->
+                <button onclick="resetGame()" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-lg py-4 rounded-2xl shadow-lg shadow-cyan-500/20 transition transform active:scale-95 flex items-center justify-center gap-3">
+                    <i class="fa-solid fa-rotate-right text-xl"></i>
+                    <span>REMATCH BATTLE</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Grade 11 Vocabulary Word List as defined in requirements
+        const vocabularyList = [
+            { word: "Reservation", definition: "An arrangement to have something kept for your use" },
+            { word: "Preference", definition: "A greater liking for one alternative over another" },
+            { word: "Secure", definition: "To succeed in obtaining or making safe" },
+            { word: "Session", definition: "A period devoted to a particular activity" },
+            { word: "Massage", definition: "Rubbing and kneading of muscles and joints" },
+            { word: "Promptly", definition: "With little or no delay; immediately" },
+            { word: "Opening", definition: "An available seat, position, or opportunity" }
+        ];
+
+        // Game State Variables
+        let questions = [];
+        let currentRound = 0;
+        const totalRounds = 10;
+        let p1Score = 0;
+        let p2Score = 0;
+        let p1Locked = false;
+        let p2Locked = false;
+        let timeLeft = 60;
+        let timerInterval = null;
+        let gameActive = false;
+        let soundEnabled = true;
+
+        // Audio Synth Initializations using Tone.js
+        let correctSynth, errorSynth, clickSynth;
+
+        function initAudio() {
+            try {
+                correctSynth = new Tone.Synth({
+                    oscillator: { type: "triangle" },
+                    envelope: { attack: 0.005, decay: 0.1, sustain: 0.1, release: 0.2 }
+                }).toDestination();
+
+                errorSynth = new Tone.NoiseSynth({
+                    noise: { type: "brown" },
+                    envelope: { attack: 0.01, decay: 0.2, sustain: 0 }
+                }).toDestination();
+
+                clickSynth = new Tone.MembraneSynth().toDestination();
+            } catch (e) {
+                console.log("Audio synth setup failed:", e);
+            }
+        }
+
+        function playSound(type) {
+            if (!soundEnabled) return;
+            Tone.start();
+            try {
+                if (type === 'correct' && correctSynth) {
+                    correctSynth.triggerAttackRelease("C5", "8n");
+                } else if (type === 'error' && errorSynth) {
+                    errorSynth.triggerAttackRelease("8n");
+                } else if (type === 'click' && clickSynth) {
+                    clickSynth.triggerAttackRelease("C2", "16n");
+                }
+            } catch (e) {}
+        }
+
+        // Toggle Audio State
+        document.getElementById('audio-toggle').addEventListener('click', () => {
+            soundEnabled = !soundEnabled;
+            const icon = document.getElementById('audio-icon');
+            if (soundEnabled) {
+                icon.className = "fa-solid fa-volume-high";
+            } else {
+                icon.className = "fa-solid fa-volume-xmark text-slate-500";
+            }
+        });
+
+        // Generate 10 round questions (shuffled with distractors)
+        function generateQuestions() {
+            questions = [];
+            for (let i = 0; i < totalRounds; i++) {
+                // Pick a random target word from list
+                const targetObj = vocabularyList[Math.floor(Math.random() * vocabularyList.length)];
+                
+                // Collect 3 distractors
+                const options = [targetObj.word];
+                const otherWords = vocabularyList.filter(v => v.word !== targetObj.word).map(v => v.word);
+                
+                // Shuffle other words and pick 3
+                otherWords.sort(() => Math.random() - 0.5);
+                for (let j = 0; j < 3; j++) {
+                    options.push(otherWords[j % otherWords.length]);
+                }
+
+                // Shuffle the 4 option buttons
+                options.sort(() => Math.random() - 0.5);
+
+                questions.push({
+                    definition: targetObj.definition,
+                    correctWord: targetObj.word,
+                    options: options
+                });
+            }
+        }
+
+        // Initialize / Start Game
+        function startGame() {
+            generateQuestions();
+            currentRound = 0;
+            p1Score = 0;
+            p2Score = 0;
+            timeLeft = 60;
+            gameActive = true;
+
+            updateScoreboard();
+            document.getElementById('victory-modal').classList.add('hidden');
+            
+            // Start Timer
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                if (!gameActive) return;
+                timeLeft--;
+                document.getElementById('timer-display').innerText = timeLeft;
+
+                if (timeLeft <= 10) {
+                    document.getElementById('timer-container').classList.add('animate-pulse-fast', 'border-red-500');
+                } else {
+                    document.getElementById('timer-container').classList.remove('animate-pulse-fast', 'border-red-500');
+                }
+
+                if (timeLeft <= 0) {
+                    endGame("TIME EXPIRED!");
+                }
+            }, 1000);
+
+            loadRound(0);
+        }
+
+        // Load a Specific Round Question
+        function loadRound(roundIndex) {
+            if (roundIndex >= totalRounds) {
+                endGame("MATCH COMPLETED!");
+                return;
+            }
+
+            currentRound = roundIndex;
+            document.getElementById('round-display').innerText = `${currentRound + 1}/${totalRounds}`;
+
+            // Reset Lockout States
+            p1Locked = false;
+            p2Locked = false;
+            document.getElementById('p1-lockout').classList.replace('flex', 'hidden');
+            document.getElementById('p2-lockout').classList.replace('flex', 'hidden');
+
+            const q = questions[currentRound];
+
+            // Render P1 Side
+            document.getElementById('p1-definition').innerText = q.definition;
+            for (let i = 0; i < 4; i++) {
+                document.getElementById(`p1-opt-${i}-text`).innerText = q.options[i];
+            }
+
+            // Render P2 Side
+            document.getElementById('p2-definition').innerText = q.definition;
+            for (let i = 0; i < 4; i++) {
+                document.getElementById(`p2-opt-${i}-text`).innerText = q.options[i];
+            }
+        }
+
+        // Handle Player Selection
+        function handlePlayerChoice(playerNum, optionIdx) {
+            if (!gameActive) return;
+
+            // Check if player is locked out
+            if (playerNum === 1 && p1Locked) return;
+            if (playerNum === 2 && p2Locked) return;
+
+            const q = questions[currentRound];
+            const chosenWord = q.options[optionIdx];
+
+            if (chosenWord === q.correctWord) {
+                // Correct Answer!
+                playSound('correct');
+                if (playerNum === 1) p1Score++;
+                else p2Score++;
+
+                updateScoreboard();
+                
+                // Brief Delay before loading next question
+                loadRound(currentRound + 1);
+            } else {
+                // Wrong Answer - Lockout Mechanic
+                playSound('error');
+                if (playerNum === 1) {
+                    p1Locked = true;
+                    triggerPenaltyFlash('p1');
+                } else {
+                    p2Locked = true;
+                    triggerPenaltyFlash('p2');
+                }
+
+                // Check if BOTH players locked out
+                if (p1Locked && p2Locked) {
+                    setTimeout(() => {
+                        loadRound(currentRound + 1);
+                    }, 800);
+                }
+            }
+        }
+
+        // Visual Shake / Lockout Effect
+        function triggerPenaltyFlash(playerPrefix) {
+            const panel = document.getElementById(`${playerPrefix}-panel`);
+            const lockout = document.getElementById(`${playerPrefix}-lockout`);
+
+            panel.classList.add('animate-shake');
+            lockout.classList.replace('hidden', 'flex');
+
+            setTimeout(() => {
+                panel.classList.remove('animate-shake');
+            }, 500);
+        }
+
+        // Update Score Elements
+        function updateScoreboard() {
+            document.getElementById('p1-score-display').innerText = `SCORE: ${p1Score}`;
+            document.getElementById('p2-score-display').innerText = `SCORE: ${p2Score}`;
+        }
+
+        // End Game and Show Victory Screen
+        function endGame(reason) {
+            gameActive = false;
+            if (timerInterval) clearInterval(timerInterval);
+
+            // Populate Final Scores
+            document.getElementById('final-p1-score').innerText = p1Score;
+            document.getElementById('final-p2-score').innerText = p2Score;
+
+            // Determine Winner
+            const winnerText = document.getElementById('winner-text');
+            const winnerSubtext = document.getElementById('winner-subtext');
+            const winnerCrown = document.getElementById('winner-crown');
+
+            if (p1Score > p2Score) {
+                winnerText.innerText = "PLAYER 1 VICTORIOUS!";
+                winnerText.className = "arcade-font text-xl md:text-2xl text-red-400";
+                winnerSubtext.innerText = "Red team dominated the vocabulary battlefield!";
+                winnerCrown.innerHTML = '<i class="fa-solid fa-crown text-red-400"></i>';
+            } else if (p2Score > p1Score) {
+                winnerText.innerText = "PLAYER 2 VICTORIOUS!";
+                winnerText.className = "arcade-font text-xl md:text-2xl text-emerald-400";
+                winnerSubtext.innerText = "Green team dominated the vocabulary battlefield!";
+                winnerCrown.innerHTML = '<i class="fa-solid fa-crown text-emerald-400"></i>';
+            } else {
+                winnerText.innerText = "IT'S A DRAW!";
+                winnerText.className = "arcade-font text-xl md:text-2xl text-yellow-400";
+                winnerSubtext.innerText = "Equal speed and accuracy on both sides!";
+                winnerCrown.innerHTML = '<i class="fa-solid fa-scale-balanced text-yellow-400"></i>';
+            }
+
+            document.getElementById('victory-modal').classList.remove('hidden');
+        }
+
+        // Rematch / Reset
+        function resetGame() {
+            startGame();
+        }
+
+        // Keyboard Listener (P1: Q, W, A, S | P2: I, O, K, L)
+        window.addEventListener('keydown', (e) => {
+            if (!gameActive) return;
+            const key = e.key.toLowerCase();
+
+            // Player 1 Mapping
+            if (key === 'q') handlePlayerChoice(1, 0);
+            else if (key === 'w') handlePlayerChoice(1, 1);
+            else if (key === 'a') handlePlayerChoice(1, 2);
+            else if (key === 's') handlePlayerChoice(1, 3);
+
+            // Player 2 Mapping
+            if (key === 'i') handlePlayerChoice(2, 0);
+            else if (key === 'o') handlePlayerChoice(2, 1);
+            else if (key === 'k') handlePlayerChoice(2, 2);
+            else if (key === 'l') handlePlayerChoice(2, 3);
+        });
+
+        // Initialize Audio and Game on Page Load
+        window.onload = () => {
+            initAudio();
+            startGame();
+        };
+    </script>
+</body>
+</html>

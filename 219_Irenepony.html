@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Hidden Vault - Mystery Vocabulary Game</title>
+  <style>
+    :root {
+      --bg-color: #1a1a2e;
+      --panel-bg: #16213e;
+      --vault-color: #c0c0c0;
+      --gold-color: #ffd700;
+      --accent-color: #0f3460;
+      --text-color: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    #game-container {
+      width: 90%;
+      max-width: 800px;
+      background-color: var(--panel-bg);
+      border: 4px solid #4e54c8;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      position: relative;
+      text-align: center;
+    }
+
+    /* HUD Header */
+    .hud {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 1.2rem;
+      font-weight: bold;
+      margin-bottom: 15px;
+      padding: 10px 20px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 8px;
+    }
+
+    .timer { color: #ff6b6b; }
+    .score { color: var(--gold-color); }
+
+    /* Vault Animation Arena */
+    .vault-stage {
+      height: 160px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+      margin-bottom: 15px;
+    }
+
+    .vault {
+      width: 130px;
+      height: 130px;
+      background: linear-gradient(145deg, #e6e6e6, #8a8a8a);
+      border: 6px solid #4a4a4a;
+      border-radius: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-shadow: inset 0 0 15px rgba(0,0,0,0.5), 0 5px 15px rgba(0,0,0,0.4);
+      transition: transform 0.2s ease, background-color 0.3s ease;
+      position: relative;
+    }
+
+    .vault-door {
+      width: 90px;
+      height: 90px;
+      border: 4px dashed #333;
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 2rem;
+      background: #a8a8a8;
+      transition: transform 0.6s ease;
+    }
+
+    .vault.open .vault-door {
+      transform: rotateY(110deg) translateX(-20px);
+    }
+
+    .vault.shake {
+      animation: shake 0.4s ease-in-out;
+      background: linear-gradient(145deg, #ff6b6b, #c0392b);
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-10px); }
+      40%, 80% { transform: translateX(10px); }
+    }
+
+    /* Coin Rain Animation */
+    .coin {
+      position: absolute;
+      width: 15px;
+      height: 15px;
+      background-color: var(--gold-color);
+      border: 2px solid #b8860b;
+      border-radius: 50%;
+      top: 20%;
+      animation: fall 0.8s linear forwards;
+      pointer-events: none;
+    }
+
+    @keyframes fall {
+      0% { opacity: 1; transform: translateY(0) scale(1); }
+      100% { opacity: 0; transform: translateY(120px) scale(0.5); }
+    }
+
+    /* Clue Tablet */
+    .clue-tablet {
+      background: #0f3460;
+      border: 2px solid #e94560;
+      border-radius: 10px;
+      padding: 15px;
+      margin-bottom: 20px;
+      min-height: 80px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .clue-title {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #e94560;
+      margin-bottom: 5px;
+    }
+
+    .definition {
+      font-size: 1.1rem;
+      line-height: 1.4;
+    }
+
+    /* Chest Grid Choices */
+    .chest-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .chest-btn {
+      background: linear-gradient(145deg, #222e50, #161b33);
+      border: 2px solid #00d2d3;
+      border-radius: 8px;
+      padding: 12px;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .chest-btn:hover {
+      background: #00d2d3;
+      color: #1a1a2e;
+      transform: translateY(-2px);
+    }
+
+    /* Overlays */
+    .overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(22, 33, 62, 0.95);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      z-index: 10;
+    }
+
+    .overlay h1 { font-size: 2.2rem; margin-bottom: 10px; color: var(--gold-color); }
+    .overlay p { font-size: 1.05rem; margin-bottom: 20px; max-width: 80%; line-height: 1.4; }
+
+    .action-btn {
+      background-color: #e94560;
+      color: #fff;
+      border: none;
+      padding: 12px 30px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      border-radius: 25px;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(233, 69, 96, 0.4);
+      transition: transform 0.2s;
+    }
+
+    .action-btn:hover { transform: scale(1.05); }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<div id="game-container">
+  <!-- HUD Header -->
+  <div class="hud">
+    <div class="timer">⏳ Time: <span id="timer-display">60</span>s</div>
+    <div class="score">🪙 Score: <span id="score-display">0</span></div>
+  </div>
+
+  <!-- Vault Animation Arena -->
+  <div class="vault-stage">
+    <div id="vault" class="vault">
+      <div class="vault-door">🔒</div>
+    </div>
+  </div>
+
+  <!-- Clue Tablet -->
+  <div class="clue-tablet">
+    <div class="clue-title">📜 Clue Tablet</div>
+    <div id="definition-display" class="definition">Loading definition...</div>
+  </div>
+
+  <!-- Answer Chests -->
+  <div class="chest-grid" id="chest-container">
+    <!-- Buttons dynamically inserted here -->
+  </div>
+
+  <!-- Mission Start Overlay -->
+  <div id="start-overlay" class="overlay">
+    <h1>THE HIDDEN VAULT</h1>
+    <p>Read the definition on the Clue Tablet and pick the matching Treasure Chest to crack open the Silver Vault! You have 60 seconds.</p>
+    <button class="action-btn" onclick="startGame()">MISSION START</button>
+  </div>
+
+  <!-- Mission Complete Overlay -->
+  <div id="end-overlay" class="overlay hidden">
+    <h1>MISSION COMPLETE</h1>
+    <p>Time's up, Agent! You cracked the vault and earned:</p>
+    <h2 style="font-size: 2.5rem; color: var(--gold-color); margin-bottom: 20px;" id="final-score">0 pts</h2>
+    <button class="action-btn" onclick="startGame()">TRY AGAIN</button>
+  </div>
+</div>
+
+<script>
+  // Vocabulary List (B1 Intermediate)
+  const vocabData = [
+    { word: "Accomplish", def: "To succeed in doing or completing something successfully." },
+    { word: "Cautious", def: "Being careful to avoid potential danger or mistakes." },
+    { word: "Determine", def: "To make a firm decision or discover the official facts about something." },
+    { word: "Efficient", def: "Working in a well-organized way without wasting time or energy." },
+    { word: "Generous", def: "Willing to give money, help, or time freely to others." },
+    { word: "Hesitate", def: "To pause before doing something because you are uncertain." },
+    { word: "Obvious", def: "Easy to see, recognize, or understand." },
+    { word: "Predict", def: "To say or estimate that a specific thing will happen in the future." },
+    { word: "Reluctant", def: "Unwilling and hesitant to do something." },
+    { word: "Transform", def: "To change completely in appearance, character, or form." }
+  ];
+
+  let score = 0;
+  let timeLeft = 60;
+  let timerInterval = null;
+  let currentQuestion = null;
+  let isProcessing = false;
+
+  const scoreDisplay = document.getElementById("score-display");
+  const timerDisplay = document.getElementById("timer-display");
+  const definitionDisplay = document.getElementById("definition-display");
+  const chestContainer = document.getElementById("chest-container");
+  const vault = document.getElementById("vault");
+  const startOverlay = document.getElementById("start-overlay");
+  const endOverlay = document.getElementById("end-overlay");
+
+  function startGame() {
+    score = 0;
+    timeLeft = 60;
+    scoreDisplay.innerText = score;
+    timerDisplay.innerText = timeLeft;
+    
+    startOverlay.classList.add("hidden");
+    endOverlay.classList.add("hidden");
+
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      timeLeft--;
+      timerDisplay.innerText = timeLeft;
+      if (timeLeft <= 0) {
+        endGame();
+      }
+    }, 1000);
+
+    loadNewQuestion();
+  }
+
+  function loadNewQuestion() {
+    isProcessing = false;
+    vault.className = "vault"; // reset vault visual state
+    
+    // Pick random target word
+    const randomIndex = Math.floor(Math.random() * vocabData.length);
+    currentQuestion = vocabData[randomIndex];
+
+    definitionDisplay.innerText = `"${currentQuestion.def}"`;
+
+    // Generate 4 options (1 correct + 3 wrong)
+    let options = [currentQuestion.word];
+    while (options.length < 4) {
+      let randomWord = vocabData[Math.floor(Math.random() * vocabData.length)].word;
+      if (!options.includes(randomWord)) {
+        options.push(randomWord);
+      }
+    }
+
+    // Shuffle options
+    options.sort(() => Math.random() - 0.5);
+
+    // Render options
+    chestContainer.innerHTML = "";
+    options.forEach(option => {
+      const btn = document.createElement("button");
+      btn.className = "chest-btn";
+      btn.innerHTML = `🧰 ${option}`;
+      btn.onclick = () => handleChoice(option);
+      chestContainer.appendChild(btn);
+    });
+  }
+
+  function handleChoice(selectedWord) {
+    if (isProcessing) return;
+    isProcessing = true;
+
+    if (selectedWord === currentQuestion.word) {
+      // Correct Choice
+      score += 10;
+      scoreDisplay.innerText = score;
+      vault.classList.add("open");
+      triggerCoinRain();
+
+      setTimeout(() => {
+        loadNewQuestion();
+      }, 1000);
+    } else {
+      // Incorrect Choice
+      vault.classList.add("shake");
+      
+      setTimeout(() => {
+        vault.classList.remove("shake");
+        isProcessing = false;
+      }, 500);
+    }
+  }
+
+  function triggerCoinRain() {
+    for (let i = 0; i < 12; i++) {
+      const coin = document.createElement("div");
+      coin.className = "coin";
+      coin.style.left = `${Math.random() * 80 + 10}%`;
+      coin.style.animationDelay = `${Math.random() * 0.3}s`;
+      vault.appendChild(coin);
+
+      setTimeout(() => coin.remove(), 1000);
+    }
+  }
+
+  function endGame() {
+    clearInterval(timerInterval);
+    document.getElementById("final-score").innerText = `${score} pts`;
+    endOverlay.classList.remove("hidden");
+  }
+</script>
+</body>
+</html>

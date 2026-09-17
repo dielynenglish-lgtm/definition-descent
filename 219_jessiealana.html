@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grade 11 Vocabulary Challenge - Penalty Mode</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --accent: #6366f1;
+            --accent-hover: #4f46e5;
+            --text-light: #f8fafc;
+            --text-muted: #94a3b8;
+            --correct: #22c55e;
+            --wrong: #ef4444;
+            --penalty: #f59e0b;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-light);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        h1 {
+            color: var(--text-light);
+            margin-bottom: 5px;
+            font-size: 2.2rem;
+            text-align: center;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            margin-bottom: 25px;
+            font-size: 1.1rem;
+            text-align: center;
+        }
+
+        .game-container {
+            width: 100%;
+            max-width: 900px;
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+
+        .stats-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255,255,255,0.05);
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .score-box {
+            display: flex;
+            gap: 20px;
+        }
+
+        .score-value {
+            color: #38bdf8;
+        }
+
+        .penalty-text {
+            color: var(--wrong);
+            font-size: 0.9rem;
+            margin-left: 5px;
+            animation: fadeOut 1s forwards;
+        }
+
+        .matching-area {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 650px) {
+            .matching-area {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .column-header {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .item {
+            background: #334155;
+            padding: 14px 18px;
+            margin-bottom: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+            border: 2px solid transparent;
+            font-size: 1rem;
+            line-height: 1.4;
+        }
+
+        .item:hover {
+            background: #475569;
+            transform: translateY(-2px);
+        }
+
+        .item.selected {
+            border-color: var(--accent);
+            background: #475569;
+            box-shadow: 0 0 12px rgba(99, 102, 241, 0.4);
+        }
+
+        .item.matched {
+            background: rgba(34, 197, 94, 0.15);
+            border-color: var(--correct);
+            color: #86efac;
+            cursor: default;
+            transform: none;
+        }
+
+        .item.wrong {
+            animation: shake 0.4s ease-in-out;
+            border-color: var(--wrong);
+            background: rgba(239, 68, 68, 0.2);
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-6px); }
+            40%, 80% { transform: translateX(6px); }
+        }
+
+        .btn-reset {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-reset:hover {
+            background: var(--accent-hover);
+        }
+
+        .win-screen {
+            display: none;
+            text-align: center;
+            padding: 30px;
+        }
+
+        .win-screen h2 {
+            font-size: 2rem;
+            color: var(--correct);
+            margin-bottom: 10px;
+        }
+
+        .final-score {
+            font-size: 1.5rem;
+            margin: 15px 0;
+            color: var(--text-light);
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Grade 11 Vocabulary Challenge</h1>
+    <div class="subtitle">Match each word to its definition. Be careful: <strong>Wrong answers deduct 10 points!</strong></div>
+
+    <div class="game-container">
+        <div class="stats-bar">
+            <div class="score-box">
+                <div>Score: <span id="score" class="score-value">700</span> <span id="penalty-feedback"></span></div>
+                <div>Matches: <span id="matches">0</span> / 7</div>
+            </div>
+            <button class="btn-reset" onclick="resetGame()">Restart Game</button>
+        </div>
+
+        <div id="game-board" class="matching-area">
+            <div>
+                <div class="column-header">Words</div>
+                <div id="words-column"></div>
+            </div>
+            <div>
+                <div class="column-header">Definitions</div>
+                <div id="defs-column"></div>
+            </div>
+        </div>
+
+        <div id="win-screen" class="win-screen">
+            <h2>🎉 Stage Cleared!</h2>
+            <div class="final-score">Your Final Score: <strong id="final-score-val" style="color:#38bdf8;">0</strong></div>
+            <p id="performance-rating"></p>
+            <button class="btn-reset" onclick="resetGame()" style="margin-top: 15px;">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        const vocabularyData = [
+            { word: "luxurious", def: "Extremely comfortable, elegant, or enjoyable, especially in a way that involves great expense." },
+            { word: "innovation", def: "The introduction of new ideas, methods, or original devices to solve problems." },
+            { word: "surgery", def: "A medical procedure involving an incision with instruments to repair damage or arrest disease." },
+            { word: "terrifying", def: "Causing extreme fear, dread, or overwhelming alarm." },
+            { word: "physically", def: "In a manner relating to the body rather than the mind." },
+            { word: "procedure", def: "An established or official way of doing something, especially a series of actions." },
+            { word: "agony", def: "Extreme physical or mental suffering and pain." }
+        ];
+
+        // Web Audio API context for sound effects without external assets
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new AudioContext();
+            }
+        }
+
+        function playSound(type) {
+            initAudio();
+            if (!audioCtx) return;
+
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            if (type === 'match') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+                osc.frequency.exponentialRampToValueAtTime(659.25, audioCtx.currentTime + 0.15); // E5
+                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.2);
+            } else if (type === 'wrong') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(180, audioCtx.currentTime);
+                osc.frequency.linearRampToValueAtTime(110, audioCtx.currentTime + 0.25);
+                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.25);
+            }
+        }
+
+        let selectedWord = null;
+        let selectedDef = null;
+        let score = 700;
+        let matches = 0;
+        const PENALTY_AMOUNT = 10;
+
+        function shuffle(array) {
+            return [...array].sort(() => Math.random() - 0.5);
+        }
+
+        function initGame() {
+            score = 700;
+            matches = 0;
+            selectedWord = null;
+            selectedDef = null;
+
+            document.getElementById('score').textContent = score;
+            document.getElementById('matches').textContent = matches;
+            document.getElementById('game-board').style.display = 'grid';
+            document.getElementById('win-screen').style.display = 'none';
+
+            const wordsCol = document.getElementById('words-column');
+            const defsCol = document.getElementById('defs-column');
+
+            wordsCol.innerHTML = '';
+            defsCol.innerHTML = '';
+
+            const shuffledWords = shuffle(vocabularyData);
+            const shuffledDefs = shuffle(vocabularyData);
+
+            shuffledWords.forEach(item => {
+                const el = document.createElement('div');
+                el.className = 'item';
+                el.textContent = item.word;
+                el.dataset.word = item.word;
+                el.onclick = () => selectWord(el);
+                wordsCol.appendChild(el);
+            });
+
+            shuffledDefs.forEach(item => {
+                const el = document.createElement('div');
+                el.className = 'item';
+                el.textContent = item.def;
+                el.dataset.word = item.word;
+                el.onclick = () => selectDef(el);
+                defsCol.appendChild(el);
+            });
+        }
+
+        function selectWord(el) {
+            if (el.classList.contains('matched')) return;
+            if (selectedWord) selectedWord.classList.remove('selected');
+            selectedWord = el;
+            selectedWord.classList.add('selected');
+            checkMatch();
+        }
+
+        function selectDef(el) {
+            if (el.classList.contains('matched')) return;
+            if (selectedDef) selectedDef.classList.remove('selected');
+            selectedDef = el;
+            selectedDef.classList.add('selected');
+            checkMatch();
+        }
+
+        function checkMatch() {
+            if (selectedWord && selectedDef) {
+                if (selectedWord.dataset.word === selectedDef.dataset.word) {
+                    // Correct Match
+                    playSound('match');
+                    selectedWord.classList.remove('selected');
+                    selectedDef.classList.remove('selected');
+                    selectedWord.classList.add('matched');
+                    selectedDef.classList.add('matched');
+
+                    matches++;
+                    document.getElementById('matches').textContent = matches;
+
+                    selectedWord = null;
+                    selectedDef = null;
+
+                    if (matches === vocabularyData.length) {
+                        setTimeout(showWinScreen, 500);
+                    }
+                } else {
+                    // Incorrect Match (Penalty System)
+                    playSound('wrong');
+                    score = Math.max(0, score - PENALTY_AMOUNT);
+                    document.getElementById('score').textContent = score;
+
+                    showPenaltyIndicator(`-${PENALTY_AMOUNT}`);
+
+                    const w = selectedWord;
+                    const d = selectedDef;
+                    w.classList.add('wrong');
+                    d.classList.add('wrong');
+
+                    setTimeout(() => {
+                        w.classList.remove('wrong', 'selected');
+                        d.classList.remove('wrong', 'selected');
+                    }, 400);
+
+                    selectedWord = null;
+                    selectedDef = null;
+                }
+            }
+        }
+
+        function showPenaltyIndicator(text) {
+            const container = document.getElementById('penalty-feedback');
+            container.innerHTML = `<span class="penalty-text">${text}</span>`;
+            setTimeout(() => { container.innerHTML = ''; }, 1000);
+        }
+
+        function showWinScreen() {
+            document.getElementById('game-board').style.display = 'none';
+            document.getElementById('win-screen').style.display = 'block';
+            document.getElementById('final-score-val').textContent = score;
+
+            const ratingEl = document.getElementById('performance-rating');
+            if (score === 700) {
+                ratingEl.textContent = "🏆 Perfect Score! You mastered these 11th grade words flawlessly!";
+            } else if (score >= 600) {
+                ratingEl.textContent = "🌟 Great job! Exceptional understanding of the vocabulary.";
+            } else {
+                ratingEl.textContent = "👍 Good effort! Practice a bit more to achieve a flawless score.";
+            }
+        }
+
+        function resetGame() {
+            initGame();
+        }
+
+        initGame();
+    </script>
+</body>
+</html>

@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vocabulary Diner</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    body {
+      background: linear-gradient(135deg, #fceabb 0%, #f8b500 100%);
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 5px;
+      text-shadow: 1px 1px 2px rgba(255,255,255,0.8);
+    }
+    p.subtitle {
+      color: #555;
+      margin-top: 0;
+      font-style: italic;
+    }
+    #game-stats {
+      display: flex;
+      gap: 30px;
+      font-size: 18px;
+      font-weight: bold;
+      background: white;
+      padding: 10px 20px;
+      border-radius: 20px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    #diner-floor {
+      width: 100%;
+      max-width: 800px;
+      min-height: 250px;
+      background: #fff8ed;
+      border: 4px solid #8B4513;
+      border-radius: 12px;
+      padding: 15px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      justify-content: center;
+      align-content: flex-start;
+      box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    .patron {
+      background: white;
+      border: 2px solid #333;
+      border-radius: 10px;
+      padding: 10px;
+      width: 220px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+      animation: fadeIn 0.4s ease-in;
+      position: relative;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .avatar {
+      font-size: 36px;
+      margin-bottom: 5px;
+    }
+    .speech-bubble {
+      background: #eef7ff;
+      border: 1px solid #70a1ff;
+      border-radius: 8px;
+      padding: 8px;
+      font-size: 13px;
+      text-align: center;
+      color: #2f3542;
+      width: 100%;
+      min-height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 8px;
+    }
+    .patience-container {
+      width: 100%;
+      background-color: #ddd;
+      border-radius: 5px;
+      height: 10px;
+      overflow: hidden;
+    }
+    .patience-bar {
+      height: 100%;
+      width: 100%;
+      background-color: #2ed573;
+      transition: width 0.2s linear, background-color 0.2s;
+    }
+    #tray-area {
+      width: 100%;
+      max-width: 800px;
+      background: #8B4513;
+      padding: 15px;
+      border-radius: 12px;
+      box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+      text-align: center;
+    }
+    #tray-area h3 {
+      color: white;
+      margin: 0 0 10px 0;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    #dishes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+    }
+    .dish-btn {
+      background: #ff7f50;
+      color: white;
+      border: none;
+      padding: 10px 18px;
+      font-size: 16px;
+      font-weight: bold;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 4px #e056fd;
+      transition: all 0.1s;
+    }
+    .dish-btn:hover {
+      background: #ff6b81;
+    }
+    .dish-btn:active {
+      transform: translateY(2px);
+      box-shadow: 0 2px #e056fd;
+    }
+    #game-over {
+      display: none;
+      text-align: center;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    }
+    #restart-btn {
+      background: #2ed573;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      font-size: 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🍽️ Vocabulary Diner 🍽️</h1>
+  <p class="subtitle">Serve the patrons the correct word dish matching their order definition before they lose patience!</p>
+
+  <div id="game-stats">
+    <div>Score: <span id="score">0</span></div>
+    <div>Served: <span id="served">0</span></div>
+  </div>
+
+  <div id="diner-floor"></div>
+
+  <div id="tray-area">
+    <h3>🍳 Your Vocabulary Tray (Select Word to Serve First Active Customer)</h3>
+    <div id="dishes"></div>
+  </div>
+
+  <div id="game-over">
+    <h2>Game Over!</h2>
+    <p>You served <span id="final-served">0</span> patrons with a total score of <span id="final-score">0</span>!</p>
+    <button id="restart-btn" onclick="startGame()">Play Again</button>
+  </div>
+
+  <script>
+    const vocabData = [
+      { word: "Encounter", def: "A unexpected or casual meeting with someone or something.", emoji: "🏃" },
+      { word: "Feast", def: "A large meal, typically one in celebration or honor of something.", emoji: "🍗" },
+      { word: "Merge", def: "To combine or cause to combine to form a single entity.", emoji: "🔀" },
+      { word: "Distinct", def: "Recognizably different in nature from something else of a similar type.", emoji: "🌟" },
+      { word: "Endure", def: "To suffer something painful or difficult patiently; to last.", emoji: "🏋️" },
+      { word: "Reminder", def: "A thing that causes someone to remember something.", emoji: "🔔" }
+    ];
+
+    const customerEmojis = ["🧔", "👩", "👴", "👵", "👧", "👨‍🦱", "👩‍🦰"];
+
+    let score = 0;
+    let servedCount = 0;
+    let patrons = [];
+    let gameInterval;
+    let spawnTimeout;
+
+    function startGame() {
+      score = 0;
+      servedCount = 0;
+      patrons = [];
+      document.getElementById('score').innerText = score;
+      document.getElementById('served').innerText = servedCount;
+      document.getElementById('game-over').style.display = 'none';
+      document.getElementById('diner-floor').innerHTML = '';
+      
+      createDishButtons();
+      
+      // Start loop and spawn initial patrons
+      clearInterval(gameInterval);
+      clearTimeout(spawnTimeout);
+      
+      spawnPatron();
+      gameInterval = setInterval(updatePatience, 100);
+      scheduleNextSpawn();
+    }
+
+    function createDishButtons() {
+      const dishesContainer = document.getElementById('dishes');
+      dishesContainer.innerHTML = '';
+      vocabData.forEach(item => {
+        const btn = document.createElement('button');
+        btn.className = 'dish-btn';
+        btn.innerText = `${item.emoji} ${item.word}`;
+        btn.onclick = () => serveDish(item.word);
+        dishesContainer.appendChild(btn);
+      });
+    }
+
+    function spawnPatron() {
+      if (patrons.length >= 3) return; // Max 3 patrons at a time
+
+      const randomVocab = vocabData[Math.floor(Math.random() * vocabData.length)];
+      const randomAvatar = customerEmojis[Math.floor(Math.random() * customerEmojis.length)];
+      
+      const patron = {
+        id: Date.now(),
+        word: randomVocab.word,
+        def: randomVocab.def,
+        avatar: randomAvatar,
+        patience: 100 // percent
+      };
+
+      patrons.push(patron);
+      renderPatrons();
+    }
+
+    function scheduleNextSpawn() {
+      const delay = Math.floor(Math.random() * 2000) + 3000; // 3 to 5 seconds
+      spawnTimeout = setTimeout(() => {
+        spawnPatron();
+        scheduleNextSpawn();
+      }, delay);
+    }
+
+    function renderPatrons() {
+      const floor = document.getElementById('diner-floor');
+      floor.innerHTML = '';
+
+      patrons.forEach(patron => {
+        const patronEl = document.createElement('div');
+        patronEl.className = 'patron';
+        patronEl.innerHTML = `
+          <div class="speech-bubble">"${patron.def}"</div>
+          <div class="avatar">${patron.avatar}</div>
+          <div class="patience-container">
+            <div class="patience-bar" id="bar-${patron.id}" style="width: ${patron.patience}%;"></div>
+          </div>
+        `;
+        floor.appendChild(patronEl);
+      });
+    }
+
+    function updatePatience() {
+      for (let i = patrons.length - 1; i >= 0; i--) {
+        patrons[i].patience -= 0.5; // Decrease patience rate
+        
+        const bar = document.getElementById(`bar-${patrons[i].id}`);
+        if (bar) {
+          bar.style.width = patrons[i].patience + '%';
+          if (patrons[i].patience < 30) {
+            bar.style.backgroundColor = '#ff4757';
+          } else if (patrons[i].patience < 60) {
+            bar.style.backgroundColor = '#ffa502';
+          }
+        }
+
+        // Patron left unhappy
+        if (patrons[i].patience <= 0) {
+          patrons.splice(i, 1);
+          score = Math.max(0, score - 50);
+          document.getElementById('score').innerText = score;
+          renderPatrons();
+        }
+      }
+    }
+
+    function serveDish(selectedWord) {
+      if (patrons.length === 0) return;
+
+      // Serve the first patron waiting in line
+      const patronToServe = patrons[0];
+
+      if (patronToServe.word === selectedWord) {
+        // Correct Dish Served!
+        score += Math.round(patronToServe.patience) + 50;
+        servedCount++;
+        document.getElementById('score').innerText = score;
+        document.getElementById('served').innerText = servedCount;
+        
+        patrons.shift(); // Remove served patron
+        renderPatrons();
+      } else {
+        // Wrong Dish
+        score = Math.max(0, score - 20);
+        document.getElementById('score').innerText = score;
+        
+        // Flash red for mistake
+        const floor = document.getElementById('diner-floor');
+        floor.style.backgroundColor = '#ffd2d2';
+        setTimeout(() => floor.style.backgroundColor = '#fff8ed', 200);
+      }
+    }
+
+    // Start game on load
+    startGame();
+  </script>
+</body>
+</html>

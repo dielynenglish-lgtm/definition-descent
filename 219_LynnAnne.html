@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Target Archers - Vocabulary Challenge</title>
+<style>
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        user-select: none;
+    }
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: #1a2a3a;
+        color: #fff;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        overflow: hidden;
+    }
+    #game-container {
+        position: relative;
+        width: 800px;
+        height: 600px;
+        background: linear-gradient(to bottom, #87ceeb 0%, #e0f6ff 60%, #7ec850 60%, #5d9e35 100%);
+        border: 4px solid #fff;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        overflow: hidden;
+    }
+    #ui-bar {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        padding: 12px 20px;
+        background: rgba(0, 0, 0, 0.4);
+        display: flex;
+        justify-content: space-between;
+        font-size: 18px;
+        font-weight: bold;
+        z-index: 10;
+    }
+    #wind-indicator {
+        position: absolute;
+        top: 55px;
+        right: 20px;
+        background: rgba(255, 255, 255, 0.85);
+        color: #222;
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-weight: bold;
+        font-size: 14px;
+        z-index: 10;
+    }
+    #definition-box {
+        position: absolute;
+        bottom: 15px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 90%;
+        background: rgba(0, 0, 0, 0.75);
+        border: 2px solid #ffd700;
+        border-radius: 8px;
+        padding: 12px;
+        text-align: center;
+        z-index: 10;
+    }
+    #definition-box h3 {
+        color: #ffd700;
+        font-size: 14px;
+        text-transform: uppercase;
+        margin-bottom: 4px;
+    }
+    #definition-text {
+        font-size: 16px;
+    }
+    canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+    }
+    #game-over-screen {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.85);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 20;
+    }
+    .hidden {
+        display: none !important;
+    }
+    button {
+        background: #ffd700;
+        color: #222;
+        border: none;
+        padding: 12px 24px;
+        font-size: 18px;
+        font-weight: bold;
+        border-radius: 6px;
+        cursor: pointer;
+        margin-top: 15px;
+        transition: transform 0.1s, background 0.2s;
+    }
+    button:hover {
+        background: #ffae00;
+        transform: scale(1.05);
+    }
+</style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="ui-bar">
+        <div>Score: <span id="score">0</span></div>
+        <div>Target Archers</div>
+        <div>Shots: <span id="shots">10</span></div>
+    </div>
+    
+    <div id="wind-indicator">Wind: <span id="wind-val">0</span></div>
+
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <div id="definition-box">
+        <h3>Current Target Definition</h3>
+        <div id="definition-text">Loading...</div>
+    </div>
+
+    <div id="game-over-screen" class="hidden">
+        <h1 style="font-size: 42px; color: #ffd700; margin-bottom: 10px;">Game Over!</h1>
+        <p style="font-size: 20px; margin-bottom: 10px;">Your Final Score: <span id="final-score">0</span></p>
+        <button id="restart-btn">Play Again</button>
+    </div>
+</div>
+
+<script>
+const vocabulary = [
+    { word: "solo", def: "Done by one person alone; unaccompanied." },
+    { word: "flexibility", def: "The quality of bending easily without breaking, or willingness to change." },
+    { word: "compromise", def: "An agreement reached by each side making concessions." },
+    { word: "destination", def: "The place to which someone or something is going or being sent." },
+    { word: "split", def: "To break or cause to divide into parts or groups." },
+    { word: "arise", def: "To emerge, become apparent, or happen as a result of a situation." },
+    { word: "occasionally", def: "At intervals; from time to time; now and then." }
+];
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+let score = 0;
+let shotsLeft = 10;
+let currentWind = 0;
+let currentTargetIndex = 0;
+let isAiming = false;
+let aimStart = { x: 0, y: 0 };
+let aimCurrent = { x: 0, y: 0 };
+
+let arrow = null;
+let targets = [];
+
+const launcherPos = { x: 400, y: 500 };
+
+class Target {
+    constructor(wordIndex, y, speed, direction) {
+        this.wordIndex = wordIndex;
+        this.word = vocabulary[wordIndex].word;
+        this.y = y;
+        this.radius = 28;
+        this.speed = speed;
+        this.direction = direction;
+        this.x = direction === 1 ? -50 : canvas.width + 50;
+    }
+
+    update() {
+        this.x += this.speed * this.direction;
+    }
+
+    draw() {
+        // Target Board Outer
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = "#e74c3c";
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "#ffffff";
+        ctx.stroke();
+
+        // Inner Circle
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius * 0.5, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffd700";
+        ctx.fill();
+
+        // Target Post
+        ctx.fillStyle = "#5c4033";
+        ctx.fillRect(this.x - 3, this.y + this.radius, 6, 20);
+
+        // Word Display Box
+        ctx.fillStyle = "rgba(0,0,0,0.7)";
+        ctx.fillRect(this.x - 45, this.y - 48, 90, 22);
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(this.x - 45, this.y - 48, 90, 22);
+
+        // Word Text
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 13px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(this.word, this.x, this.y - 33);
+    }
+
+    isOutOfBounds() {
+        return (this.direction === 1 && this.x > canvas.width + 60) ||
+               (this.direction === -1 && this.x < -60);
+    }
+}
+
+class Arrow {
+    constructor(x, y, vx, vy) {
+        this.x = x;
+        this.y = y;
+        this.vx = vx;
+        this.vy = vy;
+        this.length = 30;
+        this.active = true;
+    }
+
+    update() {
+        if (!this.active) return;
+        this.vx += currentWind * 0.05; // Wind Effect
+        this.vy += 0.25; // Gravity
+        this.x += this.vx;
+        this.y += this.vy;
+
+        if (this.x < 0 || this.x > canvas.width || this.y > canvas.height || this.y < -100) {
+            this.active = false;
+        }
+    }
+
+    draw() {
+        if (!this.active) return;
+        let angle = Math.atan2(this.vy, this.vx);
+        
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(angle);
+
+        // Shaft
+        ctx.strokeStyle = "#8b4513";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(-this.length, 0);
+        ctx.lineTo(0, 0);
+        ctx.stroke();
+
+        // Tip
+        ctx.fillStyle = "#aaa";
+        ctx.beginPath();
+        ctx.moveTo(0, -4);
+        ctx.lineTo(8, 0);
+        ctx.lineTo(0, 4);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.restore();
+    }
+}
+
+function setRandomWind() {
+    currentWind = (Math.random() * 6 - 3).toFixed(1);
+    let dir = currentWind > 0 ? "➔ East" : currentWind < 0 ? "⬅ West" : "Calm";
+    document.getElementById('wind-val').innerText = `${Math.abs(currentWind)} ${dir}`;
+}
+
+function nextQuestion() {
+    currentTargetIndex = Math.floor(Math.random() * vocabulary.length);
+    document.getElementById('definition-text').innerText = vocabulary[currentTargetIndex].def;
+    setRandomWind();
+}
+
+function spawnTarget() {
+    const distances = [120, 200, 280]; // Varying Y distances
+    const y = distances[Math.floor(Math.random() * distances.length)];
+    const speed = 1.5 + Math.random() * 2;
+    const direction = Math.random() < 0.5 ? 1 : -1;
+    
+    // Choose word index (ensure correct word spawns regularly)
+    let wordIndex = Math.floor(Math.random() * vocabulary.length);
+    if (Math.random() < 0.4) {
+        wordIndex = currentTargetIndex;
+    }
+
+    targets.push(new Target(wordIndex, y, speed, direction));
+}
+
+function checkCollisions() {
+    if (!arrow || !arrow.active) return;
+
+    for (let i = targets.length - 1; i >= 0; i--) {
+        let t = targets[i];
+        let dx = arrow.x - t.x;
+        let dy = arrow.y - t.y;
+        let distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < t.radius) {
+            arrow.active = false;
+            if (t.wordIndex === currentTargetIndex) {
+                score += 100;
+                document.getElementById('score').innerText = score;
+                nextQuestion();
+            } else {
+                score = Math.max(0, score - 30);
+                document.getElementById('score').innerText = score;
+            }
+            targets.splice(i, 1);
+            break;
+        }
+    }
+}
+
+function drawLauncher() {
+    // Base Launcher
+    ctx.fillStyle = "#333";
+    ctx.beginPath();
+    ctx.arc(launcherPos.x, launcherPos.y, 25, Math.PI, 0);
+    ctx.fill();
+
+    // Aiming Arc Line
+    if (isAiming) {
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(launcherPos.x, launcherPos.y);
+        
+        let dx = aimStart.x - aimCurrent.x;
+        let dy = aimStart.y - aimCurrent.y;
+        ctx.lineTo(launcherPos.x + dx, launcherPos.y + dy);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+}
+
+function gameLoop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Spawn management
+    if (Math.random() < 0.02 && targets.length < 5) {
+        spawnTarget();
+    }
+
+    // Update & Draw Targets
+    for (let i = targets.length - 1; i >= 0; i--) {
+        targets[i].update();
+        targets[i].draw();
+        if (targets[i].isOutOfBounds()) {
+            targets.splice(i, 1);
+        }
+    }
+
+    // Update & Draw Arrow
+    if (arrow) {
+        arrow.update();
+        arrow.draw();
+        checkCollisions();
+    }
+
+    drawLauncher();
+
+    requestAnimationFrame(gameLoop);
+}
+
+// Controls
+canvas.addEventListener('mousedown', (e) => {
+    if (arrow && arrow.active) return; // Wait until current arrow disappears
+    if (shotsLeft <= 0) return;
+
+    const rect = canvas.getBoundingClientRect();
+    isAiming = true;
+    aimStart = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    aimCurrent = { ...aimStart };
+});
+
+canvas.addEventListener('mousemove', (e) => {
+    if (!isAiming) return;
+    const rect = canvas.getBoundingClientRect();
+    aimCurrent = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+});
+
+canvas.addEventListener('mouseup', () => {
+    if (!isAiming) return;
+    isAiming = false;
+
+    let vx = (aimStart.x - aimCurrent.x) * 0.12;
+    let vy = (aimStart.y - aimCurrent.y) * 0.12;
+
+    if (Math.abs(vx) > 0.5 || Math.abs(vy) > 0.5) {
+        arrow = new Arrow(launcherPos.x, launcherPos.y, vx, vy);
+        shotsLeft--;
+        document.getElementById('shots').innerText = shotsLeft;
+
+        if (shotsLeft === 0) {
+            setTimeout(endGame, 2000);
+        }
+    }
+});
+
+function endGame() {
+    document.getElementById('final-score').innerText = score;
+    document.getElementById('game-over-screen').classList.remove('hidden');
+}
+
+function resetGame() {
+    score = 0;
+    shotsLeft = 10;
+    targets = [];
+    arrow = null;
+    document.getElementById('score').innerText = score;
+    document.getElementById('shots').innerText = shotsLeft;
+    document.getElementById('game-over-screen').classList.add('hidden');
+    nextQuestion();
+}
+
+document.getElementById('restart-btn').addEventListener('click', resetGame);
+
+// Start
+nextQuestion();
+gameLoop();
+</script>
+</body>
+</html>
