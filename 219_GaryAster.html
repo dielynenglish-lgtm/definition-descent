@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Endless Runner: Definition Gates</title>
+    <title>Definition Runner - Balanced Speed</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
@@ -22,9 +22,6 @@
         .neon-glow {
             text-shadow: 0 0 10px rgba(59, 130, 246, 0.8), 0 0 20px rgba(147, 51, 234, 0.6);
         }
-        .neon-border {
-            box-shadow: 0 0 15px rgba(59, 130, 246, 0.5), inset 0 0 15px rgba(147, 51, 234, 0.3);
-        }
         canvas {
             display: block;
             width: 100%;
@@ -36,41 +33,47 @@
 
     <!-- Fixed Definition Overlay Header -->
     <header class="w-full max-w-4xl px-4 pt-3 pb-1 z-20 top-0 absolute">
-        <div id="def-banner" class="bg-slate-900/90 backdrop-blur-md border-2 border-indigo-500/60 rounded-2xl p-3 shadow-2xl transition-all duration-300">
-            <div class="flex items-center justify-between gap-2 mb-1">
-                <span class="text-xs font-bold tracking-widest text-indigo-400 uppercase font-arcade flex items-center gap-1">
-                    <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+        <div id="def-banner" class="bg-slate-900/90 backdrop-blur-md border-2 border-indigo-500/60 rounded-2xl p-4 shadow-2xl transition-all duration-300">
+            <div class="flex items-center justify-between gap-2 mb-2">
+                <span class="text-sm font-bold tracking-widest text-indigo-400 uppercase font-arcade flex items-center gap-1">
+                    <svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
                     TARGET DEFINITION
                 </span>
-                <span id="gate-timer" class="text-xs text-amber-400 font-arcade font-bold px-2 py-0.5 bg-amber-950/60 border border-amber-500/40 rounded-full">
-                    Gate Approaching: 10s
-                </span>
+                <div class="flex gap-2">
+                    <span id="session-timer" class="text-xs text-cyan-300 font-arcade font-bold px-2.5 py-1 bg-cyan-950/80 border border-cyan-500/40 rounded-full">
+                        Time Left: 60:00
+                    </span>
+                    <span id="gate-timer" class="text-xs text-amber-400 font-arcade font-bold px-2.5 py-1 bg-amber-950/60 border border-amber-500/40 rounded-full">
+                        Gate Approaching: 12s
+                    </span>
+                </div>
             </div>
-            <p id="target-definition" class="text-base sm:text-lg md:text-xl font-semibold text-center text-amber-200 leading-snug">
+            <!-- ENLARGED DEFINITION TEXT -->
+            <p id="target-definition" class="text-xl sm:text-2xl md:text-3xl font-bold text-center text-amber-200 leading-snug">
                 "Loading game target..."
             </p>
         </div>
     </header>
 
     <!-- HUD Stats Bar -->
-    <div class="w-full max-w-4xl px-4 z-20 absolute top-[105px] flex justify-between items-center pointer-events-none">
-        <!-- Shield Health Bar -->
+    <div class="w-full max-w-4xl px-4 z-20 absolute top-[130px] flex justify-between items-center pointer-events-none">
         <div class="bg-slate-900/80 backdrop-blur-sm border border-slate-700/80 px-3 py-1.5 rounded-xl flex items-center gap-2">
             <span class="text-xs font-bold text-slate-400 uppercase tracking-wider font-arcade">Shields:</span>
-            <div id="shield-container" class="flex gap-1.5">
-                <!-- Hearts filled dynamically -->
-            </div>
+            <div id="shield-container" class="flex gap-1.5"></div>
         </div>
 
-        <!-- Distance / Score & Speed -->
         <div class="flex gap-3">
+            <div class="bg-slate-900/80 backdrop-blur-sm border border-amber-500/50 px-3 py-1 rounded-xl text-center bg-amber-950/30">
+                <div class="text-[10px] text-amber-400 uppercase font-arcade font-bold">Score Points</div>
+                <div id="score-meter" class="text-lg font-extrabold font-arcade text-amber-300">0</div>
+            </div>
             <div class="bg-slate-900/80 backdrop-blur-sm border border-slate-700/80 px-3 py-1 rounded-xl text-center">
                 <div class="text-[10px] text-slate-400 uppercase font-arcade">Distance</div>
                 <div id="distance-meter" class="text-lg font-bold font-arcade text-cyan-400">0 m</div>
             </div>
             <div class="bg-slate-900/80 backdrop-blur-sm border border-slate-700/80 px-3 py-1 rounded-xl text-center">
                 <div class="text-[10px] text-slate-400 uppercase font-arcade">Speed</div>
-                <div id="speed-meter" class="text-lg font-bold font-arcade text-emerald-400">1.0x</div>
+                <div id="speed-meter" class="text-lg font-bold font-arcade text-emerald-400">0.6x</div>
             </div>
         </div>
     </div>
@@ -80,7 +83,7 @@
         <canvas id="gameCanvas" class="w-full h-full bg-slate-950"></canvas>
     </main>
 
-    <!-- Touch Controls Footer (Visible on Touch/Mobile or for easy click) -->
+    <!-- Touch Controls Footer -->
     <footer class="w-full max-w-md px-4 pb-4 z-20 absolute bottom-0 flex justify-between items-center gap-2 pointer-events-auto">
         <button id="btn-left" class="flex-1 bg-slate-800/90 hover:bg-slate-700 active:bg-cyan-600 border-2 border-cyan-500/50 text-white font-bold py-3.5 rounded-2xl shadow-lg active:scale-95 transition flex justify-center items-center gap-1">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M15 19l-7-7 7-7"></path></svg>
@@ -96,7 +99,7 @@
         </button>
     </footer>
 
-    <!-- Start / Pause / Game Over Modals -->
+    <!-- Modals -->
     <div id="modal-overlay" class="fixed inset-0 bg-slate-950/90 backdrop-blur-lg z-50 flex items-center justify-center p-4">
         
         <!-- Start Screen Card -->
@@ -108,16 +111,8 @@
                 DEFINITION GATES
             </h1>
             <p class="text-slate-300 text-sm leading-relaxed">
-                Run forward, jump over ground obstacles, and shift lanes to pass through the gate showing the <strong class="text-amber-300">correct vocabulary word</strong> matching the top definition!
+                Run forward at a steady 0.6x speed, jump over obstacles, and pass through the gate that matches the target definition!
             </p>
-
-            <div class="bg-slate-950/80 p-4 rounded-2xl border border-slate-800 text-left text-xs text-slate-300 space-y-2">
-                <div class="font-bold text-cyan-400 uppercase tracking-wider mb-1 font-arcade">Game Controls:</div>
-                <div class="flex justify-between"><span>Lane Shift Left/Right:</span> <span class="font-mono text-cyan-300">← / → or A / D</span></div>
-                <div class="flex justify-between"><span>Jump over obstacles:</span> <span class="font-mono text-cyan-300">↑ Arrow or Space</span></div>
-                <div class="flex justify-between"><span>Correct Gate:</span> <span class="text-emerald-400">Speed Boost & +500 PTS</span></div>
-                <div class="flex justify-between"><span>Wrong Gate / Crash:</span> <span class="text-rose-400">-1 Shield & Slow Down</span></div>
-            </div>
 
             <button id="btn-start" class="w-full bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-arcade font-bold text-lg py-4 rounded-2xl shadow-xl hover:shadow-cyan-500/25 transition active:scale-95">
                 START RUNNING!
@@ -125,50 +120,46 @@
         </div>
 
         <!-- Game Over Card -->
-        <div id="gameover-card" class="max-w-md w-full bg-slate-900 border-2 border-rose-500/60 rounded-3xl p-6 shadow-2xl text-center space-y-5 hidden">
-            <div class="inline-block p-3 bg-rose-950/80 border border-rose-500/40 rounded-2xl">
-                <svg class="w-12 h-12 text-rose-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+        <div id="gameover-card" class="max-w-md w-full bg-slate-900 border-2 border-amber-500/60 rounded-3xl p-6 shadow-2xl text-center space-y-5 hidden">
+            <div class="inline-block p-3 bg-amber-950/80 border border-amber-500/40 rounded-2xl">
+                <svg class="w-12 h-12 text-amber-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path></svg>
             </div>
-            <h2 class="text-3xl font-extrabold font-arcade text-rose-400">GAME OVER</h2>
+            <h2 id="gameover-title" class="text-3xl font-extrabold font-arcade text-amber-400">GAME OVER</h2>
             
-            <div class="grid grid-cols-2 gap-3 py-1">
-                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
-                    <div class="text-xs text-slate-400 font-arcade">DISTANCE</div>
-                    <div id="final-distance" class="text-xl font-bold font-arcade text-cyan-400">0 m</div>
+            <div class="grid grid-cols-3 gap-2 py-1">
+                <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                    <div class="text-[10px] text-slate-400 font-arcade">TOTAL SCORE</div>
+                    <div id="final-score" class="text-lg font-bold font-arcade text-amber-400">0</div>
                 </div>
-                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
-                    <div class="text-xs text-slate-400 font-arcade">GATES PASSED</div>
-                    <div id="final-gates" class="text-xl font-bold font-arcade text-emerald-400">0</div>
+                <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                    <div class="text-[10px] text-slate-400 font-arcade">GATES</div>
+                    <div id="final-gates" class="text-lg font-bold font-arcade text-emerald-400">0</div>
                 </div>
-            </div>
-
-            <!-- Vocabulary Review List -->
-            <div class="bg-slate-950/80 p-3 rounded-2xl border border-slate-800 text-left max-h-36 overflow-y-auto space-y-2 text-xs">
-                <div class="font-bold text-amber-400 uppercase tracking-wider font-arcade sticky top-0 bg-slate-950 pb-1">Vocabulary Review:</div>
-                <div id="vocab-review-list" class="space-y-1.5 text-slate-300">
-                    <!-- Dynamic review items inserted here -->
+                <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                    <div class="text-[10px] text-slate-400 font-arcade">DISTANCE</div>
+                    <div id="final-distance" class="text-lg font-bold font-arcade text-cyan-400">0 m</div>
                 </div>
             </div>
 
             <button id="btn-restart" class="w-full bg-gradient-to-r from-emerald-500 to-cyan-600 hover:from-emerald-400 hover:to-cyan-500 text-white font-arcade font-bold text-lg py-4 rounded-2xl shadow-xl transition active:scale-95">
-                TRY AGAIN
+                PLAY AGAIN
             </button>
         </div>
     </div>
 
     <script>
-        // Vocabulary Word Bank (Includes student provided words + grade-level enhancements)
+        // 10 SIMPLIFIED VOCABULARY WORDS & DEFINITIONS
         const WORD_BANK = [
-            { word: "encounter", def: "To unexpectedly meet or face someone or something." },
-            { word: "feast", def: "A large, elaborate meal celebrating a special occasion." },
-            { word: "merge", def: "To combine or join together to form a single unit." },
-            { word: "distinct", def: "Recognizably different or clearly separate in nature." },
-            { word: "endure", def: "To suffer patiently or last through difficult times." },
-            { word: "reminder", def: "A thing or message that causes someone to remember." },
-            { word: "inspect", def: "To look at something closely in order to assess its state." },
-            { word: "solitary", def: "Done or existing alone without companions." },
-            { word: "vigor", def: "Physical strength, effort, energy, and enthusiasm." },
-            { word: "harbor", def: "To give shelter or safety to; or a place for ships." }
+            { word: "encounter", def: "To meet someone or something unexpectedly." },
+            { word: "feast", def: "A big, special meal with lots of food." },
+            { word: "merge", def: "To join two or more things together." },
+            { word: "distinct", def: "Easy to see or tell apart; different." },
+            { word: "endure", def: "To keep going through something tough." },
+            { word: "reminder", def: "Something that helps you remember." },
+            { word: "inspect", def: "To look at something very closely." },
+            { word: "solitary", def: "Being completely alone." },
+            { word: "vigor", def: "Lots of health, energy, and strength." },
+            { word: "harbor", def: "A safe place for ships to park." }
         ];
 
         class SoundEffects {
@@ -231,46 +222,41 @@
         }
 
         const audio = new SoundEffects();
-
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
-        // Game State Variables
+        // Game State Variables - SET TO BALANCED ~0.6x SPEED
         let isPlaying = false;
+        let score = 0;
+        let streak = 0;
         let distance = 0;
-        let speed = 1.0;
-        let baseSpeed = 4;
+        let speed = 0.6;          // Set to requested ~0.6 speed
+        let baseSpeed = 1.6;      // Smooth baseline speed
         let shield = 3;
         let gatesPassed = 0;
-        let lastTime = 0;
-        let gateCountdown = 10; // seconds until next gate
-        let gateIntervalTimer = 0;
+        let gateCountdown = 12;
+        let sessionTimeSeconds = 3600; // 60 minutes limit
+        let sessionTimerInterval = null;
 
-        // Lane setup (3 Lanes: 0=Left, 1=Center, 2=Right)
-        const LANES = [0, 1, 2];
-        let currentLane = 1; // Start in center
+        let currentLane = 1;
         let targetLane = 1;
 
-        // Player Character Object
         const player = {
             lane: 1,
-            x: 0,
-            y: 0,
-            z: 0,
-            width: 40,
-            height: 60,
-            jumping: false,
             jumpY: 0,
             jumpVelocity: 0,
-            gravity: 0.8,
-            invulnerableTimer: 0
+            gravity: 0.55,
+            jumping: false,
+            invulnerableTimer: 0,
+            width: 44,
+            height: 64
         };
 
-        // Current Active Target Word and Gate configuration
         let currentWordTarget = null;
-        let activeGates = null; // { z: distance, gateA: { word, lane }, gateB: { word, lane } }
+        let activeGates = null;
         let obstacles = [];
         let particles = [];
+        let floatingTexts = [];
 
         function resizeCanvas() {
             canvas.width = window.innerWidth;
@@ -280,27 +266,23 @@
         resizeCanvas();
 
         function pickNextTarget() {
-            // Choose a random word from the bank
             const randomIndex = Math.floor(Math.random() * WORD_BANK.length);
             currentWordTarget = WORD_BANK[randomIndex];
 
-            // Select a distractor word
             let distractorIndex;
             do {
                 distractorIndex = Math.floor(Math.random() * WORD_BANK.length);
             } while (distractorIndex === randomIndex);
             const distractorWord = WORD_BANK[distractorIndex].word;
 
-            // Pick two distinct lanes out of 3 (e.g., 0 and 2, or 0 and 1)
             const availableLanes = [0, 1, 2];
             const laneAIndex = Math.floor(Math.random() * availableLanes.length);
             const correctLane = availableLanes.splice(laneAIndex, 1)[0];
             const laneBIndex = Math.floor(Math.random() * availableLanes.length);
             const wrongLane = availableLanes.splice(laneBIndex, 1)[0];
 
-            // Create gates structure ahead of player
             activeGates = {
-                z: 1200, // Distance ahead
+                z: 1500,
                 passed: false,
                 targetWord: currentWordTarget.word,
                 correctLane: correctLane,
@@ -308,9 +290,7 @@
                 gateB: { word: distractorWord, lane: wrongLane, isCorrect: false }
             };
 
-            // Update top definition UI banner
             document.getElementById('target-definition').innerText = `"${currentWordTarget.def}"`;
-            gateCountdown = 10;
         }
 
         function updateShieldUI() {
@@ -324,30 +304,61 @@
             }
         }
 
+        function updateSessionTimerUI() {
+            const mins = Math.floor(sessionTimeSeconds / 60);
+            const secs = sessionTimeSeconds % 60;
+            const formatted = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            document.getElementById('session-timer').innerText = `Time Left: ${formatted}`;
+        }
+
+        function startSessionTimer() {
+            clearInterval(sessionTimerInterval);
+            sessionTimerInterval = setInterval(() => {
+                if (isPlaying) {
+                    sessionTimeSeconds--;
+                    updateSessionTimerUI();
+                    if (sessionTimeSeconds <= 0) {
+                        gameOver("TIME EXPIRED!");
+                    }
+                }
+            }, 1000);
+        }
+
+        function addScorePoints(points) {
+            score += points;
+            document.getElementById('score-meter').innerText = score;
+        }
+
+        function spawnFloatingText(text, x, y, color = '#fbbf24') {
+            floatingTexts.push({
+                text: text,
+                x: x,
+                y: y,
+                color: color,
+                alpha: 1.0,
+                life: 50
+            });
+        }
+
         function moveLeft() {
             if (!isPlaying) return;
-            if (targetLane > 0) {
-                targetLane--;
-            }
+            if (targetLane > 0) targetLane--;
         }
 
         function moveRight() {
             if (!isPlaying) return;
-            if (targetLane < 2) {
-                targetLane++;
-            }
+            if (targetLane < 2) targetLane++;
         }
 
         function jump() {
             if (!isPlaying) return;
             if (!player.jumping) {
                 player.jumping = true;
-                player.jumpVelocity = 14;
+                player.jumpVelocity = 11.5;
                 audio.playJump();
             }
         }
 
-        // Keyboard inputs
         window.addEventListener('keydown', (e) => {
             if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') moveLeft();
             if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') moveRight();
@@ -357,19 +368,16 @@
             }
         });
 
-        // Touch button bindings
         document.getElementById('btn-left').addEventListener('click', moveLeft);
         document.getElementById('btn-right').addEventListener('click', moveRight);
         document.getElementById('btn-jump').addEventListener('click', jump);
 
         function spawnObstacle() {
-            // Spawn obstacles if no gate is currently near
-            if (activeGates && activeGates.z < 800 && activeGates.z > -100) return;
-            
+            if (activeGates && activeGates.z < 900 && activeGates.z > -100) return;
             const lane = Math.floor(Math.random() * 3);
             obstacles.push({
                 lane: lane,
-                z: 1000 + Math.random() * 200,
+                z: 1300 + Math.random() * 200,
                 width: 50,
                 height: 35
             });
@@ -380,8 +388,8 @@
                 particles.push({
                     x: x,
                     y: y,
-                    vx: (Math.random() - 0.5) * 8,
-                    vy: (Math.random() - 0.5) * 8 - 2,
+                    vx: (Math.random() - 0.5) * 6,
+                    vy: (Math.random() - 0.5) * 6 - 2,
                     radius: Math.random() * 4 + 2,
                     color: color,
                     alpha: 1,
@@ -393,18 +401,14 @@
         function update(deltaTime) {
             if (!isPlaying) return;
 
-            // Progressive speed system
             const effectiveSpeed = baseSpeed * speed;
-            distance += Math.round(effectiveSpeed * 0.2);
+            distance += Math.round(effectiveSpeed * 0.12);
 
-            // Update UI meters
             document.getElementById('distance-meter').innerText = `${distance} m`;
             document.getElementById('speed-meter').innerText = `${speed.toFixed(1)}x`;
 
-            // Smooth lane shifting
-            player.lane += (targetLane - player.lane) * 0.25;
+            player.lane += (targetLane - player.lane) * 0.18;
 
-            // Player Jumping Physics
             if (player.jumping) {
                 player.jumpY += player.jumpVelocity;
                 player.jumpVelocity -= player.gravity;
@@ -414,86 +418,79 @@
                 }
             }
 
-            // Invulnerability timer countdown
             if (player.invulnerableTimer > 0) {
                 player.invulnerableTimer -= deltaTime;
             }
 
-            // Update Gate Distance & Timers
             if (activeGates) {
-                activeGates.z -= effectiveSpeed * 3;
-                gateCountdown = Math.max(0, (activeGates.z / 120).toFixed(1));
+                activeGates.z -= effectiveSpeed * 1.8;
+                gateCountdown = Math.max(0, (activeGates.z / 90).toFixed(0));
                 document.getElementById('gate-timer').innerText = `Gate Approaching: ${gateCountdown}s`;
 
-                // Gate passage evaluation
                 if (!activeGates.passed && activeGates.z <= 60) {
                     activeGates.passed = true;
-                    
                     const roundedPlayerLane = Math.round(player.lane);
                     if (roundedPlayerLane === activeGates.correctLane) {
-                        // Passed CORRECT Gate!
                         audio.playSuccess();
                         gatesPassed++;
-                        speed = Math.min(2.5, speed + 0.2); // Speed boost
+                        streak++;
+                        
+                        const earnedPoints = 100 * Math.min(3, streak);
+                        addScorePoints(earnedPoints);
+                        spawnFloatingText(`+${earnedPoints} PTS!`, canvas.width / 2, canvas.height / 2 - 40, '#34d399');
+
                         addParticles(canvas.width / 2, canvas.height / 2, '#34d399', 30);
                     } else {
-                        // Hit WRONG Gate!
                         audio.playCrash();
                         shield--;
-                        speed = Math.max(0.8, speed - 0.3); // Slow down
+                        streak = 0;
                         updateShieldUI();
+                        spawnFloatingText(`WRONG GATE!`, canvas.width / 2, canvas.height / 2 - 40, '#f43f5e');
                         addParticles(canvas.width / 2, canvas.height / 2, '#f43f5e', 30);
                         if (shield <= 0) {
-                            gameOver();
+                            gameOver("OUT OF SHIELDS!");
                             return;
                         }
                     }
                 }
 
-                // Reset for next gate after passing
                 if (activeGates.z < -100) {
                     pickNextTarget();
                 }
             }
 
-            // Periodically spawn ground obstacles
-            if (Math.random() < 0.02) {
+            if (Math.random() < 0.005) {
                 spawnObstacle();
             }
 
-            // Update Obstacles
             for (let i = obstacles.length - 1; i >= 0; i--) {
                 const obs = obstacles[i];
-                obs.z -= effectiveSpeed * 3;
+                obs.z -= effectiveSpeed * 1.8;
 
-                // Collision Check with Obstacles
                 if (obs.z > 20 && obs.z < 80) {
                     const laneDiff = Math.abs(player.lane - obs.lane);
                     if (laneDiff < 0.4 && player.jumpY < 25 && player.invulnerableTimer <= 0) {
-                        // Collided with ground obstacle!
                         audio.playCrash();
                         shield--;
-                        speed = Math.max(0.8, speed - 0.2);
-                        player.invulnerableTimer = 1.0; // 1 sec immunity
+                        streak = 0;
+                        player.invulnerableTimer = 1.0;
                         updateShieldUI();
+                        spawnFloatingText(`OUCH!`, canvas.width / 2, canvas.height / 2 - 40, '#fbbf24');
                         addParticles(canvas.width / 2, canvas.height / 2, '#fbbf24', 20);
-                        
                         obstacles.splice(i, 1);
                         if (shield <= 0) {
-                            gameOver();
+                            gameOver("OUT OF SHIELDS!");
                             return;
                         }
                         continue;
                     }
                 }
 
-                // Remove off-screen obstacles
                 if (obs.z < -100) {
                     obstacles.splice(i, 1);
                 }
             }
 
-            // Update Particles
             for (let i = particles.length - 1; i >= 0; i--) {
                 const p = particles[i];
                 p.x += p.vx;
@@ -504,6 +501,16 @@
                     particles.splice(i, 1);
                 }
             }
+
+            for (let i = floatingTexts.length - 1; i >= 0; i--) {
+                const ft = floatingTexts[i];
+                ft.y -= 1;
+                ft.alpha -= 0.02;
+                ft.life--;
+                if (ft.life <= 0 || ft.alpha <= 0) {
+                    floatingTexts.splice(i, 1);
+                }
+            }
         }
 
         function draw() {
@@ -512,10 +519,10 @@
             const centerX = canvas.width / 2;
             const horizonY = canvas.height * 0.35;
             const trackBottomY = canvas.height - 60;
-            const trackWidthTop = 80;
-            const trackWidthBottom = canvas.width * 0.85;
+            const trackWidthTop = 100;
+            const trackWidthBottom = canvas.width * 0.88;
 
-            // 1. Draw Synthwave Horizon & Grid Background
+            // Background
             const bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
             bgGrad.addColorStop(0, '#090d16');
             bgGrad.addColorStop(0.35, '#1e1b4b');
@@ -523,16 +530,15 @@
             ctx.fillStyle = bgGrad;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Sun / Horizon Glow
-            const sunGrad = ctx.createRadialGradient(centerX, horizonY, 5, centerX, horizonY, 180);
+            const sunGrad = ctx.createRadialGradient(centerX, horizonY, 5, centerX, horizonY, 200);
             sunGrad.addColorStop(0, 'rgba(147, 51, 234, 0.5)');
             sunGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
             ctx.fillStyle = sunGrad;
             ctx.beginPath();
-            ctx.arc(centerX, horizonY, 180, 0, Math.PI * 2);
+            ctx.arc(centerX, horizonY, 200, 0, Math.PI * 2);
             ctx.fill();
 
-            // 2. Perspective Track
+            // Track
             ctx.fillStyle = '#0f172a';
             ctx.beginPath();
             ctx.moveTo(centerX - trackWidthTop / 2, horizonY);
@@ -542,22 +548,18 @@
             ctx.closePath();
             ctx.fill();
 
-            // Track Borders
             ctx.strokeStyle = '#38bdf8';
-            ctx.lineWidth = 3;
+            ctx.lineWidth = 4;
             ctx.stroke();
 
-            // Lane Divider Lines
             const getX = (laneVal, zRatio) => {
                 const currentWidth = trackWidthTop + (trackWidthBottom - trackWidthTop) * zRatio;
-                // laneVal is 0, 1, 2 -> mapped to -1, 0, 1
                 const laneOffset = (laneVal - 1) * (currentWidth / 3);
                 return centerX + laneOffset;
             };
 
             const getY = (zRatio) => horizonY + (trackBottomY - horizonY) * zRatio;
 
-            // Draw Lane Markers
             ctx.strokeStyle = 'rgba(99, 102, 241, 0.4)';
             ctx.lineWidth = 2;
             [-0.5, 0.5].forEach(divider => {
@@ -567,51 +569,33 @@
                 ctx.stroke();
             });
 
-            // Animated Speed Lines on Track
-            const lineOffset = (distance * 0.15) % 1;
-            for (let i = 0; i < 10; i++) {
-                let zRatio = (i / 10 + lineOffset) % 1;
-                // Apply logarithmic scale for 3D depth perspective
-                zRatio = Math.pow(zRatio, 2);
-                const y = getY(zRatio);
-                const w = trackWidthTop + (trackWidthBottom - trackWidthTop) * zRatio;
-                ctx.strokeStyle = `rgba(147, 51, 234, ${zRatio * 0.6})`;
-                ctx.beginPath();
-                ctx.moveTo(centerX - w / 2, y);
-                ctx.lineTo(centerX + w / 2, y);
-                ctx.stroke();
-            }
-
+            // Draw Gates
             if (activeGates && activeGates.z > 0) {
-                // Map z distance (1200 -> 0) to 0 -> 1 perspective ratio
-                const zRatio = Math.max(0, Math.min(1, Math.pow(1 - activeGates.z / 1200, 2)));
+                const zRatio = Math.max(0, Math.min(1, Math.pow(1 - activeGates.z / 1500, 2)));
                 const gateY = getY(zRatio);
 
                 [activeGates.gateA, activeGates.gateB].forEach(gate => {
                     const gateX = getX(gate.lane, zRatio);
-                    const scale = 0.3 + zRatio * 0.9;
-                    const archWidth = 90 * scale;
-                    const archHeight = 110 * scale;
+                    const scale = 0.35 + zRatio * 1.1;
+                    const archWidth = 120 * scale;
+                    const archHeight = 140 * scale;
 
-                    // Draw Arch Structure
                     ctx.save();
                     ctx.translate(gateX, gateY - archHeight / 2);
 
-                    // Arch Glow / Color
                     const isTarget = gate.isCorrect;
                     ctx.strokeStyle = isTarget ? '#34d399' : '#f43f5e';
-                    ctx.fillStyle = isTarget ? 'rgba(52, 211, 153, 0.15)' : 'rgba(244, 63, 94, 0.15)';
-                    ctx.lineWidth = 4 * scale;
+                    ctx.fillStyle = isTarget ? 'rgba(52, 211, 153, 0.25)' : 'rgba(244, 63, 94, 0.25)';
+                    ctx.lineWidth = 6 * scale;
 
-                    // Arch Pillar + Top
                     ctx.beginPath();
-                    ctx.roundRect(-archWidth / 2, -archHeight / 2, archWidth, archHeight, 10 * scale);
+                    ctx.roundRect(-archWidth / 2, -archHeight / 2, archWidth, archHeight, 12 * scale);
                     ctx.fill();
                     ctx.stroke();
 
-                    // Word Text Label on Arch
+                    // Text
                     ctx.fillStyle = '#ffffff';
-                    ctx.font = `bold ${Math.max(10, Math.round(14 * scale))}px Orbitron, sans-serif`;
+                    ctx.font = `bold ${Math.max(14, Math.round(20 * scale))}px Orbitron, sans-serif`;
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
                     ctx.fillText(gate.word.toUpperCase(), 0, -5 * scale);
@@ -620,8 +604,9 @@
                 });
             }
 
+            // Obstacles
             obstacles.forEach(obs => {
-                const zRatio = Math.max(0, Math.min(1, Math.pow(1 - obs.z / 1200, 2)));
+                const zRatio = Math.max(0, Math.min(1, Math.pow(1 - obs.z / 1500, 2)));
                 const obsX = getX(obs.lane, zRatio);
                 const obsY = getY(zRatio);
                 const scale = 0.3 + zRatio * 0.8;
@@ -630,8 +615,6 @@
 
                 ctx.save();
                 ctx.translate(obsX, obsY - height / 2);
-                
-                // Red/Orange glowing rock hurdle
                 ctx.fillStyle = '#f97316';
                 ctx.strokeStyle = '#fef08a';
                 ctx.lineWidth = 2 * scale;
@@ -648,7 +631,8 @@
                 ctx.restore();
             });
 
-            const playerZRatio = 0.92; // Player fixed near bottom
+            // Player
+            const playerZRatio = 0.92;
             const playerX = getX(player.lane, playerZRatio);
             const playerBaseY = getY(playerZRatio);
             const playerY = playerBaseY - player.jumpY;
@@ -656,19 +640,15 @@
             ctx.save();
             ctx.translate(playerX, playerY - player.height / 2);
 
-            // Flashing effect if invulnerable
             if (player.invulnerableTimer > 0 && Math.floor(Date.now() / 100) % 2 === 0) {
                 ctx.globalAlpha = 0.4;
             }
 
-            // Cyber Runner Character Body
-            // Shadow underneath player
             ctx.fillStyle = 'rgba(0,0,0,0.4)';
             ctx.beginPath();
-            ctx.ellipse(0, player.height / 2 + player.jumpY, 20, 8, 0, 0, Math.PI * 2);
+            ctx.ellipse(0, player.height / 2 + player.jumpY, 22, 8, 0, 0, Math.PI * 2);
             ctx.fill();
 
-            // Main Cyber Body
             const runnerGrad = ctx.createLinearGradient(0, -player.height/2, 0, player.height/2);
             runnerGrad.addColorStop(0, '#06b6d4');
             runnerGrad.addColorStop(1, '#3b82f6');
@@ -677,21 +657,12 @@
             ctx.roundRect(-player.width / 2, -player.height / 2, player.width, player.height, 8);
             ctx.fill();
 
-            // Head / Visor Glow
             ctx.fillStyle = '#f0abfc';
             ctx.fillRect(-12, -player.height / 2 + 8, 24, 10);
 
-            // Jetpack/Energy trail when running fast
-            if (speed > 1.2) {
-                ctx.fillStyle = '#38bdf8';
-                ctx.beginPath();
-                ctx.arc(-8, player.height / 2 + 4, 4 + Math.random() * 3, 0, Math.PI * 2);
-                ctx.arc(8, player.height / 2 + 4, 4 + Math.random() * 3, 0, Math.PI * 2);
-                ctx.fill();
-            }
-
             ctx.restore();
 
+            // Particles
             particles.forEach(p => {
                 ctx.save();
                 ctx.globalAlpha = p.alpha;
@@ -701,71 +672,73 @@
                 ctx.fill();
                 ctx.restore();
             });
+
+            // Floating Text
+            floatingTexts.forEach(ft => {
+                ctx.save();
+                ctx.globalAlpha = ft.alpha;
+                ctx.fillStyle = ft.color;
+                ctx.font = 'bold 24px Orbitron, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(ft.text, ft.x, ft.y);
+                ctx.restore();
+            });
         }
 
+        let lastTime = 0;
         function gameLoop(timestamp) {
-            if (!lastTime) lastTime = timestamp;
-            const deltaTime = (timestamp - lastTime) / 1000;
+            const deltaTime = (timestamp - lastTime) / 1000 || 0;
             lastTime = timestamp;
 
             update(deltaTime);
             draw();
 
-            if (isPlaying) {
-                requestAnimationFrame(gameLoop);
-            }
+            requestAnimationFrame(gameLoop);
         }
 
         function startGame() {
             audio.init();
             isPlaying = true;
+            score = 0;
+            streak = 0;
             distance = 0;
-            speed = 1.0;
+            speed = 0.6; // BALANCED SPEED
             shield = 3;
             gatesPassed = 0;
-            obstacles = [];
-            particles = [];
             targetLane = 1;
             player.lane = 1;
-            player.jumpY = 0;
-            player.jumping = false;
+            obstacles = [];
+            particles = [];
+            floatingTexts = [];
+            sessionTimeSeconds = 3600;
 
+            document.getElementById('score-meter').innerText = '0';
             updateShieldUI();
+            updateSessionTimerUI();
+            startSessionTimer();
             pickNextTarget();
 
             document.getElementById('modal-overlay').classList.add('hidden');
             document.getElementById('start-card').classList.add('hidden');
             document.getElementById('gameover-card').classList.add('hidden');
-
-            lastTime = performance.now();
-            requestAnimationFrame(gameLoop);
         }
 
-        function gameOver() {
+        function gameOver(reason = "GAME OVER") {
             isPlaying = false;
-            document.getElementById('modal-overlay').classList.remove('hidden');
-            document.getElementById('gameover-card').classList.remove('hidden');
+            clearInterval(sessionTimerInterval);
+            document.getElementById('gameover-title').innerText = reason;
+            document.getElementById('final-score').innerText = score;
             document.getElementById('final-distance').innerText = `${distance} m`;
             document.getElementById('final-gates').innerText = gatesPassed;
 
-            // Populate Vocabulary Review List
-            const reviewList = document.getElementById('vocab-review-list');
-            reviewList.innerHTML = '';
-            WORD_BANK.forEach(item => {
-                const div = document.createElement('div');
-                div.className = 'border-b border-slate-800 pb-1';
-                div.innerHTML = `<span class="font-bold text-cyan-300 font-arcade">${item.word}:</span> ${item.def}`;
-                reviewList.appendChild(div);
-            });
+            document.getElementById('modal-overlay').classList.remove('hidden');
+            document.getElementById('gameover-card').classList.remove('hidden');
         }
 
-        // Button Event Listeners
         document.getElementById('btn-start').addEventListener('click', startGame);
         document.getElementById('btn-restart').addEventListener('click', startGame);
 
-        // Initial setup call
-        updateShieldUI();
+        requestAnimationFrame(gameLoop);
     </script>
 </body>
 </html>
-
