@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Balloon Pop Vocabulary Game</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(to top, #a1c4fd 0%, #c2e9fb 100%);
+      height: 100vh;
+    }
+
+    /* Screen Shake Animation */
+    .shake {
+      animation: shakeAnim 0.4s cubic-bezier(.36,.07,.19,.97) both;
+    }
+    @keyframes shakeAnim {
+      10%, 90% { transform: translate3d(-8px, 5px, 0); }
+      20%, 80% { transform: translate3d(8px, -5px, 0); }
+      30%, 50%, 70% { transform: translate3d(-12px, 8px, 0); }
+      40%, 60% { transform: translate3d(12px, -8px, 0); }
+    }
+
+    /* Command Center Box */
+    #command-center {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 80%;
+      max-width: 600px;
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(8px);
+      border: 3px solid #333;
+      border-radius: 15px;
+      padding: 15px 25px;
+      text-align: center;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+      z-index: 10;
+    }
+
+    .stats {
+      display: flex;
+      justify-content: space-between;
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 10px;
+    }
+
+    #definition-box {
+      font-size: 1.3rem;
+      color: #1a2a3a;
+      font-weight: 600;
+      min-height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Balloon Style */
+    .balloon {
+      position: absolute;
+      bottom: -120px;
+      width: 85px;
+      height: 105px;
+      border-radius: 50% 50% 50% 50% / 40% 40% 60% 60%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: bold;
+      font-size: 0.95rem;
+      text-shadow: 1px 1px 3px rgba(0,0,0,0.6);
+      cursor: pointer;
+      box-shadow: inset -10px -10px 10px rgba(0,0,0,0.15);
+      transition: transform 0.1s ease;
+      z-index: 5;
+    }
+
+    /* Balloon Tail */
+    .balloon::after {
+      content: "";
+      position: absolute;
+      bottom: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-left: 7px solid transparent;
+      border-right: 7px solid transparent;
+      border-bottom: 12px solid inherit;
+    }
+
+    /* Overlay Screen */
+    #start-screen, #end-screen {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.75);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      z-index: 20;
+    }
+
+    button {
+      padding: 12px 30px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      background-color: #ff4757;
+      color: white;
+      border: none;
+      border-radius: 25px;
+      cursor: pointer;
+      margin-top: 20px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background-color: #ff6b81;
+    }
+  </style>
+</head>
+<body id="game-body">
+
+  <!-- Command Center -->
+  <div id="command-center">
+    <div class="stats">
+      <div>Score: <span id="score">0</span></div>
+      <div>Time: <span id="timer">90</span>s</div>
+    </div>
+    <div id="definition-box">Get ready to play!</div>
+  </div>
+
+  <!-- Start Screen -->
+  <div id="start-screen">
+    <h1>🎈 Balloon Pop Vocabulary Game</h1>
+    <p>Pop the balloon that matches the definition in the Command Center!</p>
+    <p><b>Correct:</b> +10 Points | <b>Wrong:</b> -5 Points & Screen Shake!</p>
+    <button onclick="startGame()">Start Game</button>
+  </div>
+
+  <!-- End Screen -->
+  <div id="end-screen" style="display: none;">
+    <h1>Game Over! 🎉</h1>
+    <p>Your Final Score: <span id="final-score">0</span></p>
+    <button onclick="startGame()">Play Again</button>
+  </div>
+
+  <script>
+    const vocabularyList = [
+      { word: "communication", def: "溝通、交流；通訊 (The exchange of information or news)" },
+      { word: "conventional", def: "傳統的、習慣的 (Based on or in accordance with what is generally done)" },
+      { word: "fascinating", def: "極有趣的、吸引人的 (Extremely interesting or charming)" },
+      { word: "generate", def: "產生（能量、想法等）、引起 (To produce or create something)" },
+      { word: "scent", def: "氣味、香味 (A pleasant or distinctive smell)" },
+      { word: "prompt", def: "促使、引發；提示 (To cause or bring about an action)" },
+      { word: "nutrient", def: "營養物質、養分 (A substance that provides nourishment essential for growth)" },
+      { word: "essential", def: "必要的、不可或缺的 (Absolutely necessary; extremely important)" },
+      { word: "innovative", def: "創新的 (Featuring new methods; advanced and original)" },
+      { word: "efficient", def: "效率高的 (Achieving maximum productivity with minimum wasted effort)" }
+    ];
+
+    const balloonColors = ['#ff4757', '#2ed573', '#1e90ff', '#ffa502', '#9b59b6', '#eccc68'];
+
+    let score = 0;
+    let timeLeft = 90;
+    let currentTarget = null;
+    let gameInterval = null;
+    let spawnInterval = null;
+    let isPlaying = false;
+
+    function startGame() {
+      // Reset variables
+      score = 0;
+      timeLeft = 90;
+      isPlaying = true;
+      document.getElementById('score').innerText = score;
+      document.getElementById('timer').innerText = timeLeft;
+      document.getElementById('start-screen').style.display = 'none';
+      document.getElementById('end-screen').style.display = 'none';
+
+      // Clear existing balloons
+      document.querySelectorAll('.balloon').forEach(b => b.remove());
+
+      // Next Target Definition
+      nextQuestion();
+
+      // Start Timers
+      clearInterval(gameInterval);
+      clearInterval(spawnInterval);
+
+      gameInterval = setInterval(() => {
+        timeLeft--;
+        document.getElementById('timer').innerText = timeLeft;
+        if (timeLeft <= 0) {
+          endGame();
+        }
+      }, 1000);
+
+      // Spawn one balloon per second
+      spawnInterval = setInterval(spawnBalloon, 1000);
+    }
+
+    function nextQuestion() {
+      const randomIndex = Math.floor(Math.random() * vocabularyList.length);
+      currentTarget = vocabularyList[randomIndex];
+      document.getElementById('definition-box').innerText = currentTarget.def;
+    }
+
+    function spawnBalloon() {
+      if (!isPlaying) return;
+
+      const balloon = document.createElement('div');
+      balloon.classList.add('balloon');
+
+      // 40% chance to spawn the correct word to keep the game engaging
+      let randomWordObj;
+      if (Math.random() < 0.4) {
+        randomWordObj = currentTarget;
+      } else {
+        randomWordObj = vocabularyList[Math.floor(Math.random() * vocabularyList.length)];
+      }
+
+      balloon.innerText = randomWordObj.word;
+      balloon.dataset.word = randomWordObj.word;
+
+      // Color & Position
+      const color = balloonColors[Math.floor(Math.random() * balloonColors.length)];
+      balloon.style.backgroundColor = color;
+      balloon.style.left = Math.random() * (window.innerWidth - 100) + 'px';
+
+      // Click Event
+      balloon.addEventListener('click', () => popBalloon(balloon));
+
+      document.body.appendChild(balloon);
+
+      // Float upward animation
+      let position = -120;
+      const speed = 1.5 + Math.random() * 2; // Random speed
+
+      const floatInterval = setInterval(() => {
+        if (!isPlaying) {
+          clearInterval(floatInterval);
+          balloon.remove();
+          return;
+        }
+        position += speed;
+        balloon.style.bottom = position + 'px';
+
+        // Remove if off-screen
+        if (position > window.innerHeight + 100) {
+          clearInterval(floatInterval);
+          balloon.remove();
+        }
+      }, 20);
+    }
+
+    function popBalloon(balloon) {
+      if (!isPlaying) return;
+
+      const clickedWord = balloon.dataset.word;
+
+      if (clickedWord === currentTarget.word) {
+        // Correct Choice
+        score += 10;
+        document.getElementById('score').innerText = score;
+        balloon.remove();
+        nextQuestion(); // Switch to new target definition
+      } else {
+        // Incorrect Choice
+        score = Math.max(0, score - 5);
+        document.getElementById('score').innerText = score;
+        balloon.remove();
+
+        // Trigger Screen Shake
+        const body = document.getElementById('game-body');
+        body.classList.add('shake');
+        setTimeout(() => body.classList.remove('shake'), 400);
+      }
+    }
+
+    function endGame() {
+      isPlaying = false;
+      clearInterval(gameInterval);
+      clearInterval(spawnInterval);
+      document.getElementById('final-score').innerText = score;
+      document.getElementById('end-screen').style.display = 'flex';
+    }
+  </script>
+</body>
+</html>
