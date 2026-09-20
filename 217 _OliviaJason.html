@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Intergalactic Vocab-Defender</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background: #050515;
+      color: #fff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    #game-container {
+      position: relative;
+      width: 800px;
+      height: 600px;
+      background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
+      border: 3px solid #00f0ff;
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    /* Screen Shake Effect */
+    .shake {
+      animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+    }
+    @keyframes shake {
+      10%, 90% { transform: translate3d(-4px, 0, 0); }
+      20%, 80% { transform: translate3d(6px, 0, 0); }
+      30%, 50%, 70% { transform: translate3d(-8px, 0, 0); }
+      40%, 60% { transform: translate3d(8px, 0, 0); }
+    }
+
+    /* HUD Header */
+    #hud {
+      position: absolute;
+      top: 0;
+      width: 100%;
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.75);
+      border-bottom: 2px solid #00f0ff;
+      z-index: 10;
+    }
+    .hud-title {
+      font-weight: bold;
+      color: #00f0ff;
+      font-size: 1.1rem;
+      letter-spacing: 1px;
+    }
+    .hud-stats {
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+    .hud-stats span {
+      color: #ff0077;
+      margin-left: 10px;
+    }
+
+    /* Mission Briefing Box */
+    #briefing-box {
+      position: absolute;
+      top: 60px;
+      width: 90%;
+      left: 5%;
+      background: rgba(0, 240, 255, 0.15);
+      border: 1px solid #00f0ff;
+      border-radius: 8px;
+      padding: 10px 15px;
+      text-align: center;
+      z-index: 10;
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+    }
+    #briefing-title {
+      font-size: 0.8rem;
+      color: #ff0077;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      animation: pulse 1.5s infinite;
+    }
+    #definition {
+      font-size: 1.05rem;
+      margin-top: 4px;
+      color: #ffffff;
+      font-weight: bold;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.6; }
+      50% { opacity: 1; }
+      100% { opacity: 0.6; }
+    }
+
+    /* Canvas Area */
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Overlays */
+    .overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(5, 5, 21, 0.94);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 20;
+    }
+    .overlay h1 {
+      font-size: 2.3rem;
+      color: #00f0ff;
+      margin-bottom: 12px;
+      text-shadow: 0 0 10px #00f0ff;
+    }
+    .overlay p {
+      font-size: 1rem;
+      color: #ccc;
+      max-width: 80%;
+      text-align: center;
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
+    .btn {
+      padding: 12px 30px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: #050515;
+      background: #00f0ff;
+      border: none;
+      border-radius: 25px;
+      cursor: pointer;
+      box-shadow: 0 0 15px #00f0ff;
+      transition: all 0.2s;
+    }
+    .btn:hover {
+      background: #ff0077;
+      color: #fff;
+      box-shadow: 0 0 20px #ff0077;
+      transform: scale(1.05);
+    }
+
+    #stall-warning {
+      position: absolute;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #ff0077;
+      font-weight: bold;
+      font-size: 1.2rem;
+      display: none;
+      z-index: 10;
+      text-shadow: 0 0 8px #ff0077;
+    }
+  </style>
+</head>
+<body>
+
+<div id="game-container">
+  <div id="hud">
+    <div class="hud-title">INTERGALACTIC VOCAB-DEFENDER</div>
+    <div class="hud-stats">
+      WARP TIMER: <span id="timer-display">60</span>s
+      SCORE: <span id="score-display">0</span>
+    </div>
+  </div>
+
+  <div id="briefing-box">
+    <div id="briefing-title">⚡ MISSION BRIEFING ⚡</div>
+    <div id="definition">Targeting alien word fleet...</div>
+  </div>
+
+  <div id="stall-warning">⚠️ LASERS STALLED (-50 PTS)! RECOVERING... ⚠️</div>
+
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+  <div id="start-screen" class="overlay">
+    <h1>GALACTIC DEFENDER</h1>
+    <p>
+      Defend Earth from alien word-ships!<br>
+      Read the definition in the Mission Briefing, align your ship, and shoot the matching alien target.<br><br>
+      <strong>Controls:</strong> Left/Right Arrows (or A/D) to Move. Spacebar to Fire.
+    </p>
+    <button class="btn" id="start-btn">LAUNCH MISSION</button>
+  </div>
+
+  <div id="end-screen" class="overlay" style="display: none;">
+    <h1 id="end-title">MISSION COMPLETE</h1>
+    <p id="end-score">Final Score: 0</p>
+    <p id="leaderboard-badge" style="color: #00f0ff; font-weight: bold; margin-bottom: 20px;"></p>
+    <button class="btn" id="restart-btn">DEFEND AGAIN</button>
+  </div>
+</div>
+
+<script>
+  // Vocabulary Database - Grade 11 English
+  const wordDatabase = [
+    { word: "boost", def: "To improve, increase, or encourage something positive." },
+    { word: "accomplish", def: "To successfully achieve or complete a goal or task." },
+    { word: "purchase", def: "To acquire something by paying money for it." },
+    { word: "trigger", def: "To cause an event, action, or emotional reaction to start." },
+    { word: "psychology", def: "The scientific study of the human mind and its functions." },
+    { word: "stability", def: "The state of being resistant to change, movement, or decay." }
+  ];
+
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const container = document.getElementById('game-container');
+
+  let gameRunning = false;
+  let score = 0;
+  let timeLeft = 60;
+  let timerInterval;
+  let currentTargetIndex = 0;
+
+  // Ship Setup
+  const ship = {
+    x: 375,
+    y: 520,
+    width: 50,
+    height: 40,
+    speed: 7,
+    stalled: false
+  };
+
+  const keys = { left: false, right: false, space: false };
+  let bullets = [];
+  let aliens = [];
+  let particles = [];
+
+  // Listeners
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = true;
+    if (e.key === ' ' && !keys.space) {
+      keys.space = true;
+      fireBullet();
+    }
+  });
+
+  window.addEventListener('keyup', (e) => {
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = false;
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = false;
+    if (e.key === ' ') keys.space = false;
+  });
+
+  document.getElementById('start-btn').addEventListener('click', startGame);
+  document.getElementById('restart-btn').addEventListener('click', startGame);
+
+  function startGame() {
+    score = 0;
+    timeLeft = 60;
+    gameRunning = true;
+    bullets = [];
+    particles = [];
+    ship.stalled = false;
+    ship.x = 375;
+
+    document.getElementById('score-display').innerText = score;
+    document.getElementById('timer-display').innerText = timeLeft;
+    document.getElementById('start-screen').style.display = 'none';
+    document.getElementById('end-screen').style.display = 'none';
+
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      timeLeft--;
+      document.getElementById('timer-display').innerText = timeLeft;
+      if (timeLeft <= 0) endGame();
+    }, 1000);
+
+    nextRound();
+    requestAnimationFrame(gameLoop);
+  }
+
+  function nextRound() {
+    currentTargetIndex = Math.floor(Math.random() * wordDatabase.length);
+    document.getElementById('definition').innerText = `"${wordDatabase[currentTargetIndex].def}"`;
+
+    aliens = [];
+    let pool = [...wordDatabase];
+    let targetObj = pool.splice(currentTargetIndex, 1)[0];
+    
+    pool.sort(() => Math.random() - 0.5);
+    let fleetWords = [targetObj, pool[0], pool[1]];
+    fleetWords.sort(() => Math.random() - 0.5);
+
+    const laneWidth = canvas.width / fleetWords.length;
+    fleetWords.forEach((item, i) => {
+      aliens.push({
+        word: item.word,
+        x: laneWidth * i + (laneWidth - 110) / 2,
+        y: 140,
+        width: 110,
+        height: 45,
+        dx: (Math.random() > 0.5 ? 1.5 : -1.5),
+        minX: laneWidth * i,
+        maxX: laneWidth * (i + 1) - 110,
+        isTarget: item.word === targetObj.word
+      });
+    });
+  }
+
+  function fireBullet() {
+    if (!gameRunning || ship.stalled) return;
+    bullets.push({
+      x: ship.x + ship.width / 2 - 3,
+      y: ship.y,
+      width: 6,
+      height: 15,
+      speed: 10
+    });
+  }
+
+  function triggerStall() {
+    ship.stalled = true;
+    document.getElementById('stall-warning').style.display = 'block';
+    container.classList.add('shake');
+    
+    setTimeout(() => container.classList.remove('shake'), 400);
+
+    setTimeout(() => {
+      ship.stalled = false;
+      document.getElementById('stall-warning').style.display = 'none';
+    }, 2000);
+  }
+
+  function createExplosion(x, y, color) {
+    for (let i = 0; i < 20; i++) {
+      particles.push({
+        x: x,
+        y: y,
+        dx: (Math.random() - 0.5) * 8,
+        dy: (Math.random() - 0.5) * 8,
+        radius: Math.random() * 3 + 1,
+        color: color,
+        life: 25
+      });
+    }
+  }
+
+  function update() {
+    // Player Controls
+    if (keys.left && ship.x > 0) ship.x -= ship.speed;
+    if (keys.right && ship.x < canvas.width - ship.width) ship.x += ship.speed;
+
+    // Bullets
+    for (let i = bullets.length - 1; i >= 0; i--) {
+      bullets[i].y -= bullets[i].speed;
+      if (bullets[i].y < 0) bullets.splice(i, 1);
+    }
+
+    // Alien Zig-zag inside lanes
+    aliens.forEach(alien => {
+      alien.x += alien.dx;
+      if (alien.x <= alien.minX || alien.x >= alien.maxX) {
+        alien.dx *= -1;
+      }
+    });
+
+    // Particles
+    for (let i = particles.length - 1; i >= 0; i--) {
+      particles[i].x += particles[i].dx;
+      particles[i].y += particles[i].dy;
+      particles[i].life--;
+      if (particles[i].life <= 0) particles.splice(i, 1);
+    }
+
+    // Collisions
+    for (let bIndex = bullets.length - 1; bIndex >= 0; bIndex--) {
+      let bullet = bullets[bIndex];
+      for (let aIndex = 0; aIndex < aliens.length; aIndex++) {
+        let alien = aliens[aIndex];
+        if (
+          bullet &&
+          bullet.x < alien.x + alien.width &&
+          bullet.x + bullet.width > alien.x &&
+          bullet.y < alien.y + alien.height &&
+          bullet.y + bullet.height > alien.y
+        ) {
+          bullets.splice(bIndex, 1);
+          if (alien.isTarget) {
+            score += 100;
+            document.getElementById('score-display').innerText = score;
+            createExplosion(alien.x + alien.width / 2, alien.y + alien.height / 2, '#00f0ff');
+            nextRound();
+          } else {
+            score = Math.max(0, score - 50);
+            document.getElementById('score-display').innerText = score;
+            createExplosion(alien.x + alien.width / 2, alien.y + alien.height / 2, '#ff0077');
+            triggerStall();
+          }
+          break;
+        }
+      }
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Render Spaceship
+    ctx.fillStyle = ship.stalled ? '#555555' : '#00f0ff';
+    ctx.beginPath();
+    ctx.moveTo(ship.x + ship.width / 2, ship.y);
+    ctx.lineTo(ship.x, ship.y + ship.height);
+    ctx.lineTo(ship.x + ship.width, ship.y + ship.height);
+    ctx.closePath();
+    ctx.fill();
+
+    // Thruster Effect
+    if (!ship.stalled) {
+      ctx.fillStyle = '#ff0077';
+      ctx.fillRect(ship.x + ship.width / 2 - 4, ship.y + ship.height, 8, 8);
+    }
+
+    // Render Lasers
+    ctx.fillStyle = '#ffff00';
+    bullets.forEach(b => ctx.fillRect(b.x, b.y, b.width, b.height));
+
+    // Render Aliens
+    aliens.forEach(alien => {
+      ctx.fillStyle = 'rgba(15, 25, 50, 0.9)';
+      ctx.strokeStyle = '#00f0ff';
+      ctx.lineWidth = 2;
+      ctx.fillRect(alien.x, alien.y, alien.width, alien.height);
+      ctx.strokeRect(alien.x, alien.y, alien.width, alien.height);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 14px Segoe UI';
+      ctx.textAlign = 'center';
+      ctx.fillText(alien.word, alien.x + alien.width / 2, alien.y + 27);
+    });
+
+    // Render Particles
+    particles.forEach(p => {
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+
+  function gameLoop() {
+    if (!gameRunning) return;
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+  }
+
+  function endGame() {
+    gameRunning = false;
+    clearInterval(timerInterval);
+    document.getElementById('end-screen').style.display = 'flex';
+    document.getElementById('end-score').innerText = `Final Score: ${score} Points`;
+    
+    let title = "CADET DEFENDER";
+    if (score >= 800) title = "👑 ULTIMATE GALACTIC ACE";
+    else if (score >= 500) title = "STAR PILOT";
+
+    document.getElementById('leaderboard-badge').innerText = `RANK EARNED: ${title}`;
+  }
+</script>
+
+</body>
+</html>
