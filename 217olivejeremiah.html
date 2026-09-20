@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Money Ladder Vocabulary Game</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #0a1128;
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .game-container {
+            width: 100%;
+            max-width: 900px;
+            background: linear-gradient(145deg, #1c2541, #0b132b);
+            border: 4px solid #f72585;
+            border-radius: 20px;
+            box-shadow: 0 0 30px rgba(247, 37, 133, 0.3), inset 0 0 15px rgba(255, 215, 0, 0.2);
+            padding: 25px;
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            position: relative;
+        }
+
+        @media (max-width: 700px) {
+            .game-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .main-panel {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #3a506b;
+            padding-bottom: 10px;
+        }
+
+        .title {
+            color: #ffd700;
+            font-size: 1.5rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+
+        .timer-box {
+            background-color: #f72585;
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 1.2rem;
+            box-shadow: 0 0 10px rgba(247, 37, 133, 0.5);
+        }
+
+        .question-box {
+            background-color: #1c2541;
+            border: 2px solid #4895ef;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            min-height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-size: 1.2rem;
+            line-height: 1.5;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 500px) {
+            .options-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .btn-option {
+            background: linear-gradient(180deg, #3a506b, #1c2541);
+            border: 2px solid #4895ef;
+            border-radius: 10px;
+            color: white;
+            padding: 12px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+
+        .btn-option:hover {
+            background: linear-gradient(180deg, #4895ef, #3a506b);
+            border-color: #ffd700;
+            transform: translateY(-2px);
+        }
+
+        .btn-action {
+            background: linear-gradient(180deg, #ffd700, #ffaa00);
+            border: none;
+            color: #000;
+            font-weight: bold;
+            padding: 12px 24px;
+            font-size: 1.1rem;
+            border-radius: 10px;
+            cursor: pointer;
+            width: 100%;
+            text-transform: uppercase;
+            box-shadow: 0 4px 10px rgba(255, 215, 0, 0.3);
+        }
+
+        .btn-action:hover {
+            background: linear-gradient(180deg, #ffaa00, #ffd700);
+            transform: translateY(-2px);
+        }
+
+        .ladder-panel {
+            background-color: #0b132b;
+            border: 2px solid #3a506b;
+            border-radius: 12px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column-reverse;
+            gap: 6px;
+        }
+
+        .ladder-step {
+            background-color: #1c2541;
+            padding: 8px 12px;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            font-size: 0.9rem;
+            color: #a0aab2;
+            border: 1px solid transparent;
+        }
+
+        .ladder-step.active {
+            background-color: #ffd700;
+            color: #000;
+            border-color: #fff;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
+            transform: scale(1.03);
+        }
+
+        .ladder-step.completed {
+            color: #4cc9f0;
+        }
+
+        .screen {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(11, 19, 43, 0.95);
+            border-radius: 16px;
+            z-index: 10;
+            padding: 30px;
+        }
+
+        .screen.active {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .screen h2 {
+            font-size: 2rem;
+            color: #ffd700;
+            margin-bottom: 15px;
+        }
+
+        .screen p {
+            margin-bottom: 25px;
+            font-size: 1.1rem;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <!-- GAME SCREEN -->
+        <div class="main-panel" id="game-panel">
+            <div class="header">
+                <div class="title">Money Ladder</div>
+                <div class="timer-box" id="timer">60s</div>
+            </div>
+
+            <div class="question-box" id="question-text">
+                Click Start Game to begin!
+            </div>
+
+            <div class="options-grid" id="options-container">
+                <!-- Options populated dynamically -->
+            </div>
+        </div>
+
+        <!-- LADDER PANEL -->
+        <div class="ladder-panel" id="ladder-panel">
+            <!-- Ladder steps populated dynamically -->
+        </div>
+
+        <!-- OVERLAY SCREENS -->
+        <div class="screen active" id="start-screen">
+            <h2>TV Money Ladder Challenge</h2>
+            <p>Answer vocabulary questions to climb the ladder up to $1,000,000!<br>You have 60 seconds. One wrong answer drops you back to the bottom.</p>
+            <button class="btn-action" onclick="startGame()">Start Game</button>
+        </div>
+
+        <div class="screen" id="end-screen">
+            <h2 id="end-title">Game Over!</h2>
+            <p id="end-message">You ran out of time.</p>
+            <button class="btn-action" onclick="startGame()">Try Again</button>
+        </div>
+    </div>
+
+    <script>
+        // 10 Vocabulary Words and Definitions based on the assignment sheet
+        const vocabularyData = [
+            { word: "account for", definition: "To explain the cause of something or provide a reason for it." },
+            { word: "sighting", definition: "An instance of seeing something unusual or rare (e.g., a UFO or rare animal)." },
+            { word: "drone", definition: "An unmanned aircraft guided by remote control or onboard computers." },
+            { word: "alarming", definition: "Causing fear, worry, or sudden surprise." },
+            { word: "evidence", definition: "Facts, signs, or objects that indicate whether something is true or valid." },
+            { word: "alien", definition: "Relating to or coming from another world or extraterrestrial source." },
+            { word: "technology", definition: "Machinery, equipment, and devices developed from scientific knowledge." },
+            { word: "unidentified", definition: "Not recognized, named, or classified." },
+            { word: "mysterious", definition: "Difficult or impossible to understand, explain, or identify." },
+            { word: "ladder", definition: "A structure used for climbing up or down, or a series of progressive stages." }
+        ];
+
+        const allWords = vocabularyData.map(item => item.word);
+
+        const moneyLadderValues = [
+            "$1,000", "$2,500", "$5,000", "$10,000", "$25,000",
+            "$50,000", "$100,000", "$250,000", "$500,000", "$1,000,000"
+        ];
+
+        let currentQuestions = [];
+        let currentStep = 0;
+        let timeLeft = 60;
+        let timerInterval = null;
+
+        function shuffleArray(array) {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        function renderLadder() {
+            const ladderPanel = document.getElementById('ladder-panel');
+            ladderPanel.innerHTML = '';
+            
+            moneyLadderValues.forEach((val, idx) => {
+                const stepEl = document.createElement('div');
+                stepEl.className = 'ladder-step';
+                if (idx === currentStep) stepEl.classList.add('active');
+                if (idx < currentStep) stepEl.classList.add('completed');
+                
+                stepEl.innerHTML = `<span>Step ${idx + 1}</span><span>${val}</span>`;
+                ladderPanel.appendChild(stepEl);
+            });
+        }
+
+        function startGame() {
+            document.getElementById('start-screen').classList.remove('active');
+            document.getElementById('end-screen').classList.remove('active');
+            
+            // Randomize vocabulary order every start/restart
+            currentQuestions = shuffleArray(vocabularyData);
+            currentStep = 0;
+            timeLeft = 60;
+            
+            document.getElementById('timer').textContent = `${timeLeft}s`;
+            renderLadder();
+            loadQuestion();
+
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                document.getElementById('timer').textContent = `${timeLeft}s`;
+                if (timeLeft <= 0) {
+                    endGame(false, "Time's up! You couldn't reach the top in time.");
+                }
+            }, 1000);
+        }
+
+        function loadQuestion() {
+            if (currentStep >= currentQuestions.length) {
+                endGame(true, "CONGRATULATIONS! You reached the top and won $1,000,000!");
+                return;
+            }
+
+            const q = currentQuestions[currentStep];
+            document.getElementById('question-text').textContent = `Which word matches this definition? "${q.definition}"`;
+
+            const optionsContainer = document.getElementById('options-container');
+            optionsContainer.innerHTML = '';
+
+            // Generate 4 choices (1 correct, 3 distractors)
+            let choices = [q.word];
+            let distractors = shuffleArray(allWords.filter(w => w !== q.word));
+            
+            while (choices.length < 4 && distractors.length > 0) {
+                choices.push(distractors.pop());
+            }
+            choices = shuffleArray(choices);
+
+            choices.forEach(choice => {
+                const btn = document.createElement('button');
+                btn.className = 'btn-option';
+                btn.textContent = choice;
+                btn.onclick = () => handleAnswer(choice === q.word);
+                optionsContainer.appendChild(btn);
+            });
+
+            renderLadder();
+        }
+
+        function handleAnswer(isCorrect) {
+            if (isCorrect) {
+                currentStep++;
+                loadQuestion();
+            } else {
+                endGame(false, `Wrong answer! You lost your progress on the ladder.`);
+            }
+        }
+
+        function endGame(isWin, message) {
+            clearInterval(timerInterval);
+            document.getElementById('end-title').textContent = isWin ? "🎉 VICTORY!" : "💥 GAME OVER";
+            document.getElementById('end-message').textContent = message;
+            document.getElementById('end-screen').classList.add('active');
+        }
+
+        // Initial setup for background ladder display
+        renderLadder();
+    </script>
+</body>
+</html>
