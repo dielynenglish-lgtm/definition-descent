@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Hidden Vault: Vocabulary Mystery</title>
+<style>
+:root {
+--bg-color: #0f172a;
+--vault-silver: linear-gradient(135deg, #e2e8f0 0%, #94a3b8 50%, #475569 100%);
+--accent-gold: #f59e0b;
+--accent-blue: #38bdf8;
+--danger-red: #ef4444;
+--card-bg: #1e293b;
+}
+
+* {
+box-sizing: border-box;
+margin: 0;
+padding: 0;
+font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+background-color: var(--bg-color);
+color: #f8fafc;
+min-height: 100vh;
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+overflow-x: hidden;
+}
+
+/* Game Container */
+#game-container {
+width: 100%;
+max-width: 800px;
+padding: 20px;
+display: flex;
+flex-direction: column;
+align-items: center;
+position: relative;
+}
+
+/* Header & HUD */
+.hud {
+width: 100%;
+display: flex;
+justify-content: space-between;
+align-items: center;
+background-color: var(--card-bg);
+padding: 15px 25px;
+border-radius: 12px;
+box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+margin-bottom: 20px;
+border: 2px solid #334155;
+}
+
+.hud-box {
+font-size: 1.2rem;
+font-weight: bold;
+display: flex;
+align-items: center;
+gap: 8px;
+}
+
+.hud-value {
+color: var(--accent-gold);
+font-size: 1.5rem;
+}
+
+/* Clue Tablet */
+.clue-tablet {
+width: 100%;
+background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+border: 3px solid var(--accent-blue);
+border-radius: 12px;
+padding: 20px;
+text-align: center;
+box-shadow: 0 0 15px rgba(56, 189, 248, 0.2);
+margin-bottom: 20px;
+}
+
+.clue-title {
+font-size: 0.9rem;
+text-transform: uppercase;
+letter-spacing: 2px;
+color: var(--accent-blue);
+margin-bottom: 8px;
+}
+
+.clue-text {
+font-size: 1.3rem;
+font-weight: 600;
+line-height: 1.4;
+color: #f1f5f9;
+min-height: 60px;
+display: flex;
+align-items: center;
+justify-content: center;
+}
+
+/* Vault Screen Area */
+.vault-wrapper {
+position: relative;
+width: 220px;
+height: 220px;
+margin: 10px 0 25px 0;
+perspective: 1000px;
+}
+
+.vault {
+width: 100%;
+height: 100%;
+background: var(--vault-silver);
+border-radius: 50%;
+border: 8px solid #334155;
+box-shadow: 0 10px 25px rgba(0,0,0,0.5), inset 0 0 15px rgba(255,255,255,0.4);
+display: flex;
+align-items: center;
+justify-content: center;
+position: relative;
+transition: transform 0.1s ease, box-shadow 0.3s ease;
+}
+
+.vault-handle {
+width: 100px;
+height: 100px;
+border: 8px solid #1e293b;
+border-radius: 50%;
+position: relative;
+display: flex;
+align-items: center;
+justify-content: center;
+background: #64748b;
+}
+
+.vault-handle::before, .vault-handle::after {
+content: '';
+position: absolute;
+background: #1e293b;
+}
+
+.vault-handle::before {
+width: 120px;
+height: 12px;
+}
+
+.vault-handle::after {
+width: 12px;
+height: 120px;
+}
+
+.vault-center-pin {
+width: 24px;
+height: 24px;
+background: var(--accent-gold);
+border-radius: 50%;
+z-index: 2;
+box-shadow: 0 0 8px rgba(0,0,0,0.5);
+}
+
+/* Animations */
+.vault.shake {
+animation: shake 0.5s ease-in-out;
+box-shadow: 0 0 30px var(--danger-red);
+border-color: var(--danger-red);
+}
+
+.vault.open {
+animation: openVault 0.8s forwards ease-out;
+}
+
+@keyframes shake {
+0%, 100% { transform: translateX(0); }
+20% { transform: translateX(-15px) rotate(-5deg); }
+40% { transform: translateX(15px) rotate(5deg); }
+60% { transform: translateX(-10px) rotate(-3deg); }
+80% { transform: translateX(10px) rotate(3deg); }
+}
+
+@keyframes openVault {
+0% { transform: scale(1) rotate(0deg); }
+50% { transform: scale(1.1) rotate(180deg); opacity: 0.8; }
+100% { transform: scale(1.2) rotate(360deg); opacity: 0; }
+}
+
+/* Coin Rain Overlay */
+.coin-rain {
+position: absolute;
+top: 0;
+left: 0;
+width: 100%;
+height: 100%;
+pointer-events: none;
+overflow: hidden;
+z-index: 10;
+}
+
+.coin {
+position: absolute;
+width: 20px;
+height: 20px;
+background: var(--accent-gold);
+border: 2px solid #b45309;
+border-radius: 50%;
+top: -20px;
+animation: fall 1s linear forwards;
+}
+
+@keyframes fall {
+to {
+transform: translateY(600px) rotate(360deg);
+opacity: 0;
+}
+}
+
+/* Options / Chests Grid */
+.chests-grid {
+display: grid;
+grid-template-columns: repeat(2, 1fr);
+gap: 15px;
+width: 100%;
+}
+
+.chest-btn {
+background: linear-gradient(145deg, #1e293b, #0f172a);
+border: 2px solid #475569;
+border-radius: 10px;
+padding: 18px;
+color: #fff;
+font-size: 1.1rem;
+font-weight: 600;
+cursor: pointer;
+transition: all 0.2s ease;
+display: flex;
+align-items: center;
+justify-content: center;
+gap: 10px;
+box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+}
+
+.chest-btn:hover {
+border-color: var(--accent-gold);
+transform: translateY(-2px);
+box-shadow: 0 6px 12px rgba(245, 158, 11, 0.2);
+}
+
+.chest-btn:active {
+transform: translateY(0);
+}
+
+.chest-icon {
+font-size: 1.3rem;
+}
+
+/* Overlays (Start & Complete Screens) */
+.overlay {
+position: fixed;
+top: 0;
+left: 0;
+width: 100%;
+height: 100%;
+background: rgba(15, 23, 42, 0.95);
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+z-index: 100;
+padding: 20px;
+text-align: center;
+}
+
+.overlay h1 {
+font-size: 2.5rem;
+color: var(--accent-gold);
+margin-bottom: 15px;
+text-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+}
+
+.overlay p {
+font-size: 1.2rem;
+color: #cbd5e1;
+max-width: 500px;
+margin-bottom: 25px;
+line-height: 1.5;
+}
+
+.start-btn {
+background: var(--accent-gold);
+color: #0f172a;
+border: none;
+padding: 15px 40px;
+font-size: 1.3rem;
+font-weight: bold;
+border-radius: 30px;
+cursor: pointer;
+transition: transform 0.2s, box-shadow 0.2s;
+box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
+}
+
+.start-btn:hover {
+transform: scale(1.05);
+box-shadow: 0 0 25px rgba(245, 158, 11, 0.7);
+}
+
+.hidden {
+display: none !important;
+}
+
+/* Responsive Design */
+@media (max-width: 600px) {
+.chests-grid {
+grid-template-columns: 1fr;
+}
+.hud {
+padding: 10px 15px;
+}
+.hud-box {
+font-size: 1rem;
+}
+.clue-text {
+font-size: 1.1rem;
+}
+}
+</style>
+</head>
+<body>
+
+<div id="game-container">
+<!-- Coin Rain Animation Container -->
+<div id="coin-rain" class="coin-rain"></div>
+
+<!-- HUD Header -->
+<div class="hud">
+<div class="hud-box">
+<span>⏱️ Time:</span>
+<span id="timer" class="hud-value">60</span>s
+</div>
+<div class="hud-box">
+<span>🪙 Score:</span>
+<span id="score" class="hud-value">0</span>
+</div>
+</div>
+
+<!-- Clue Tablet -->
+<div class="clue-tablet">
+<div class="clue-title">🔑 Vault Access Clue</div>
+<div id="clue-definition" class="clue-text">Loading clue...</div>
+</div>
+
+<!-- Vault Graphic -->
+<div class="vault-wrapper">
+<div id="vault" class="vault">
+<div class="vault-handle">
+<div class="vault-center-pin"></div>
+</div>
+</div>
+</div>
+
+<!-- Answer Chests -->
+<div id="chests-container" class="chests-grid">
+<!-- Options will be dynamically injected here -->
+</div>
+</div>
+
+<!-- Mission Start Overlay -->
+<div id="start-overlay" class="overlay">
+<h1>THE HIDDEN VAULT</h1>
+<p>Infiltrate the secure vault by cracking the vocabulary clues! Match the B1-level definition on the clue tablet with the correct chest key before the 60-second timer runs out.</p>
+<button id="start-btn" class="start-btn">START MISSION</button>
+</div>
+
+<!-- Mission Complete Overlay -->
+<div id="end-overlay" class="overlay hidden">
+<h1>MISSION COMPLETE</h1>
+<p>Your vault raiding operation has ended!</p>
+<p>Final Score: <strong id="final-score" style="color: var(--accent-gold); font-size: 1.8rem;">0</strong> points</p>
+<button id="restart-btn" class="start-btn">TRY AGAIN</button>
+</div>
+
+<script>
+// B1 Vocabulary Dataset tailored for ESL students
+const vocabularyList = [
+{
+word: "reservation",
+definition: "An arrangement to lock or save a room, table, or seat for a specific time in the future."
+},
+{
+word: "preference",
+definition: "A greater liking for one alternative or option over another."
+},
+{
+word: "secure",
+definition: "To make something safe, protected, or firmly fixed in place."
+},
+{
+word: "session",
+definition: "A period devoted to a particular activity, class, or meeting."
+},
+{
+word: "massage",
+definition: "The action of rubbing and pressing muscles in the body to promote relaxation."
+},
+{
+word: "promptly",
+definition: "Doing something immediately, quickly, or exactly at the scheduled time."
+}
+];
+
+// Game Variables
+let currentQuestionIndex = 0;
+let score = 0;
+let timeLeft = 60;
+let timerInterval = null;
+let questions = [];
+let isAnsweringBlocked = false;
+
+// DOM Elements
+const timerElement = document.getElementById('timer');
+const scoreElement = document.getElementById('score');
+const clueElement = document.getElementById('clue-definition');
+const vaultElement = document.getElementById('vault');
+const chestsContainer = document.getElementById('chests-container');
+const startOverlay = document.getElementById('start-overlay');
+const endOverlay = document.getElementById('end-overlay');
+const startBtn = document.getElementById('start-btn');
+const restartBtn = document.getElementById('restart-btn');
+const finalScoreElement = document.getElementById('final-score');
+const coinRainContainer = document.getElementById('coin-rain');
+
+// Shuffle Array Utility
+function shuffle(array) {
+return array.slice().sort(() => Math.random() - 0.5);
+}
+
+// Initialize Game
+function initGame() {
+score = 0;
+timeLeft = 60;
+scoreElement.textContent = score;
+timerElement.textContent = timeLeft;
+
+// Prepare shuffled questions pool
+questions = shuffle(vocabularyList);
+currentQuestionIndex = 0;
+
+startOverlay.classList.add('hidden');
+endOverlay.classList.add('hidden');
+
+startTimer();
+loadNextQuestion();
+}
+
+// Timer Logic
+function startTimer() {
+clearInterval(timerInterval);
+timerInterval = setInterval(() => {
+timeLeft--;
+timerElement.textContent = timeLeft;
+
+if (timeLeft <= 0) {
+endGame();
+}
+}, 1000);
+}
+
+// Load New Definition & Chest Options
+function loadNextQuestion() {
+if (currentQuestionIndex >= questions.length) {
+// Reshuffle questions if all have been used during timer
+questions = shuffle(vocabularyList);
+currentQuestionIndex = 0;
+}
+
+const currentItem = questions[currentQuestionIndex];
+clueElement.textContent = `"${currentItem.definition}"`;
+
+// Generate Options (1 Correct + 3 Random Distractors)
+const distractors = vocabularyList
+.filter(item => item.word !== currentItem.word)
+.map(item => item.word);
+
+const shuffledDistractors = shuffle(distractors).slice(0, 3);
+const options = shuffle([currentItem.word, ...shuffledDistractors]);
+
+// Render Chest Options
+chestsContainer.innerHTML = '';
+options.forEach(option => {
+const btn = document.createElement('button');
+btn.className = 'chest-btn';
+btn.innerHTML = `<span class="chest-icon">🧰</span> ${option}`;
+btn.addEventListener('click', () => checkAnswer(option, currentItem.word));
+chestsContainer.appendChild(btn);
+});
+
+isAnsweringBlocked = false;
+}
+
+// Check Player's Guess
+function checkAnswer(selectedWord, correctWord) {
+if (isAnsweringBlocked) return;
+isAnsweringBlocked = true;
+
+if (selectedWord === correctWord) {
+handleCorrectAnswer();
+} else {
+handleIncorrectAnswer();
+}
+}
+
+// Correct Answer Trigger
+function handleCorrectAnswer() {
+score += 10;
+scoreElement.textContent = score;
+
+// Vault Open Animation
+vaultElement.classList.add('open');
+triggerCoinRain();
+
+setTimeout(() => {
+vaultElement.classList.remove('open');
+currentQuestionIndex++;
+loadNextQuestion();
+}, 800);
+}
+
+// Incorrect Answer Trigger
+function handleIncorrectAnswer() {
+// Vault Shake & Glow Red
+vaultElement.classList.add('shake');
+
+setTimeout(() => {
+vaultElement.classList.remove('shake');
+isAnsweringBlocked = false;
+}, 500);
+}
+
+// Gold Coin Rain Animation
+function triggerCoinRain() {
+for (let i = 0; i < 15; i++) {
+const coin = document.createElement('div');
+coin.className = 'coin';
+coin.style.left = `${Math.random() * 100}%`;
+coin.style.animationDelay = `${Math.random() * 0.3}s`;
+coinRainContainer.appendChild(coin);
+
+setTimeout(() => coin.remove(), 1000);
+}
+}
+
+// Game Over
+function endGame() {
+clearInterval(timerInterval);
+finalScoreElement.textContent = score;
+endOverlay.classList.remove('hidden');
+}
+
+// Event Listeners
+startBtn.addEventListener('click', initGame);
+restartBtn.addEventListener('click', initGame);
+</script>
+</body>
+</html>

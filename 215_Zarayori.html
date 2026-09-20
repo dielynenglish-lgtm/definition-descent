@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word-Chain Miner - Grade 11 Vocabulary</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: #1a1a1a;
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 10px;
+        }
+
+        #game-container {
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+            border-radius: 12px;
+            overflow: hidden;
+            background: #2c1b0e;
+            border: 4px solid #8b5a2b;
+            width: 800px;
+            max-width: 100%;
+        }
+
+        #ui-bar {
+            background: linear-gradient(180deg, #3a2312, #241408);
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 3px solid #5c3a1e;
+        }
+
+        .stat-box {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 6px 14px;
+            border-radius: 6px;
+            border: 1px solid #7a4e28;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .stat-value {
+            color: #ffd700;
+        }
+
+        #target-card {
+            background: #4a2e16;
+            padding: 12px 20px;
+            text-align: center;
+            border-bottom: 2px solid #6b4321;
+            min-height: 75px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        #target-card h3 {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #d4af37;
+            margin-bottom: 4px;
+        }
+
+        #target-definition {
+            font-size: 16px;
+            font-weight: bold;
+            color: #ffffff;
+            line-height: 1.3;
+        }
+
+        canvas {
+            display: block;
+            background: #3d2514;
+            width: 100%;
+            height: auto;
+        }
+
+        #controls-hint {
+            text-align: center;
+            padding: 10px;
+            background: #1e120a;
+            font-size: 14px;
+            color: #ccc;
+        }
+
+        .btn {
+            background: #ffd700;
+            color: #000;
+            border: none;
+            padding: 14px 28px;
+            font-weight: bold;
+            font-size: 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.1s, background-color 0.2s;
+            pointer-events: auto;
+            position: relative;
+            z-index: 20;
+        }
+
+        .btn:hover {
+            background: #ffea75;
+            transform: scale(1.05);
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+
+        #overlay h1 {
+            font-size: 38px;
+            color: #ffd700;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px #000;
+        }
+
+        #overlay p {
+            font-size: 16px;
+            margin-bottom: 24px;
+            max-width: 80%;
+            text-align: center;
+            line-height: 1.4;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="ui-bar">
+        <div class="stat-box">SCORE: <span id="score-val" class="stat-value">0</span></div>
+        <div class="stat-box">TIME: <span id="timer-val" class="stat-value">60</span>s</div>
+    </div>
+
+    <div id="target-card">
+        <h3>Target Definition:</h3>
+        <div id="target-definition">Press Start to Begin</div>
+    </div>
+
+    <canvas id="gameCanvas" width="800" height="480"></canvas>
+
+    <div id="controls-hint">
+        🎮 Press <strong>DOWN ARROW</strong> or <strong>SPACEBAR</strong> (or tap canvas) to drop the claw!
+    </div>
+
+    <div id="overlay">
+        <h1 id="overlay-title">WORD-CHAIN MINER</h1>
+        <p id="overlay-desc">Mine the gold nugget labeled with the vocabulary word matching the target definition!<br><br><em>Watch out: Wrong nuggets carry heavy weight and reel in 3x slower with a score penalty!</em></p>
+        <button id="start-btn" class="btn">START MINING</button>
+    </div>
+</div>
+
+<script>
+// Grade 11 Vocabulary Dataset
+const vocabulary = [
+    { word: "version", definition: "A particular form of something differing in certain respects from an earlier form." },
+    { word: "vast", definition: "Of very great extent, size, or quantity; immense." },
+    { word: "undertake", definition: "To commit oneself to and begin an enterprise, task, or responsibility." },
+    { word: "extraordinary", definition: "Very unusual, remarkable, or exceptional." },
+    { word: "landscape", definition: "All the visible features of an area of countryside or land." },
+    { word: "dusty", definition: "Covered with, full of, or resembling fine dry powder." },
+    { word: "diverse", definition: "Showing a great deal of variety; very different or distinct." }
+];
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// UI Elements
+const scoreValEl = document.getElementById('score-val');
+const timerValEl = document.getElementById('timer-val');
+const targetDefEl = document.getElementById('target-definition');
+const overlay = document.getElementById('overlay');
+const overlayTitle = document.getElementById('overlay-title');
+const overlayDesc = document.getElementById('overlay-desc');
+const startBtn = document.getElementById('start-btn');
+
+// Game State
+let score = 0;
+let timeLeft = 60;
+let timerInterval = null;
+let isPlaying = false;
+let currentTarget = null;
+
+// Mechanical Claw Physics
+const clawOrigin = { x: 400, y: 40 };
+let clawAngle = 0;
+let clawAngleSpeed = 0.025;
+let clawLength = 35;
+let clawState = "SWINGING"; // SWINGING, SHOOTING, RETRACTING
+let caughtNugget = null;
+
+const SHOOT_SPEED = 9;
+const NORMAL_REEL_SPEED = 5;
+const SLOW_REEL_SPEED = 1.66; // 3x slower slowdown effect for wrong nuggets
+const EMPTY_REEL_SPEED = 8;
+let currentReelSpeed = NORMAL_REEL_SPEED;
+
+// Underground Gold Nuggets
+let nuggets = [];
+const NUGGET_COUNT = 6;
+
+class Nugget {
+    constructor(x, y, wordObj) {
+        this.x = x;
+        this.y = y;
+        this.radius = 38;
+        this.wordObj = wordObj;
+    }
+
+    draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        // Gold Nugget Outer Shape
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = "#FFD700";
+        ctx.fill();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "#B8860B";
+        ctx.stroke();
+
+        // Shiny Highlight
+        ctx.beginPath();
+        ctx.arc(-this.radius * 0.35, -this.radius * 0.35, this.radius * 0.25, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+        ctx.fill();
+
+        // Label Text
+        ctx.fillStyle = "#3a1e05";
+        ctx.font = "bold 13px Segoe UI, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(this.wordObj.word, 0, 0);
+
+        ctx.restore();
+    }
+}
+
+function initNuggets() {
+    nuggets = [];
+    const chosenWords = [];
+
+    // Always include current target word
+    if (currentTarget) {
+        chosenWords.push(currentTarget);
+    }
+
+    // Fill remaining spots randomly without duplicate words
+    while (chosenWords.length < NUGGET_COUNT) {
+        const randomItem = vocabulary[Math.floor(Math.random() * vocabulary.length)];
+        if (!chosenWords.includes(randomItem)) {
+            chosenWords.push(randomItem);
+        }
+    }
+
+    // Shuffle words position
+    chosenWords.sort(() => Math.random() - 0.5);
+
+    // Spawn nuggets underground without overlapping
+    for (let i = 0; i < NUGGET_COUNT; i++) {
+        let x, y, overlap;
+        let attempts = 0;
+
+        do {
+            overlap = false;
+            x = Math.random() * (canvas.width - 140) + 70;
+            y = Math.random() * (canvas.height - 230) + 180;
+
+            for (let n of nuggets) {
+                const dist = Math.hypot(n.x - x, n.y - y);
+                if (dist < 85) {
+                    overlap = true;
+                    break;
+                }
+            }
+            attempts++;
+        } while (overlap && attempts < 100);
+
+        nuggets.push(new Nugget(x, y, chosenWords[i]));
+    }
+}
+
+function pickNewTarget() {
+    const previousTarget = currentTarget;
+    do {
+        currentTarget = vocabulary[Math.floor(Math.random() * vocabulary.length)];
+    } while (vocabulary.length > 1 && currentTarget === previousTarget);
+
+    targetDefEl.textContent = `"${currentTarget.definition}"`;
+}
+
+function resetClaw() {
+    clawState = "SWINGING";
+    clawLength = 35;
+    caughtNugget = null;
+    currentReelSpeed = NORMAL_REEL_SPEED;
+}
+
+function fireClaw() {
+    if (clawState === "SWINGING" && isPlaying) {
+        clawState = "SHOOTING";
+    }
+}
+
+function update() {
+    if (!isPlaying) return;
+
+    // 1. Swinging Pendulum State
+    if (clawState === "SWINGING") {
+        clawAngle += clawAngleSpeed;
+        if (clawAngle > Math.PI * 0.38 || clawAngle < -Math.PI * 0.38) {
+            clawAngleSpeed = -clawAngleSpeed;
+        }
+    } 
+    // 2. Shooting Claw State
+    else if (clawState === "SHOOTING") {
+        clawLength += SHOOT_SPEED;
+
+        const clawX = clawOrigin.x + Math.sin(clawAngle) * clawLength;
+        const clawY = clawOrigin.y + Math.cos(clawAngle) * clawLength;
+
+        // Wall Boundaries Collision Check
+        if (clawX < 20 || clawX > canvas.width - 20 || clawY > canvas.height - 20) {
+            clawState = "RETRACTING";
+            currentReelSpeed = EMPTY_REEL_SPEED;
+        }
+
+        // Check Collision with Nuggets
+        for (let i = 0; i < nuggets.length; i++) {
+            const n = nuggets[i];
+            const dist = Math.hypot(n.x - clawX, n.y - clawY);
+            if (dist < n.radius) {
+                caughtNugget = nuggets.splice(i, 1)[0];
+                clawState = "RETRACTING";
+
+                // Correct target word vs Heavy Weight Slowdown
+                if (caughtNugget.wordObj.word === currentTarget.word) {
+                    currentReelSpeed = NORMAL_REEL_SPEED;
+                } else {
+                    currentReelSpeed = SLOW_REEL_SPEED; // 3x Slower!
+                }
+                break;
+            }
+        }
+    } 
+    // 3. Reeling/Retracting State
+    else if (clawState === "RETRACTING") {
+        clawLength -= currentReelSpeed;
+
+        if (caughtNugget) {
+            caughtNugget.x = clawOrigin.x + Math.sin(clawAngle) * clawLength;
+            caughtNugget.y = clawOrigin.y + Math.cos(clawAngle) * clawLength;
+        }
+
+        // Wound back up completely
+        if (clawLength <= 35) {
+            if (caughtNugget) {
+                if (caughtNugget.wordObj.word === currentTarget.word) {
+                    // Score bonus proportional to depth
+                    const depthPoints = Math.floor(caughtNugget.y);
+                    score += 100 + depthPoints;
+                    scoreValEl.textContent = score;
+
+                    pickNewTarget();
+                    initNuggets();
+                } else {
+                    // Penalty for grabbing wrong nugget
+                    score = Math.max(0, score - 50);
+                    scoreValEl.textContent = score;
+
+                    // Respawn missing nugget
+                    respawnNugget();
+                }
+            }
+            resetClaw();
+        }
+    }
+}
+
+function respawnNugget() {
+    let x, y, overlap;
+    let attempts = 0;
+    const randomWord = vocabulary[Math.floor(Math.random() * vocabulary.length)];
+
+    do {
+        overlap = false;
+        x = Math.random() * (canvas.width - 140) + 70;
+        y = Math.random() * (canvas.height - 230) + 180;
+
+        for (let n of nuggets) {
+            const dist = Math.hypot(n.x - x, n.y - y);
+            if (dist < 85) {
+                overlap = true;
+                break;
+            }
+        }
+        attempts++;
+    } while (overlap && attempts < 100);
+
+    nuggets.push(new Nugget(x, y, randomWord));
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Underground soil line
+    ctx.fillStyle = "#27170a";
+    ctx.fillRect(0, 0, canvas.width, 60);
+
+    // Winch Base Machine
+    ctx.fillStyle = "#555";
+    ctx.fillRect(clawOrigin.x - 25, clawOrigin.y - 25, 50, 25);
+    ctx.fillStyle = "#888";
+    ctx.beginPath();
+    ctx.arc(clawOrigin.x, clawOrigin.y - 10, 10, 0, Math.PI * 2);
+    ctx.fill();
+
+    const clawX = clawOrigin.x + Math.sin(clawAngle) * clawLength;
+    const clawY = clawOrigin.y + Math.cos(clawAngle) * clawLength;
+
+    // Cable Line / Rope Animation
+    ctx.beginPath();
+    ctx.moveTo(clawOrigin.x, clawOrigin.y - 10);
+    ctx.lineTo(clawX, clawY);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "#d2b48c";
+    ctx.stroke();
+
+    // Draw Claw Head
+    ctx.save();
+    ctx.translate(clawX, clawY);
+    ctx.rotate(-clawAngle);
+
+    ctx.strokeStyle = "#bbb";
+    ctx.lineWidth = 4;
+
+    const armOpen = (clawState === "SHOOTING") ? 18 : 8;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-armOpen, 16);
+    ctx.lineTo(-armOpen - 4, 28);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(armOpen, 16);
+    ctx.lineTo(armOpen + 4, 28);
+    ctx.stroke();
+
+    ctx.restore();
+
+    // Draw Underground Nuggets
+    for (let nugget of nuggets) {
+        nugget.draw();
+    }
+
+    // Draw Caught Nugget
+    if (caughtNugget) {
+        caughtNugget.draw();
+    }
+}
+
+function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+function startGame(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    startBtn.blur();
+
+    score = 0;
+    timeLeft = 60;
+    scoreValEl.textContent = score;
+    timerValEl.textContent = timeLeft;
+    isPlaying = true;
+
+    overlay.classList.add('hidden');
+
+    pickNewTarget();
+    initNuggets();
+    resetClaw();
+
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+        timeLeft--;
+        timerValEl.textContent = timeLeft;
+
+        if (timeLeft <= 0) {
+            endGame();
+        }
+    }, 1000);
+}
+
+function endGame() {
+    isPlaying = false;
+    if (timerInterval) clearInterval(timerInterval);
+    overlayTitle.textContent = "TIME'S UP!";
+    overlayDesc.innerHTML = `Great mining attempt!<br>Your Final Score: <strong>${score} Points</strong>`;
+    startBtn.textContent = "PLAY AGAIN";
+    overlay.classList.remove('hidden');
+}
+
+// Event Listeners for Start Button
+startBtn.addEventListener('click', startGame);
+startBtn.addEventListener('touchend', startGame);
+
+// Controls for Claw
+window.addEventListener('keydown', (e) => {
+    if ((e.code === 'ArrowDown' || e.code === 'Space') && isPlaying) {
+        e.preventDefault();
+        fireClaw();
+    }
+});
+
+canvas.addEventListener('click', () => {
+    if (isPlaying) fireClaw();
+});
+
+// Start rendering loop immediately
+gameLoop();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Money Ladder Vocabulary Trivia</title>
+    <style>
+        :root {
+            --dark-blue: #0A1128;
+            --mid-blue: #001F54;
+            --accent-blue: #034078;
+            --gold: #FFD700;
+            --light-gold: #FFF0A5;
+            --text-white: #FFFFFF;
+        }
+
+        body {
+            background-color: var(--dark-blue);
+            color: var(--text-white);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .game-container {
+            display: grid;
+            grid-template-columns: 1fr 280px;
+            gap: 20px;
+            width: 100%;
+            max-width: 950px;
+            background-color: var(--mid-blue);
+            border: 3px solid var(--gold);
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 0 25px rgba(255, 215, 0, 0.25);
+        }
+
+        .main-stage {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--gold);
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+
+        .timer-box {
+            background-color: var(--dark-blue);
+            border: 2px solid var(--gold);
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--gold);
+            text-align: center;
+        }
+
+        .question-box {
+            background: linear-gradient(180deg, var(--accent-blue), var(--dark-blue));
+            border: 2px solid var(--gold);
+            border-radius: 8px;
+            padding: 25px;
+            font-size: 20px;
+            text-align: center;
+            margin-bottom: 25px;
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .option-btn {
+            background-color: var(--dark-blue);
+            color: var(--text-white);
+            border: 2px solid var(--accent-blue);
+            border-radius: 6px;
+            padding: 15px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: left;
+        }
+
+        .option-btn:hover {
+            border-color: var(--gold);
+            background-color: var(--accent-blue);
+            color: var(--gold);
+        }
+
+        .ladder-container {
+            background-color: var(--dark-blue);
+            border: 2px solid var(--gold);
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column-reverse;
+            gap: 8px;
+        }
+
+        .ladder-step {
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+            font-weight: bold;
+            color: var(--gold);
+            background-color: var(--mid-blue);
+            border: 1px solid rgba(255, 215, 0, 0.3);
+        }
+
+        .ladder-step.active {
+            background-color: var(--gold);
+            color: var(--dark-blue);
+            box-shadow: 0 0 10px var(--gold);
+        }
+
+        .ladder-step.completed {
+            background-color: var(--accent-blue);
+            color: var(--light-gold);
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(10, 17, 40, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .overlay-content {
+            text-align: center;
+            background-color: var(--mid-blue);
+            border: 3px solid var(--gold);
+            padding: 40px;
+            border-radius: 12px;
+            max-width: 400px;
+        }
+
+        .overlay h1 {
+            color: var(--gold);
+            margin-top: 0;
+        }
+
+        .action-btn {
+            background-color: var(--gold);
+            color: var(--dark-blue);
+            border: none;
+            padding: 12px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        .action-btn:hover {
+            background-color: var(--light-gold);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <div class="main-stage">
+            <div class="header">
+                <h2 style="color: var(--gold); margin: 0;">MONEY LADDER</h2>
+                <div class="timer-box">⏳ <span id="timer">60</span>s</div>
+            </div>
+
+            <div class="question-box" id="question-text">Question will appear here...</div>
+
+            <div class="options-grid" id="options-container">
+                <!-- Options rendered dynamically -->
+            </div>
+        </div>
+
+        <div class="ladder-container" id="ladder">
+            <!-- Ladder steps rendered dynamically -->
+        </div>
+    </div>
+
+    <!-- Overlay Screen -->
+    <div class="overlay" id="overlay">
+        <div class="overlay-content">
+            <h1 id="overlay-title">MONEY LADDER TRIVIA</h1>
+            <p id="overlay-message">Climb to the top by selecting the correct vocabulary words! One mistake or running out of time ends the game.</p>
+            <button class="action-btn" id="start-btn" onclick="startGame()">PLAY GAME</button>
+        </div>
+    </div>
+
+    <script>
+        const vocabularyQuestions = [
+            {
+                word: "recipe",
+                question: "Fill in the blank: Follow this ______ carefully to make the cake.",
+                options: ["recipe", "variation", "combination", "generation"],
+                correct: 0
+            },
+            {
+                word: "pasta",
+                question: "Fill in the blank: Italian cuisine is famous for spaghetti and other forms of ______.",
+                options: ["combination", "pasta", "deserve", "recipe"],
+                correct: 1
+            },
+            {
+                word: "variation",
+                question: "Fill in the blank: There is a slight ______ in color between the two prints.",
+                options: ["generation", "ultimately", "variation", "recipe"],
+                correct: 2
+            },
+            {
+                word: "combination",
+                question: "Fill in the blank: The lock requires a three-digit secret ______.",
+                options: ["combination", "deserve", "pasta", "generation"],
+                correct: 0
+            },
+            {
+                word: "generation",
+                question: "Fill in the blank: The younger ______ relies heavily on digital technology.",
+                options: ["variation", "recipe", "ultimately", "generation"],
+                correct: 3
+            },
+            {
+                word: "ultimately",
+                question: "Fill in the blank: After hours of debate, they ______ reached an agreement.",
+                options: ["deserve", "ultimately", "combination", "pasta"],
+                correct: 1
+            },
+            {
+                word: "deserve",
+                question: "Fill in the blank: After working so hard all week, you ______ a break.",
+                options: ["deserve", "variation", "recipe", "generation"],
+                correct: 0
+            }
+        ];
+
+        const prizeMoney = ["$1,000", "$5,000", "$10,000", "$25,000", "$50,000", "$100,000", "$1,000,000"];
+
+        let currentQuestions = [];
+        let currentStep = 0;
+        let timeLeft = 60;
+        let timerInterval = null;
+
+        function shuffleArray(array) {
+            const shuffled = [...array];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
+
+        function renderLadder() {
+            const ladderEl = document.getElementById('ladder');
+            ladderEl.innerHTML = '';
+            prizeMoney.forEach((amount, idx) => {
+                const stepEl = document.createElement('div');
+                stepEl.className = 'ladder-step';
+                stepEl.id = `step-${idx}`;
+                stepEl.innerText = `${idx + 1}. ${amount}`;
+                ladderEl.appendChild(stepEl);
+            });
+        }
+
+        function updateLadderUI() {
+            prizeMoney.forEach((_, idx) => {
+                const stepEl = document.getElementById(`step-${idx}`);
+                stepEl.className = 'ladder-step';
+                if (idx < currentStep) {
+                    stepEl.classList.add('completed');
+                } else if (idx === currentStep) {
+                    stepEl.classList.add('active');
+                }
+            });
+        }
+
+        function startGame() {
+            currentQuestions = shuffleArray(vocabularyQuestions).map(q => {
+                const originalCorrect = q.options[q.correct];
+                const shuffledOptions = shuffleArray(q.options);
+                return {
+                    question: q.question,
+                    options: shuffledOptions,
+                    correct: shuffledOptions.indexOf(originalCorrect)
+                };
+            });
+
+            currentStep = 0;
+            timeLeft = 60;
+
+            document.getElementById('overlay').classList.add('hidden');
+            document.getElementById('timer').innerText = timeLeft;
+
+            renderLadder();
+            updateLadderUI();
+            loadQuestion();
+
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                document.getElementById('timer').innerText = timeLeft;
+                if (timeLeft <= 0) {
+                    endGame(false, "Time's up! You ran out of time.");
+                }
+            }, 1000);
+        }
+
+        function loadQuestion() {
+            if (currentStep >= currentQuestions.length) {
+                endGame(true, "CONGRATULATIONS! You reached the top of the Money Ladder!");
+                return;
+            }
+
+            const q = currentQuestions[currentStep];
+            document.getElementById('question-text').innerText = q.question;
+            
+            const optionsContainer = document.getElementById('options-container');
+            optionsContainer.innerHTML = '';
+
+            const prefixes = ['A', 'B', 'C', 'D'];
+            q.options.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.innerText = `${prefixes[idx]}: ${opt}`;
+                btn.onclick = () => checkAnswer(idx);
+                optionsContainer.appendChild(btn);
+            });
+
+            updateLadderUI();
+        }
+
+        function checkAnswer(selectedIndex) {
+            const q = currentQuestions[currentStep];
+            if (selectedIndex === q.correct) {
+                currentStep++;
+                if (currentStep < currentQuestions.length) {
+                    loadQuestion();
+                } else {
+                    endGame(true, "GRAND PRIZE WINNER! You mastered all vocabulary words!");
+                }
+            } else {
+                endGame(false, "Wrong answer! Game Over.");
+            }
+        }
+
+        function endGame(isWin, message) {
+            clearInterval(timerInterval);
+            const overlay = document.getElementById('overlay');
+            const title = document.getElementById('overlay-title');
+            const msg = document.getElementById('overlay-message');
+            const btn = document.getElementById('start-btn');
+
+            title.innerText = isWin ? "VICTORY!" : "GAME OVER";
+            msg.innerText = message + ` You walked away with: ${currentStep > 0 ? prizeMoney[currentStep - 1] : '$0'}.`;
+            btn.innerText = "TRY AGAIN";
+
+            overlay.classList.remove('hidden');
+        }
+
+        renderLadder();
+    </script>
+</body>
+</html>

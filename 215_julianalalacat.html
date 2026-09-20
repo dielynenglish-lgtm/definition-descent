@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Split-Screen Vocabulary Battle (2-Player)</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+        }
+
+        body {
+            background-color: #1a1a1a;
+            color: #fff;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 頂部資訊列 */
+        header {
+            height: 60px;
+            background-color: #2c2c2c;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+
+        .timer {
+            font-size: 28px;
+            font-weight: bold;
+            color: #ffcc00;
+        }
+
+        .round-info {
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        /* 主戰場：左右分割 */
+        .battlefield {
+            display: flex;
+            flex: 1;
+            position: relative;
+        }
+
+        .player-side {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            position: relative;
+            transition: background-color 0.3s;
+        }
+
+        /* 玩家 1（左側/紅） */
+        #p1-side {
+            background-color: #2b1b1d;
+            border-right: 4px solid #444;
+        }
+
+        /* 玩家 2（右側/綠） */
+        #p2-side {
+            background-color: #1b2b1e;
+        }
+
+        .player-title {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .p1-color { color: #ff5252; }
+        .p2-color { color: #4caf50; }
+
+        .score-board {
+            font-size: 32px;
+            font-weight: bold;
+        }
+
+        /* 題目顯示區 */
+        .question-box {
+            background-color: rgba(0, 0, 0, 0.4);
+            border-radius: 12px;
+            padding: 20px;
+            min-height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-size: 22px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            border: 2px solid rgba(255,255,255,0.1);
+        }
+
+        /* 按鈕四分格 */
+        .quadrants {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 15px;
+            flex: 1;
+        }
+
+        .btn-quad {
+            background-color: #333;
+            border: 3px solid #555;
+            border-radius: 12px;
+            color: white;
+            font-size: 22px;
+            font-weight: bold;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.1s, border-color 0.2s;
+        }
+
+        .key-hint {
+            position: absolute;
+            top: 8px;
+            left: 12px;
+            background-color: rgba(255,255,255,0.2);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #fff;
+        }
+
+        /* 鎖定遮罩 (懲罰機制) */
+        .lock-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(255, 0, 0, 0.4);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 32px;
+            font-weight: bold;
+            color: white;
+            border-radius: 12px;
+            backdrop-filter: blur(2px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            z-index: 5;
+        }
+
+        .player-side.locked .lock-overlay {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        /* 閃爍動畫 */
+        @keyframes flash-red {
+            0% { background-color: rgba(255, 0, 0, 0.8); }
+            100% { background-color: #2b1b1d; }
+        }
+
+        .penalty-flash {
+            animation: flash-red 0.5s ease-out;
+        }
+
+        /* 結算畫面 */
+        #victory-screen {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background-color: rgba(0, 0, 0, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s;
+        }
+
+        #victory-screen.show {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .victory-title {
+            font-size: 60px;
+            font-weight: 900;
+            color: #ffcc00;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px rgba(255, 204, 0, 0.6);
+        }
+
+        .final-scores {
+            font-size: 36px;
+            margin-bottom: 40px;
+        }
+
+        .rematch-btn {
+            padding: 15px 40px;
+            font-size: 28px;
+            font-weight: bold;
+            background-color: #ff5252;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(255, 82, 82, 0.4);
+            transition: transform 0.2s, background-color 0.2s;
+        }
+
+        .rematch-btn:hover {
+            transform: scale(1.05);
+            background-color: #ff1744;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="round-info" id="round-display">Question: 1 / 10</div>
+        <div class="timer" id="timer-display">⏱️ 60s</div>
+    </header>
+
+    <div class="battlefield">
+        <!-- 玩家 1 (左) -->
+        <div class="player-side" id="p1-side">
+            <div class="lock-overlay" id="p1-lock">LOCKED ❌</div>
+            <div class="player-title p1-color">
+                <span>Player 1 (Red)</span>
+                <span class="score-board" id="p1-score">0</span>
+            </div>
+            <div class="question-box" id="p1-q">Definition loading...</div>
+            <div class="quadrants">
+                <div class="btn-quad"><span class="key-hint">Q</span><span id="p1-opt-0">-</span></div>
+                <div class="btn-quad"><span class="key-hint">W</span><span id="p1-opt-1">-</span></div>
+                <div class="btn-quad"><span class="key-hint">A</span><span id="p1-opt-2">-</span></div>
+                <div class="btn-quad"><span class="key-hint">S</span><span id="p1-opt-3">-</span></div>
+            </div>
+        </div>
+
+        <!-- 玩家 2 (右) -->
+        <div class="player-side" id="p2-side">
+            <div class="lock-overlay" id="p2-lock">LOCKED ❌</div>
+            <div class="player-title p2-color">
+                <span>Player 2 (Green)</span>
+                <span class="score-board" id="p2-score">0</span>
+            </div>
+            <div class="question-box" id="p2-q">Definition loading...</div>
+            <div class="quadrants">
+                <div class="btn-quad"><span class="key-hint">I</span><span id="p2-opt-0">-</span></div>
+                <div class="btn-quad"><span class="key-hint">O</span><span id="p2-opt-1">-</span></div>
+                <div class="btn-quad"><span class="key-hint">K</span><span id="p2-opt-2">-</span></div>
+                <div class="btn-quad"><span class="key-hint">L</span><span id="p2-opt-3">-</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 結算畫面 -->
+    <div id="victory-screen">
+        <div class="victory-title">MISSION COMPLETE!</div>
+        <div class="final-scores" id="winner-text">Winner: -</div>
+        <div class="final-scores" id="final-score-text">P1: 0 | P2: 0</div>
+        <button class="rematch-btn" onclick="resetGame()">Rematch</button>
+    </div>
+
+    <script>
+        // 高二專屬字彙庫 (包含單字與定義)
+        const vocabBank = [
+            { word: "presentation", def: "A talk or speech giving information about something." },
+            { word: "boost", def: "To help something increase, improve, or become more successful." },
+            { word: "accomplish", def: "To succeed in doing or completing something difficult." },
+            { word: "purchase", def: "The act of buying something, or the item that is bought." },
+            { word: "trigger", def: "To cause an event, reaction, or process to start happening." },
+            { word: "psychology", def: "The scientific study of the human mind and its functions." },
+            { word: "stability", def: "The state of being steady, firm, and not easily changed." }
+        ];
+
+        // 玩家按鍵對應
+        const p1Keys = ['q', 'w', 'a', 's'];
+        const p2Keys = ['i', 'o', 'k', 'l'];
+
+        let currentRound = 0;
+        const maxRounds = 10;
+        let p1Score = 0;
+        let p2Score = 0;
+        let timeLeft = 60;
+        let timerInterval = null;
+
+        let currentQuestion = null;
+        let currentOptions = [];
+        let p1Locked = false;
+        let p2Locked = false;
+        let gameActive = false;
+
+        function startGame() {
+            p1Score = 0;
+            p2Score = 0;
+            currentRound = 0;
+            timeLeft = 60;
+            gameActive = true;
+
+            document.getElementById('p1-score').innerText = p1Score;
+            document.getElementById('p2-score').innerText = p2Score;
+            document.getElementById('timer-display').innerText = `⏱️ ${timeLeft}s`;
+            document.getElementById('victory-screen').classList.remove('show');
+
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(updateTimer, 1000);
+
+            nextQuestion();
+        }
+
+        function updateTimer() {
+            if (!gameActive) return;
+            timeLeft--;
+            document.getElementById('timer-display').innerText = `⏱️ ${timeLeft}s`;
+            if (timeLeft <= 0) {
+                endGame();
+            }
+        }
+
+        function nextQuestion() {
+            if (currentRound >= maxRounds) {
+                endGame();
+                return;
+            }
+
+            currentRound++;
+            document.getElementById('round-display').innerText = `Question: ${currentRound} / ${maxRounds}`;
+
+            // 解鎖雙方
+            p1Locked = false;
+            p2Locked = false;
+            document.getElementById('p1-side').classList.remove('locked');
+            document.getElementById('p2-side').classList.remove('locked');
+
+            // 隨機選一個目標字彙
+            currentQuestion = vocabBank[Math.floor(Math.random() * vocabBank.length)];
+
+            // 生成 4 個不重複選項
+            let options = [currentQuestion.word];
+            while (options.length < 4) {
+                let randomWord = vocabBank[Math.floor(Math.random() * vocabBank.length)].word;
+                if (!options.includes(randomWord)) {
+                    options.push(randomWord);
+                }
+            }
+            // 洗牌選項
+            currentOptions = options.sort(() => Math.random() - 0.5);
+
+            // 更新兩邊畫面
+            document.getElementById('p1-q').innerText = currentQuestion.def;
+            document.getElementById('p2-q').innerText = currentQuestion.def;
+
+            for (let i = 0; i < 4; i++) {
+                document.getElementById(`p1-opt-${i}`).innerText = currentOptions[i];
+                document.getElementById(`p2-opt-${i}`).innerText = currentOptions[i];
+            }
+        }
+
+        // 鍵盤監聽事件
+        window.addEventListener('keydown', (e) => {
+            if (!gameActive) return;
+            const key = e.key.toLowerCase();
+
+            // 玩家 1 搶答
+            if (!p1Locked && p1Keys.includes(key)) {
+                const index = p1Keys.indexOf(key);
+                handleAnswer(1, index);
+            }
+            // 玩家 2 搶答
+            else if (!p2Locked && p2Keys.includes(key)) {
+                const index = p2Keys.indexOf(key);
+                handleAnswer(2, index);
+            }
+        });
+
+        function handleAnswer(player, optionIndex) {
+            const selectedWord = currentOptions[optionIndex];
+
+            if (selectedWord === currentQuestion.word) {
+                // 答對：加分並進入下一題
+                if (player === 1) {
+                    p1Score++;
+                    document.getElementById('p1-score').innerText = p1Score;
+                } else {
+                    p2Score++;
+                    document.getElementById('p2-score').innerText = p2Score;
+                }
+                nextQuestion();
+            } else {
+                // 答錯：懲罰閃紅 + 鎖定該回合
+                if (player === 1) {
+                    p1Locked = true;
+                    const side = document.getElementById('p1-side');
+                    side.classList.add('locked', 'penalty-flash');
+                    setTimeout(() => side.classList.remove('penalty-flash'), 500);
+                } else {
+                    p2Locked = true;
+                    const side = document.getElementById('p2-side');
+                    side.classList.add('locked', 'penalty-flash');
+                    setTimeout(() => side.classList.remove('penalty-flash'), 500);
+                }
+
+                // 如果雙方都答錯被鎖定，自動換下一題
+                if (p1Locked && p2Locked) {
+                    setTimeout(nextQuestion, 800);
+                }
+            }
+        }
+
+        function endGame() {
+            gameActive = false;
+            clearInterval(timerInterval);
+
+            const winnerText = document.getElementById('winner-text');
+            if (p1Score > p2Score) {
+                winnerText.innerText = "🏆 Player 1 (Red) Wins!";
+                winnerText.style.color = "#ff5252";
+            } else if (p2Score > p1Score) {
+                winnerText.innerText = "🏆 Player 2 (Green) Wins!";
+                winnerText.style.color = "#4caf50";
+            } else {
+                winnerText.innerText = "🤝 It's a Tie!";
+                winnerText.style.color = "#ffcc00";
+            }
+
+            document.getElementById('final-score-text').innerText = `Red: ${p1Score} pts | Green: ${p2Score} pts`;
+            document.getElementById('victory-screen').classList.add('show');
+        }
+
+        function resetGame() {
+            startGame();
+        }
+
+        // 初始化遊戲
+        startGame();
+    </script>
+</body>
+</html>
