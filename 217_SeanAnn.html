@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word-Chain Miner</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #1a1a1a;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        #game-container {
+            position: relative;
+            width: 800px;
+            text-align: center;
+        }
+
+        #gui {
+            background-color: #2d2d2d;
+            border: 2px solid #4a4a4a;
+            border-radius: 8px 8px 0 0;
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        .gui-box {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .gui-box span {
+            color: #ffd700;
+        }
+
+        #target-container {
+            font-size: 18px;
+            background: #3a3a3a;
+            padding: 6px 16px;
+            border-radius: 20px;
+            border: 1px solid #555;
+        }
+
+        #target-word {
+            color: #00e676;
+            font-weight: bold;
+        }
+
+        canvas {
+            background-color: #111;
+            border: 2px solid #4a4a4a;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+            display: block;
+        }
+
+        #game-over-screen {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 800px;
+            height: 600px;
+            background: rgba(0, 0, 0, 0.85);
+            border-radius: 8px;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+
+        #game-over-screen h1 {
+            font-size: 48px;
+            color: #ffd700;
+            margin-bottom: 10px;
+        }
+
+        #game-over-screen p {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 12px 28px;
+            font-size: 18px;
+            font-weight: bold;
+            background-color: #ffd700;
+            color: #1a1a1a;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: transform 0.1s, background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #ffae00;
+            transform: scale(1.05);
+        }
+
+        #instructions {
+            margin-top: 15px;
+            color: #aaa;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="gui">
+            <div class="gui-box">Score: <span id="score-display">0</span></div>
+            <div id="target-container">Definition: <span id="target-word">Loading...</span></div>
+            <div class="gui-box">Time: <span id="timer-display">60</span>s</div>
+        </div>
+        <canvas id="gameCanvas" width="800" height="540"></canvas>
+        
+        <div id="game-over-screen">
+            <h1>Game Over</h1>
+            <p>Your Final Score: <span id="final-score">0</span></p>
+            <button onclick="restartGame()">Play Again</button>
+        </div>
+    </div>
+
+    <div id="instructions">Press <strong>DOWN ARROW</strong> to drop the claw!</div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        // Vocabulary Database
+        const vocabList = [
+            { word: "coincidence", def: "A remarkable concurrence of events or circumstances without apparent causal connection." },
+            { word: "invade", def: "To enter a country or region with an armed force in order to occupy or conquer it." },
+            { word: "overthrow", def: "To remove a government or leader from power by force." },
+            { word: "rigid", def: "Not able to be changed or adapted; unable to bend or be forced out of shape." },
+            { word: "labor", def: "Hard physical work or exertion." },
+            { word: "peasant", def: "A poor farmer of low social status who owns or rents a small piece of land." },
+            { word: "noble", def: "Belonging to a high social class, often with a title." }
+        ];
+
+        // Game State
+        let score = 0;
+        let timeLeft = 60;
+        let gameInterval = null;
+        let timerInterval = null;
+        let isGameOver = false;
+        let currentTargetIndex = 0;
+
+        // Claw / Pendulum Properties
+        const clawBaseX = canvas.width / 2;
+        const clawBaseY = 40;
+        let clawAngle = 0;
+        let clawSpeed = 0.03;
+        let clawAngleLimit = Math.PI / 3;
+        let clawLength = 40;
+        let maxClawLength = 500;
+        
+        // Claw Modes: 'swinging', 'extending', 'retracting'
+        let clawState = 'swinging'; 
+        let extendSpeed = 8;
+        let retractSpeed = 8;
+        let caughtNugget = null;
+
+        // Gold Nuggets Array
+        let nuggets = [];
+
+        // Predefined underground spawn zones to distribute 6 nuggets cleanly
+        const spawnZones = [
+            { xMin: 60,  xMax: 220, yMin: 180, yMax: 320 },
+            { xMin: 280, xMax: 500, yMin: 180, yMax: 300 },
+            { xMin: 560, xMax: 720, yMin: 180, yMax: 320 },
+            { xMin: 60,  xMax: 240, yMin: 360, yMax: 480 },
+            { xMin: 300, xMax: 500, yMin: 360, yMax: 480 },
+            { xMin: 560, xMax: 720, yMin: 360, yMax: 480 }
+        ];
+
+        function initGame() {
+            score = 0;
+            timeLeft = 60;
+            isGameOver = false;
+            clawState = 'swinging';
+            clawLength = 40;
+            caughtNugget = null;
+
+            document.getElementById("score-display").innerText = score;
+            document.getElementById("timer-display").innerText = timeLeft;
+            document.getElementById("game-over-screen").style.display = "none";
+
+            selectNewTarget();
+            spawnNuggets();
+
+            clearInterval(gameInterval);
+            clearInterval(timerInterval);
+
+            gameInterval = setInterval(update, 1000 / 60);
+            timerInterval = setInterval(updateTimer, 1000);
+        }
+
+        function selectNewTarget() {
+            currentTargetIndex = Math.floor(Math.random() * vocabList.length);
+            document.getElementById("target-word").innerText = vocabList[currentTargetIndex].def;
+        }
+
+        function spawnNuggets() {
+            nuggets = [];
+            // Shuffle vocabulary to pick 6 unique words for the nuggets
+            let shuffledVocab = [...vocabList].sort(() => Math.random() - 0.5);
+            
+            // Ensure the target word is guaranteed to be among the 6 nuggets
+            let targetItem = vocabList[currentTargetIndex];
+            if (!shuffledVocab.slice(0, 6).includes(targetItem)) {
+                shuffledVocab[0] = targetItem;
+                shuffledVocab.sort(() => Math.random() - 0.5);
+            }
+
+            for (let i = 0; i < 6; i++) {
+                let zone = spawnZones[i];
+                let radius = 35; // Large gold nuggets
+                let x = Math.floor(Math.random() * (zone.xMax - zone.xMin)) + zone.xMin;
+                let y = Math.floor(Math.random() * (zone.yMax - zone.yMin)) + zone.yMin;
+
+                nuggets.push({
+                    x: x,
+                    y: y,
+                    radius: radius,
+                    word: shuffledVocab[i].word,
+                    depth: y
+                });
+            }
+        }
+
+        function updateTimer() {
+            if (isGameOver) return;
+            timeLeft--;
+            document.getElementById("timer-display").innerText = timeLeft;
+            if (timeLeft <= 0) {
+                endGame();
+            }
+        }
+
+        function endGame() {
+            isGameOver = true;
+            clearInterval(gameInterval);
+            clearInterval(timerInterval);
+            document.getElementById("final-score").innerText = score;
+            document.getElementById("game-over-screen").style.display = "flex";
+        }
+
+        function restartGame() {
+            initGame();
+        }
+
+        // Input Listener
+        window.addEventListener("keydown", function (e) {
+            if (e.key === "ArrowDown" && clawState === 'swinging' && !isGameOver) {
+                clawState = 'extending';
+            }
+        });
+
+        function update() {
+            if (isGameOver) return;
+
+            // 1. Update Claw Position & Swinging Logic
+            if (clawState === 'swinging') {
+                clawAngle += clawSpeed;
+                if (Math.abs(clawAngle) > clawAngleLimit) {
+                    clawSpeed = -clawSpeed;
+                }
+            } else if (clawState === 'extending') {
+                clawLength += extendSpeed;
+
+                let clawTipX = clawBaseX + Math.sin(clawAngle) * clawLength;
+                let clawTipY = clawBaseY + Math.cos(clawAngle) * clawLength;
+
+                // Check wall/bottom collision
+                if (clawTipX <= 10 || clawTipX >= canvas.width - 10 || clawTipY >= canvas.height - 10 || clawLength >= maxClawLength) {
+                    clawState = 'retracting';
+                    retractSpeed = 8; // Empty claw speed
+                }
+
+                // Check collision with nuggets
+                for (let i = 0; i < nuggets.length; i++) {
+                    let n = nuggets[i];
+                    let dist = Math.hypot(clawTipX - n.x, clawTipY - n.y);
+                    if (dist < n.radius) {
+                        caughtNugget = nuggets.splice(i, 1)[0];
+                        clawState = 'retracting';
+
+                        // Check correctness & calculate physics speed
+                        let isCorrect = (caughtNugget.word === vocabList[currentTargetIndex].word);
+                        if (isCorrect) {
+                            retractSpeed = 6; // Standard reel speed for correct nugget
+                        } else {
+                            retractSpeed = 2; // Heavy weight slowdown effect (3x longer to pull back up)
+                        }
+                        break;
+                    }
+                }
+            } else if (clawState === 'retracting') {
+                clawLength -= retractSpeed;
+
+                // Carry caught nugget with claw
+                if (caughtNugget) {
+                    caughtNugget.x = clawBaseX + Math.sin(clawAngle) * clawLength;
+                    caughtNugget.y = clawBaseY + Math.cos(clawAngle) * clawLength + 10;
+                }
+
+                // Fully retracted
+                if (clawLength <= 40) {
+                    clawLength = 40;
+                    clawState = 'swinging';
+
+                    if (caughtNugget) {
+                        processCaughtNugget(caughtNugget);
+                        caughtNugget = null;
+                    }
+                }
+            }
+
+            draw();
+        }
+
+        function processCaughtNugget(nugget) {
+            let targetWord = vocabList[currentTargetIndex].word;
+
+            if (nugget.word === targetWord) {
+                // Award points based on depth
+                let points = Math.floor(nugget.depth / 2);
+                score += points;
+                document.getElementById("score-display").innerText = score;
+
+                // Update target definition & respawn nuggets
+                selectNewTarget();
+                spawnNuggets();
+            } else {
+                // Penalty for incorrect nugget
+                score = Math.max(0, score - 50);
+                document.getElementById("score-display").innerText = score;
+                
+                // Respawn missing nugget if board gets depleted
+                if (nuggets.length < 3) {
+                    spawnNuggets();
+                }
+            }
+        }
+
+        function draw() {
+            // Clear background
+            ctx.fillStyle = "#1e130c";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Underground Dirt Gradient
+            let grad = ctx.createLinearGradient(0, 40, 0, canvas.height);
+            grad.addColorStop(0, "#3d2314");
+            grad.addColorStop(1, "#120a05");
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 40, canvas.width, canvas.height - 40);
+
+            // Draw Top Machine Rig
+            ctx.fillStyle = "#555";
+            ctx.fillRect(0, 0, canvas.width, 40);
+            ctx.fillStyle = "#888";
+            ctx.fillRect(clawBaseX - 30, 10, 60, 30);
+
+            // Calculate Claw Position
+            let clawTipX = clawBaseX + Math.sin(clawAngle) * clawLength;
+            let clawTipY = clawBaseY + Math.cos(clawAngle) * clawLength;
+
+            // Draw Rope
+            ctx.beginPath();
+            ctx.moveTo(clawBaseX, clawBaseY);
+            ctx.lineTo(clawTipX, clawTipY);
+            ctx.strokeStyle = "#d7ccc8";
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Draw Claw Mechanism
+            ctx.save();
+            ctx.translate(clawTipX, clawTipY);
+            ctx.rotate(-clawAngle);
+            
+            ctx.strokeStyle = "#aaa";
+            ctx.lineWidth = 4;
+            // Left claw prong
+            ctx.beginPath();
+            ctx.arc(-10, 10, 12, Math.PI * 0.5, Math.PI * 1.2);
+            ctx.stroke();
+            // Right claw prong
+            ctx.beginPath();
+            ctx.arc(10, 10, 12, -Math.PI * 0.2, Math.PI * 0.5);
+            ctx.stroke();
+
+            ctx.restore();
+
+            // Draw Nuggets
+            for (let n of nuggets) {
+                drawNugget(n);
+            }
+
+            // Draw Caught Nugget
+            if (caughtNugget) {
+                drawNugget(caughtNugget);
+            }
+        }
+
+        function drawNugget(n) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(n.x, n.y, n.radius, 0, Math.PI * 2);
+            ctx.fillStyle = "#ffd700";
+            ctx.fill();
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = "#daa520";
+            ctx.stroke();
+
+            // Nugget Shine / Texture
+            ctx.beginPath();
+            ctx.arc(n.x - 8, n.y - 8, n.radius / 3, 0, Math.PI * 2);
+            ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+            ctx.fill();
+
+            // Vocabulary Label
+            ctx.fillStyle = "#000000";
+            ctx.font = "bold 13px Segoe UI, sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(n.word, n.x, n.y);
+            ctx.restore();
+        }
+
+        // Start Game on Load
+        initGame();
+    </script>
+</body>
+</html>

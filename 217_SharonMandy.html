@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Breakout Word-Wall Builder</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            background-color: #1a1a24;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        h1 {
+            margin-bottom: 10px;
+            font-size: 24px;
+            color: #4ea8de;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            border-radius: 8px;
+            overflow: hidden;
+            background: #0f0f17;
+        }
+        canvas {
+            background: #0f0f17;
+            display: block;
+        }
+        #ui-bar {
+            position: absolute;
+            top: 10px;
+            left: 15px;
+            right: 15px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 16px;
+            font-weight: bold;
+            pointer-events: none;
+            z-index: 5;
+        }
+        #quiz-modal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 15, 23, 0.92);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            padding: 30px;
+            text-align: center;
+        }
+        #quiz-modal h2 {
+            color: #ffd166;
+            margin-bottom: 10px;
+            font-size: 20px;
+        }
+        #definition-text {
+            font-size: 20px;
+            margin-bottom: 25px;
+            max-width: 600px;
+            line-height: 1.4;
+            color: #e0e1dd;
+        }
+        .options-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 100%;
+            max-width: 400px;
+        }
+        .option-btn {
+            background-color: #2b2d42;
+            color: #ffffff;
+            border: 2px solid #4ea8de;
+            padding: 12px 20px;
+            font-size: 18px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            outline: none;
+        }
+        .option-btn:hover {
+            background-color: #4ea8de;
+            color: #0f0f17;
+            transform: translateY(-2px);
+        }
+        #status-modal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 15, 23, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+        }
+        #status-title {
+            font-size: 36px;
+            margin-bottom: 15px;
+            color: #4ea8de;
+        }
+        #status-desc {
+            font-size: 18px;
+            margin-bottom: 25px;
+            color: #a0aab2;
+        }
+        .start-btn {
+            background-color: #06d6a0;
+            color: #0f0f17;
+            border: none;
+            padding: 12px 30px;
+            font-size: 20px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .start-btn:hover {
+            background-color: #05b386;
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Breakout Word-Wall Builder</h1>
+
+    <div id="game-container">
+        <div id="ui-bar">
+            <span id="score-text">Blocks Smashed: 0</span>
+            <span id="lives-text">Lives: 3</span>
+        </div>
+
+        <canvas id="breakoutCanvas" width="800" height="600"></canvas>
+
+        <div id="quiz-modal">
+            <h2>Layer Shattered! Choose the Matching Word:</h2>
+            <div id="definition-text">Definition goes here...</div>
+            <div class="options-grid" id="options-container"></div>
+        </div>
+
+        <div id="status-modal">
+            <h2 id="status-title">Word-Wall Breakout</h2>
+            <p id="status-desc">Move mouse to bounce the ball. Shatter rows to reveal word definitions!</p>
+            <button class="start-btn" id="start-btn" onclick="startGame()">Play Game</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("breakoutCanvas");
+        const ctx = canvas.getContext("2d");
+
+        const vocabList = [
+            { word: "imaginative", def: "Having or showing creativity, originality, or high inventiveness.", color: "#ef476f" },
+            { word: "artistic", def: "Having or revealing natural creative skill and sensitivity in art.", color: "#f78c6b" },
+            { word: "atmosphere", def: "The pervading tone, feel, or mood of a place or work of art.", color: "#ffd166" },
+            { word: "gallery", def: "A room, building, or space for the display or exhibition of art.", color: "#06d6a0" },
+            { word: "architecture", def: "The art or science of designing and constructing buildings.", color: "#118ab2" },
+            { word: "professional", def: "Relating to or demonstrating high standards, competence, or skill.", color: "#073b4c" }
+        ];
+
+        const rowCount = 6;
+        const columnCount = 8;
+        const brickPadding = 6;
+        const brickOffsetTop = 50;
+        const brickOffsetLeft = 35;
+        const brickWidth = (canvas.width - (brickOffsetLeft * 2) - (brickPadding * (columnCount - 1))) / columnCount;
+        const brickHeight = 25;
+
+        let paddleWidth = 120;
+        let paddleHeight = 12;
+        let paddleX = (canvas.width - paddleWidth) / 2;
+
+        let balls = [];
+        let bricks = [];
+        let score = 0;
+        let lives = 3;
+        let isPaused = false;
+        let isGameRunning = false;
+        let clearedRows = new Set();
+
+        document.addEventListener("mousemove", mouseMoveHandler, false);
+
+        function mouseMoveHandler(e) {
+            const relativeX = e.clientX - canvas.getBoundingClientRect().left;
+            if (relativeX > 0 && relativeX < canvas.width) {
+                paddleX = relativeX - paddleWidth / 2;
+                if (paddleX < 0) paddleX = 0;
+                if (paddleX + paddleWidth > canvas.width) paddleX = canvas.width - paddleWidth;
+            }
+        }
+
+        function initBricks() {
+            bricks = [];
+            clearedRows.clear();
+            for (let r = 0; r < rowCount; r++) {
+                bricks[r] = [];
+                for (let c = 0; c < columnCount; c++) {
+                    bricks[r][c] = { 
+                        x: 0, 
+                        y: 0, 
+                        status: 2, 
+                        hintChar: vocabList[r].word[c % vocabList[r].word.length].toUpperCase()
+                    };
+                }
+            }
+        }
+
+        function createBall(x, y, dx, dy) {
+            return {
+                x: x || canvas.width / 2,
+                y: y || canvas.height - 30,
+                dx: dx || 4 * (Math.random() > 0.5 ? 1 : -1),
+                dy: dy || -4,
+                radius: 7
+            };
+        }
+
+        function startGame() {
+            document.getElementById("status-modal").style.display = "none";
+            document.getElementById("quiz-modal").style.display = "none";
+            
+            score = 0;
+            lives = 3;
+            paddleWidth = 120;
+            updateUI();
+            
+            initBricks();
+            balls = [createBall()];
+            isPaused = false;
+            isGameRunning = true;
+            
+            requestAnimationFrame(draw);
+        }
+
+        function updateUI() {
+            document.getElementById("score-text").innerText = `Blocks Smashed: ${score}`;
+            document.getElementById("lives-text").innerText = `Lives: ${lives}`;
+        }
+
+        function collisionDetection() {
+            for (let r = 0; r < rowCount; r++) {
+                for (let c = 0; c < columnCount; c++) {
+                    let b = bricks[r][c];
+                    if (b.status > 0) {
+                        balls.forEach(ball => {
+                            if (
+                                ball.x > b.x &&
+                                ball.x < b.x + brickWidth &&
+                                ball.y > b.y &&
+                                ball.y < b.y + brickHeight
+                            ) {
+                                ball.dy = -ball.dy;
+                                b.status--; 
+                                score++;
+                                updateUI();
+
+                                checkRowCleared(r);
+                            }
+                        });
+                    }
+                }
+            }
+        }
+
+        function checkRowCleared(rowIndex) {
+            if (clearedRows.has(rowIndex)) return;
+
+            let remainingInRow = 0;
+            for (let c = 0; c < columnCount; c++) {
+                if (bricks[rowIndex][c].status > 0) remainingInRow++;
+            }
+
+            if (remainingInRow === 0) {
+                clearedRows.add(rowIndex);
+                triggerQuiz(rowIndex);
+            }
+        }
+
+        function triggerQuiz(rowIndex) {
+            isPaused = true;
+            const currentVocab = vocabList[rowIndex];
+            
+            document.getElementById("definition-text").innerText = `"${currentVocab.def}"`;
+            const optionsContainer = document.getElementById("options-container");
+            optionsContainer.innerHTML = "";
+
+            let choices = [currentVocab.word];
+            let otherWords = vocabList.filter(v => v.word !== currentVocab.word).map(v => v.word);
+            
+            otherWords.sort(() => 0.5 - Math.random());
+            choices.push(otherWords[0], otherWords[1]);
+            choices.sort(() => 0.5 - Math.random());
+
+            choices.forEach(choice => {
+                const btn = document.createElement("button");
+                btn.className = "option-btn";
+                btn.innerText = choice;
+                btn.onclick = () => handleQuizAnswer(choice === currentVocab.word);
+                optionsContainer.appendChild(btn);
+            });
+
+            document.getElementById("quiz-modal").style.display = "flex";
+        }
+
+        function handleQuizAnswer(isCorrect) {
+            document.getElementById("quiz-modal").style.display = "none";
+            
+            if (isCorrect) {
+                let baseBall = balls[0] || { x: canvas.width / 2, y: canvas.height - 30 };
+                balls.push(createBall(baseBall.x, baseBall.y, 4, -4));
+                balls.push(createBall(baseBall.x, baseBall.y, -4, -4));
+            } else {
+                paddleWidth = Math.max(60, paddleWidth - 20);
+            }
+
+            if (checkAllCleared()) {
+                gameOver(true);
+            } else {
+                isPaused = false;
+                requestAnimationFrame(draw);
+            }
+        }
+
+        function checkAllCleared() {
+            for (let r = 0; r < rowCount; r++) {
+                for (let c = 0; c < columnCount; c++) {
+                    if (bricks[r][c].status > 0) return false;
+                }
+            }
+            return true;
+        }
+
+        function gameOver(isWin) {
+            isGameRunning = false;
+            const modal = document.getElementById("status-modal");
+            const title = document.getElementById("status-title");
+            const desc = document.getElementById("status-desc");
+
+            if (isWin) {
+                title.innerText = "Congratulations! You Win!";
+                title.style.color = "#06d6a0";
+                desc.innerText = `You broke all brick layers and mastered all 6 vocabulary words! Final Score: ${score}`;
+            } else {
+                title.innerText = "Game Over";
+                title.style.color = "#ef476f";
+                desc.innerText = `You ran out of lives! Blocks Smashed: ${score}`;
+            }
+
+            modal.style.display = "flex";
+        }
+
+        function drawPaddle() {
+            ctx.beginPath();
+            ctx.rect(paddleX, canvas.height - paddleHeight - 10, paddleWidth, paddleHeight);
+            ctx.fillStyle = "#4ea8de";
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        function drawBalls() {
+            balls.forEach(ball => {
+                ctx.beginPath();
+                ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+                ctx.fillStyle = "#ffd166";
+                ctx.fill();
+                ctx.closePath();
+            });
+        }
+
+        function drawBricks() {
+            for (let r = 0; r < rowCount; r++) {
+                for (let c = 0; c < columnCount; c++) {
+                    let b = bricks[r][c];
+                    if (b.status > 0) {
+                        let brickX = c * (brickWidth + brickPadding) + brickOffsetLeft;
+                        let brickY = r * (brickHeight + brickPadding) + brickOffsetTop;
+                        b.x = brickX;
+                        b.y = brickY;
+
+                        ctx.beginPath();
+                        ctx.rect(brickX, brickY, brickWidth, brickHeight);
+                        ctx.fillStyle = (b.status === 2) ? vocabList[r].color : "#555566";
+                        ctx.fill();
+                        ctx.closePath();
+
+                        if (b.status === 1) {
+                            ctx.font = "12px sans-serif";
+                            ctx.fillStyle = "#ffffff";
+                            ctx.textAlign = "center";
+                            ctx.fillText(b.hintChar, brickX + brickWidth / 2, brickY + 17);
+                        }
+                    }
+                }
+            }
+        }
+
+        function updateBallPositions() {
+            for (let i = balls.length - 1; i >= 0; i--) {
+                let ball = balls[i];
+
+                if (ball.x + ball.dx > canvas.width - ball.radius || ball.x + ball.dx < ball.radius) {
+                    ball.dx = -ball.dx;
+                }
+                if (ball.y + ball.dy < ball.radius) {
+                    ball.dy = -ball.dy;
+                } else if (ball.y + ball.dy > canvas.height - ball.radius - 10) {
+                    if (ball.x > paddleX && ball.x < paddleX + paddleWidth) {
+                        let hitPoint = ball.x - (paddleX + paddleWidth / 2);
+                        ball.dx = hitPoint * 0.15;
+                        ball.dy = -Math.abs(ball.dy);
+                    } else if (ball.y + ball.dy > canvas.height - ball.radius) {
+                        balls.splice(i, 1);
+                    }
+                }
+
+                ball.x += ball.dx;
+                ball.y += ball.dy;
+            }
+
+            if (balls.length === 0) {
+                lives--;
+                updateUI();
+                if (lives <= 0) {
+                    gameOver(false);
+                } else {
+                    balls = [createBall()];
+                }
+            }
+        }
+
+        function draw() {
+            if (!isGameRunning || isPaused) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            drawBricks();
+            drawPaddle();
+            drawBalls();
+            collisionDetection();
+            updateBallPositions();
+
+            requestAnimationFrame(draw);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Whack-A-Word Arcade</title>
+<style>
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #1e1e2e;
+    color: #cdd6f4;
+    text-align: center;
+    margin: 0;
+    padding: 20px;
+  }
+  h1 { margin-bottom: 5px; color: #f9e2af; }
+  .stats-container {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    font-size: 1.2rem;
+    margin-bottom: 15px;
+  }
+  .stat-box {
+    background: #313244;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid #45475a;
+  }
+  #definition-box {
+    background: #89b4fa;
+    color: #11111b;
+    font-size: 1.25rem;
+    font-weight: bold;
+    padding: 15px;
+    border-radius: 10px;
+    max-width: 650px;
+    margin: 0 auto 20px auto;
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 160px);
+    grid-gap: 20px;
+    justify-content: center;
+    margin: 0 auto;
+  }
+  .hole {
+    width: 160px;
+    height: 110px;
+    background-color: #45475a;
+    border-radius: 50%;
+    position: relative;
+    overflow: hidden;
+    border: 4px solid #585b70;
+    box-shadow: inset 0 10px 0 #181825;
+  }
+  .mole {
+    width: 130px;
+    height: 90px;
+    background-color: #a6e3a1;
+    color: #11111b;
+    border-radius: 20px 20px 0 0;
+    position: absolute;
+    bottom: -100px;
+    left: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: bottom 0.2s ease-out;
+    user-select: none;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    padding: 5px;
+    box-sizing: border-box;
+    text-align: center;
+  }
+  .hole.up .mole {
+    bottom: 0;
+  }
+  .btn {
+    background-color: #a6e3a1;
+    color: #11111b;
+    border: none;
+    padding: 12px 24px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-top: 20px;
+  }
+  .btn:hover { background-color: #94e2d5; }
+</style>
+</head>
+<body>
+
+<h1>Whack-A-Word</h1>
+<p>Match the target definition by clicking the correct vocabulary mole!</p>
+
+<div class="stats-container">
+  <div class="stat-box">Score: <span id="score">0</span></div>
+  <div class="stat-box">Time Left: <span id="timer">60</span>s</div>
+</div>
+
+<div id="definition-box">Click "Start Game" to begin!</div>
+
+<div class="grid">
+  <div class="hole"><div class="mole"></div></div>
+  <div class="hole"><div class="mole"></div></div>
+  <div class="hole"><div class="mole"></div></div>
+  <div class="hole"><div class="mole"></div></div>
+  <div class="hole"><div class="mole"></div></div>
+  <div class="hole"><div class="mole"></div></div>
+</div>
+
+<button id="start-btn" class="btn" onclick="startGame()">Start Game</button>
+
+<script>
+const vocab = [
+  { word: "miraculous", def: "Extraordinary, surprising, or miraculous in nature; resembling a miracle." },
+  { word: "massive", def: "Large, heavy, or solid; exceptionally grand or extensive." },
+  { word: "vomit", def: "To eject contents from the stomach through the mouth." },
+  { word: "physician", def: "A qualified practitioner of medicine; a medical doctor." },
+  { word: "dose", def: "A measured quantity of a medicine or drug to be taken at one time." },
+  { word: "established", def: "Having existed for a long time and generally accepted or recognized." },
+  { word: "undergo", def: "To experience or be subjected to something (often a process or medical procedure)." }
+];
+
+const holes = document.querySelectorAll('.hole');
+const moles = document.querySelectorAll('.mole');
+const scoreDisplay = document.getElementById('score');
+const timerDisplay = document.getElementById('timer');
+const defDisplay = document.getElementById('definition-box');
+const startBtn = document.getElementById('start-btn');
+
+let lastHole;
+let timeUp = false;
+let score = 0;
+let timeLeft = 60;
+let countdown;
+let moleTimer;
+let currentTarget = null;
+
+function randomTime(min, max) {
+  return Math.round(Math.random() * (max - min) + min);
+}
+
+function randomHole(holes) {
+  const idx = Math.floor(Math.random() * holes.length);
+  const hole = holes[idx];
+  if (hole === lastHole) return randomHole(holes);
+  lastHole = hole;
+  return hole;
+}
+
+function selectNewTarget() {
+  currentTarget = vocab[Math.floor(Math.random() * vocab.length)];
+  defDisplay.textContent = currentTarget.def;
+}
+
+function popup() {
+  if (timeUp) return;
+
+  const time = randomTime(700, 1200);
+  const hole = randomHole(holes);
+  const mole = hole.querySelector('.mole');
+
+  // Higher frequency: Target word appears ~65% of the time
+  let selectedWord;
+  if (Math.random() < 0.65) {
+    selectedWord = currentTarget.word;
+  } else {
+    const distractors = vocab.filter(v => v.word !== currentTarget.word);
+    selectedWord = distractors[Math.floor(Math.random() * distractors.length)].word;
+  }
+
+  mole.textContent = selectedWord;
+  hole.classList.add('up');
+
+  moleTimer = setTimeout(() => {
+    hole.classList.remove('up');
+    if (!timeUp) popup();
+  }, time);
+}
+
+function whack(e) {
+  if (!e.isTrusted || !e.target.parentNode.classList.contains('up')) return;
+
+  const clickedWord = e.target.textContent;
+  if (clickedWord === currentTarget.word) {
+    score += 10;
+    scoreDisplay.textContent = score;
+    e.target.parentNode.classList.remove('up');
+    selectNewTarget();
+  } else {
+    score = Math.max(0, score - 5);
+    scoreDisplay.textContent = score;
+    e.target.parentNode.classList.remove('up');
+  }
+}
+
+moles.forEach(mole => mole.addEventListener('click', whack));
+
+function startGame() {
+  score = 0;
+  timeLeft = 60;
+  timeUp = false;
+  scoreDisplay.textContent = score;
+  timerDisplay.textContent = timeLeft;
+  startBtn.disabled = true;
+
+  selectNewTarget();
+  popup();
+
+  countdown = setInterval(() => {
+    timeLeft--;
+    timerDisplay.textContent = timeLeft;
+    if (timeLeft <= 0) {
+      clearInterval(countdown);
+      timeUp = true;
+      startBtn.disabled = false;
+      defDisplay.textContent = `Game Over! Final Score: ${score}`;
+    }
+  }, 1000);
+}
+</script>
+</body>
+</html>

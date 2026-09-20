@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocabulary Diner</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #2c3e50, #4ca1af);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #333;
+        }
+        #game-container {
+            width: 800px;
+            background-color: #f4edd8;
+            border: 8px solid #8e44ad;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        header {
+            background-color: #8e44ad;
+            color: white;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .stats {
+            display: flex;
+            gap: 20px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        #dining-room {
+            height: 350px;
+            background: linear-gradient(to bottom, #e0d5be 0%, #d5c4a1 70%, #b89a67 70%, #a3824d 100%);
+            display: flex;
+            justify-content: space-around;
+            align-items: flex-end;
+            padding-bottom: 20px;
+            position: relative;
+        }
+        .table {
+            width: 130px;
+            height: 220px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            position: relative;
+        }
+        .customer {
+            width: 75px;
+            height: 75px;
+            background-color: #e74c3c;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 38px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transition: transform 0.2s;
+            cursor: pointer;
+            z-index: 2;
+        }
+        .customer:hover {
+            transform: scale(1.08);
+        }
+        .table-surface {
+            width: 120px;
+            height: 35px;
+            background-color: #d35400;
+            border-radius: 10px;
+            border: 3px solid #e67e22;
+            margin-top: 5px;
+        }
+        .bubble {
+            position: absolute;
+            top: 0;
+            background: #ffffff;
+            border: 2px solid #333;
+            border-radius: 12px;
+            padding: 8px;
+            width: 150px;
+            font-size: 11px;
+            font-weight: 600;
+            line-height: 1.3;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+            z-index: 3;
+        }
+        .bubble::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 8px 8px 0;
+            border-style: solid;
+            border-color: white transparent;
+            display: block;
+            width: 0;
+        }
+        .patience-bar-container {
+            width: 90px;
+            height: 8px;
+            background-color: #ddd;
+            border-radius: 4px;
+            margin-top: 6px;
+            overflow: hidden;
+            z-index: 2;
+        }
+        .patience-bar {
+            height: 100%;
+            width: 100%;
+            background-color: #2ecc71;
+            transition: width 0.1s linear, background-color 0.3s;
+        }
+        #kitchen-tray {
+            background-color: #34495e;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            min-height: 130px;
+        }
+        .dish {
+            background: #ecf0f1;
+            border: 3px solid #bdc3c7;
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-weight: bold;
+            font-size: 13px;
+            color: #2c3e50;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #bdc3c7;
+            transition: all 0.1s;
+        }
+        .dish:hover {
+            background: #ffffff;
+        }
+        .dish.selected {
+            background: #f1c40f;
+            border-color: #f39c12;
+            box-shadow: 0 2px 0 #f39c12;
+            transform: translateY(2px);
+        }
+        #game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.88);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 10;
+        }
+        button {
+            background-color: #2ecc71;
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+        button:hover {
+            background-color: #27ae60;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <header>
+        <h1>🍳 Vocabulary Diner</h1>
+        <div class="stats">
+            <div>Score: <span id="score">0</span></div>
+            <div>Lives: <span id="lives">3</span></div>
+        </div>
+    </header>
+
+    <div id="dining-room">
+        <div class="table" id="table-0"></div>
+        <div class="table" id="table-1"></div>
+        <div class="table" id="table-2"></div>
+        <div class="table" id="table-3"></div>
+    </div>
+
+    <div id="kitchen-tray"></div>
+    
+    <div id="game-over-screen" style="display: none;">
+        <h2 id="game-over-title">Shift Complete!</h2>
+        <p id="final-score">Your Score: 0</p>
+        <button onclick="startGame()">Play Again</button>
+    </div>
+</div>
+
+<script>
+    const dictionary = [
+        { word: "breakthrough", def: "A sudden, dramatic, and important discovery or development." },
+        { word: "laboratory", def: "A room or building equipped for scientific experiments." },
+        { word: "workshop", def: "A room or building in which goods are manufactured or repaired." },
+        { word: "calculation", def: "A mathematical determination of the size or number of something." },
+        { word: "envision", def: "To imagine as a future possibility; visualize." },
+        { word: "striking", def: "Attracting attention by being unusual, extreme, or prominent." },
+        { word: "insight", def: "An accurate and deep intuitive understanding of a person or thing." }
+    ];
+
+    const customerAvatars = ['🐱', '🐶', '🦊', '🐻', '🐼', '🐨', '🐯', '🤖'];
+
+    let score = 0;
+    let lives = 3;
+    let selectedDish = null;
+    let gameInterval = null;
+    let spawnTimeout = null;
+    let tables = [null, null, null, null];
+
+    function startGame() {
+        score = 0;
+        lives = 3;
+        tables = [null, null, null, null];
+        document.getElementById('score').innerText = score;
+        document.getElementById('lives').innerText = lives;
+        document.getElementById('game-over-screen').style.display = 'none';
+        
+        renderTray();
+        clearTables();
+        
+        if (gameInterval) clearInterval(gameInterval);
+        if (spawnTimeout) clearTimeout(spawnTimeout);
+        
+        gameInterval = setInterval(updateGame, 100);
+        scheduleNextCustomer();
+    }
+
+    function renderTray() {
+        const tray = document.getElementById('kitchen-tray');
+        tray.innerHTML = '';
+        dictionary.forEach(item => {
+            const btn = document.createElement('div');
+            btn.className = 'dish';
+            btn.innerText = item.word.toUpperCase();
+            btn.onclick = () => selectDish(btn, item.word);
+            tray.appendChild(btn);
+        });
+    }
+
+    function selectDish(element, word) {
+        document.querySelectorAll('.dish').forEach(d => d.classList.remove('selected'));
+        if (selectedDish === word) {
+            selectedDish = null;
+        } else {
+            selectedDish = word;
+            element.classList.add('selected');
+        }
+    }
+
+    function clearTables() {
+        for (let i = 0; i < 4; i++) {
+            const tableElem = document.getElementById(`table-${i}`);
+            tableElem.innerHTML = '';
+        }
+    }
+
+    function scheduleNextCustomer() {
+        const randomTime = Math.random() * 2000 + 1500;
+        spawnTimeout = setTimeout(() => {
+            spawnCustomer();
+            if (lives > 0) scheduleNextCustomer();
+        }, randomTime);
+    }
+
+    function spawnCustomer() {
+        const emptyIndices = tables.map((t, idx) => t === null ? idx : null).filter(val => val !== null);
+        if (emptyIndices.length === 0) return;
+
+        const tableIdx = emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
+        const wordObj = dictionary[Math.floor(Math.random() * dictionary.length)];
+        const avatar = customerAvatars[Math.floor(Math.random() * customerAvatars.length)];
+
+        tables[tableIdx] = {
+            word: wordObj.word,
+            def: wordObj.def,
+            patience: 100,
+            avatar: avatar
+        };
+
+        renderTable(tableIdx);
+    }
+
+    function renderTable(idx) {
+        const tableElem = document.getElementById(`table-${idx}`);
+        const data = tables[idx];
+        
+        if (!data) {
+            tableElem.innerHTML = '';
+            return;
+        }
+
+        tableElem.innerHTML = `
+            <div class="bubble">${data.def}</div>
+            <div class="customer" onclick="serveCustomer(${idx})">${data.avatar}</div>
+            <div class="patience-bar-container">
+                <div class="patience-bar" id="bar-${idx}"></div>
+            </div>
+            <div class="table-surface"></div>
+        `;
+    }
+
+    function serveCustomer(idx) {
+        if (!selectedDish || !tables[idx]) return;
+
+        if (selectedDish === tables[idx].word) {
+            score += 10;
+            document.getElementById('score').innerText = score;
+            tables[idx] = null;
+            renderTable(idx);
+            
+            selectedDish = null;
+            document.querySelectorAll('.dish').forEach(d => d.classList.remove('selected'));
+        } else {
+            tables[idx].patience -= 25;
+        }
+    }
+
+    function updateGame() {
+        tables.forEach((customer, idx) => {
+            if (customer) {
+                customer.patience -= 0.4;
+                const bar = document.getElementById(`bar-${idx}`);
+                if (bar) {
+                    bar.style.width = `${Math.max(0, customer.patience)}%`;
+                    if (customer.patience < 30) {
+                        bar.style.backgroundColor = '#e74c3c';
+                    } else if (customer.patience < 60) {
+                        bar.style.backgroundColor = '#f1c40f';
+                    }
+                }
+
+                if (customer.patience <= 0) {
+                    tables[idx] = null;
+                    renderTable(idx);
+                    loseLife();
+                }
+            }
+        });
+    }
+
+    function loseLife() {
+        lives--;
+        document.getElementById('lives').innerText = lives;
+        if (lives <= 0) {
+            endGame();
+        }
+    }
+
+    function endGame() {
+        clearInterval(gameInterval);
+        clearTimeout(spawnTimeout);
+        document.getElementById('game-over-title').innerText = "Shift Ended!";
+        document.getElementById('final-score').innerText = `Your Final Score: ${score}`;
+        document.getElementById('game-over-screen').style.display = 'flex';
+    }
+
+    startGame();
+</script>
+</body>
+</html>

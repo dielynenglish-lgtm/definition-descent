@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocabulary Quest: Grade 11 Edition</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --accent-color: #38bdf8;
+            --text-color: #f8fafc;
+            --correct-color: #22c55e;
+            --wrong-color: #ef4444;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .game-container {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 30px;
+            width: 100%;
+            max-width: 650px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            border: 2px solid #334155;
+            text-align: center;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #334155;
+        }
+
+        .score-board, .streak-board {
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+
+        .highlight {
+            color: var(--accent-color);
+        }
+
+        .scrambled-word {
+            font-size: 2.4rem;
+            letter-spacing: 5px;
+            margin: 20px 0;
+            color: var(--accent-color);
+            font-weight: 700;
+        }
+
+        .sentence-box {
+            color: #e2e8f0;
+            font-size: 1.1rem;
+            line-height: 1.5;
+            margin-bottom: 20px;
+            background-color: #0f172a;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid var(--accent-color);
+        }
+
+        .blank {
+            color: var(--accent-color);
+            font-weight: bold;
+            text-decoration: underline;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+
+        input[type="text"] {
+            padding: 12px 16px;
+            font-size: 1.1rem;
+            border-radius: 8px;
+            border: 2px solid #334155;
+            background-color: #0f172a;
+            color: var(--text-color);
+            outline: none;
+            width: 60%;
+            text-align: center;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--accent-color);
+        }
+
+        .btn {
+            background-color: var(--accent-color);
+            color: #0f172a;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn:hover {
+            background-color: #7dd3fc;
+        }
+
+        .feedback {
+            font-weight: bold;
+            margin-top: 15px;
+            height: 24px;
+        }
+
+        .end-screen {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="game-container">
+    <div id="quiz-screen">
+        <div class="header">
+            <div class="score-board">Score: <span id="score" class="highlight">0</span></div>
+            <div class="streak-board">Streak: <span id="streak" class="highlight">0🔥</span></div>
+        </div>
+        <p>Unscramble the letters to complete the sentence:</p>
+        <div id="scrambled-word" class="scrambled-word">------</div>
+        <div id="sentence-box" class="sentence-box">Loading...</div>
+        <div class="input-group">
+            <input type="text" id="user-input" placeholder="Type answer..." autocomplete="off">
+            <button class="btn" onclick="checkAnswer()">Submit</button>
+        </div>
+        <div id="feedback" class="feedback"></div>
+    </div>
+
+    <div id="end-screen" class="end-screen">
+        <h2>🎉 All Words Mastered!</h2>
+        <p>Your Final Score: <span id="final-score" class="highlight">0</span></p>
+        <button class="btn" onclick="restartGame()">Play Again</button>
+    </div>
+</div>
+
+<script>
+    // Grade 11 Dataset constructed directly from user vocabulary
+    const vocabData = [
+        { word: "version", sentence: "The publisher decided to release a revised _____ of the textbook with updated historical maps." },
+        { word: "vast", sentence: "The explorers gazed out over the _____ desert, marveling at its endless horizon." },
+        { word: "undertake", sentence: "It requires considerable courage to _____ such a challenging research project single-handedly." },
+        { word: "extraordinary", sentence: "Her ability to solve complex mathematical proofs in minutes was truly _____." },
+        { word: "landscape", sentence: "The harsh, rocky _____ presented a difficult hurdle for the traveling expedition." },
+        { word: "dusty", sentence: "They uncovered a stack of _____ manuscripts forgotten in the back room of the library archives." },
+        { word: "diverse", sentence: "The committee brought together individuals with _____ backgrounds to ensure every perspective was heard." }
+    ];
+
+    let currentQuestions = [];
+    let currentIndex = 0;
+    let score = 0;
+    let streak = 0;
+
+    // Web Audio API for Retro Sound Effects
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    function playSound(type) {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        if (type === 'correct') {
+            osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+            osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1); // E5
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.3);
+        } else {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(180, audioCtx.currentTime);
+            osc.frequency.setValueAtTime(110, audioCtx.currentTime + 0.15);
+            gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.3);
+        }
+    }
+
+    function scrambleWord(word) {
+        let arr = word.split('');
+        for (let i = arr.length - 1; i > 0; i--) {
+            let j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        let scrambled = arr.join('');
+        return (scrambled === word && word.length > 2) ? scrambleWord(word) : scrambled;
+    }
+
+    function startGame() {
+        currentQuestions = [...vocabData].sort(() => Math.random() - 0.5);
+        currentIndex = 0;
+        score = 0;
+        streak = 0;
+        document.getElementById("score").innerText = score;
+        document.getElementById("streak").innerText = streak + "🔥";
+        document.getElementById("quiz-screen").style.display = "block";
+        document.getElementById("end-screen").style.display = "none";
+        loadQuestion();
+    }
+
+    function loadQuestion() {
+        document.getElementById("feedback").innerText = "";
+        document.getElementById("user-input").value = "";
+        const q = currentQuestions[currentIndex];
+        document.getElementById("scrambled-word").innerText = scrambleWord(q.word).toUpperCase();
+        
+        // Display sentence with styled blank space
+        const formattedSentence = q.sentence.replace("_____", "<span class='blank'>[ _____ ]</span>");
+        document.getElementById("sentence-box").innerHTML = formattedSentence;
+        
+        document.getElementById("user-input").focus();
+    }
+
+    function checkAnswer() {
+        const input = document.getElementById("user-input").value.trim().toLowerCase();
+        const target = currentQuestions[currentIndex].word.toLowerCase();
+        const feedback = document.getElementById("feedback");
+
+        if (input === target) {
+            playSound('correct');
+            score += 100 + (streak * 20);
+            streak++;
+            feedback.style.color = "var(--correct-color)";
+            feedback.innerText = "Correct!";
+            setTimeout(nextQuestion, 1000);
+        } else {
+            playSound('wrong');
+            streak = 0;
+            feedback.style.color = "var(--wrong-color)";
+            feedback.innerText = `Incorrect! Word was: "${target}"`;
+            setTimeout(nextQuestion, 1800);
+        }
+
+        document.getElementById("score").innerText = score;
+        document.getElementById("streak").innerText = streak + "🔥";
+    }
+
+    function nextQuestion() {
+        currentIndex++;
+        if (currentIndex < currentQuestions.length) {
+            loadQuestion();
+        } else {
+            document.getElementById("quiz-screen").style.display = "none";
+            document.getElementById("end-screen").style.display = "block";
+            document.getElementById("final-score").innerText = score;
+        }
+    }
+
+    function restartGame() {
+        startGame();
+    }
+
+    document.getElementById("user-input").addEventListener("keypress", function(event) {
+        if (event.key === "Enter") {
+            checkAnswer();
+        }
+    });
+
+    startGame();
+</script>
+</body>
+</html>

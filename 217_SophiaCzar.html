@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scientific Revolution: Word Tower Defense</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body {
+            background-color: #1a1a2e;
+            color: #e0e0e0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        #game-container {
+            display: flex;
+            flex-direction: row;
+            background: #16213e;
+            border: 3px solid #0f3460;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+            overflow: hidden;
+            width: 1000px;
+            max-width: 100%;
+        }
+        /* Canvas Area */
+        #main-game {
+            position: relative;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+        }
+        #top-bar {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background: #0f3460;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        .stat-box {
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+        #health-bar-container {
+            width: 200px;
+            height: 20px;
+            background-color: #444;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 2px solid #fff;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        #health-bar {
+            width: 100%;
+            height: 100%;
+            background-color: #e94560;
+            transition: width 0.3s ease;
+        }
+        canvas {
+            background-color: #0f172a;
+            border-radius: 8px;
+            border: 2px solid #30475e;
+        }
+
+        /* Sidebar Area */
+        #sidebar {
+            width: 320px;
+            background: #1a1a2e;
+            border-left: 3px solid #0f3460;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .sidebar-title {
+            color: #e94560;
+            text-align: center;
+            border-bottom: 2px solid #e94560;
+            padding-bottom: 8px;
+            font-size: 1.2rem;
+        }
+        .turret-card {
+            background: #0f3460;
+            padding: 10px 15px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .turret-card.empty {
+            border: 2px solid #e94560;
+            animation: pulse 1s infinite alternate;
+        }
+        .turret-card.locked {
+            border: 2px solid #f39c12;
+            opacity: 0.7;
+        }
+        @keyframes pulse {
+            from { box-shadow: 0 0 5px #e94560; }
+            to { box-shadow: 0 0 15px #e94560; }
+        }
+        .ammo-bar {
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+
+        /* Reloading Puzzle Panel */
+        #puzzle-panel {
+            background: #0f3460;
+            border: 2px solid #e94560;
+            border-radius: 8px;
+            padding: 15px;
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+        }
+        #puzzle-panel.active {
+            display: flex;
+        }
+        .puzzle-header {
+            color: #f39c12;
+            font-size: 1rem;
+            text-align: center;
+            font-weight: bold;
+        }
+        .definition-box {
+            background: #16213e;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            line-height: 1.4;
+            color: #fff;
+            min-height: 60px;
+            border: 1px solid #30475e;
+        }
+        .word-options {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .option-btn {
+            background: #e94560;
+            color: #fff;
+            border: none;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .option-btn:hover {
+            background: #ff6b81;
+        }
+        #message-box {
+            text-align: center;
+            font-weight: bold;
+            min-height: 24px;
+            color: #f39c12;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <!-- Main Gameplay Area -->
+    <div id="main-game">
+        <div id="top-bar">
+            <div class="stat-box">Wave: <span id="wave-num">1</span></div>
+            <div class="stat-box">
+                Base Health: 
+                <div id="health-bar-container">
+                    <div id="health-bar"></div>
+                </div>
+                <span id="health-text">100%</span>
+            </div>
+        </div>
+        <canvas id="gameCanvas" width="650" height="450"></canvas>
+    </div>
+
+    <!-- Sidebar / Reloading Area -->
+    <div id="sidebar">
+        <h2 class="sidebar-title">Scientific Defense</h2>
+        
+        <div id="turret-status">
+            <div class="turret-card" id="card-0">
+                <span>Observatory 1</span>
+                <span class="ammo-bar" id="ammo-0">Ammo: 10/10</span>
+            </div>
+            <div class="turret-card" id="card-1" style="margin-top:8px;">
+                <span>Observatory 2</span>
+                <span class="ammo-bar" id="ammo-1">Ammo: 10/10</span>
+            </div>
+            <div class="turret-card" id="card-2" style="margin-top:8px;">
+                <span>Observatory 3</span>
+                <span class="ammo-bar" id="ammo-2">Ammo: 10/10</span>
+            </div>
+        </div>
+
+        <div id="message-box">All turrets operational!</div>
+
+        <!-- Reloading Puzzle Window -->
+        <div id="puzzle-panel">
+            <div class="puzzle-header">⚠️ AMMO DEPLETED! RECHARGE REQUIRED</div>
+            <div style="font-size: 0.85rem; color: #bbb; text-align: center;">Match the scientific term to reload:</div>
+            <div class="definition-box" id="puzzle-def">Definition loading...</div>
+            <div class="word-options" id="puzzle-options">
+                <!-- Buttons will be dynamically injected -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Scientific Vocabulary Data (High School / Scientific Revolution Level)
+    const vocabList = [
+        { word: 'formula', def: 'A mathematical relationship or rule expressed in symbols (e.g., Newton\'s F = ma).' },
+        { word: 'equation', def: 'A statement that the values of two mathematical expressions are equal.' },
+        { word: 'orbit', def: 'The curved path of a celestial object around a star, planet, or moon.' },
+        { word: 'abstract', def: 'Existing in thought or as an idea but not having a physical or concrete existence.' },
+        { word: 'contribution', def: 'A gift or service that helps to bring about a result or advance knowledge.' },
+        { word: 'forge', def: 'To create, shape, or produce something through concentrated effort and innovation.' }
+    ];
+
+    // Path for enemies to walk (Left to Right)
+    const path = [
+        { x: 0, y: 225 },
+        { x: 150, y: 225 },
+        { x: 150, y: 100 },
+        { x: 350, y: 100 },
+        { x: 350, y: 350 },
+        { x: 520, y: 350 },
+        { x: 520, y: 225 },
+        { x: 650, y: 225 }
+    ];
+
+    // Game Variables
+    let baseHealth = 100;
+    let wave = 1;
+    let enemies = [];
+    let bullets = [];
+    let activePuzzle = null;
+    let isReloadingActive = false;
+
+    // Turrets Position & Ammo
+    const turrets = [
+        { id: 0, x: 230, y: 160, range: 120, ammo: 10, maxAmmo: 10, target: null, cooldown: 0, locked: false, lockTimer: 0 },
+        { id: 1, x: 250, y: 280, range: 120, ammo: 10, maxAmmo: 10, target: null, cooldown: 0, locked: false, lockTimer: 0 },
+        { id: 2, x: 430, y: 220, range: 130, ammo: 10, maxAmmo: 10, target: null, cooldown: 0, locked: false, lockTimer: 0 }
+    ];
+
+    // Spawn Control
+    let spawnTimer = 0;
+    let enemiesSpawnedInWave = 0;
+    const maxEnemiesPerWave = 8;
+
+    class Enemy {
+        constructor() {
+            this.x = path[0].x;
+            this.y = path[0].y;
+            this.pathIndex = 0;
+            this.speed = 1.2 + (wave * 0.2);
+            this.hp = 30 + (wave * 10);
+            this.maxHp = this.hp;
+            this.radius = 12;
+        }
+
+        update() {
+            const target = path[this.pathIndex + 1];
+            if (!target) return;
+
+            const dx = target.x - this.x;
+            const dy = target.y - this.y;
+            const dist = Math.hypot(dx, dy);
+
+            if (dist < this.speed) {
+                this.x = target.x;
+                this.y = target.y;
+                this.pathIndex++;
+                if (this.pathIndex >= path.length - 1) {
+                    // Reached the Base!
+                    baseHealth -= 10;
+                    if (baseHealth < 0) baseHealth = 0;
+                    updateHealthUI();
+                    this.hp = 0; // Mark for removal
+                }
+            } else {
+                this.x += (dx / dist) * this.speed;
+                this.y += (dy / dist) * this.speed;
+            }
+        }
+
+        draw() {
+            // Draw Enemy (Dogma / Ignorance)
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#e74c3c';
+            ctx.fill();
+            ctx.strokeStyle = '#c0392b';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Health bar above enemy
+            const barW = 20;
+            ctx.fillStyle = '#000';
+            ctx.fillRect(this.x - barW/2, this.y - 20, barW, 4);
+            ctx.fillStyle = '#2ecc71';
+            ctx.fillRect(this.x - barW/2, this.y - 20, (this.hp / this.maxHp) * barW, 4);
+        }
+    }
+
+    class Bullet {
+        constructor(x, y, target) {
+            this.x = x;
+            this.y = y;
+            this.target = target;
+            this.speed = 6;
+            this.active = true;
+        }
+
+        update() {
+            if (!this.target || this.target.hp <= 0) {
+                this.active = false;
+                return;
+            }
+
+            const dx = this.target.x - this.x;
+            const dy = this.target.y - this.y;
+            const dist = Math.hypot(dx, dy);
+
+            if (dist < this.speed) {
+                this.target.hp -= 15;
+                this.active = false;
+            } else {
+                this.x += (dx / dist) * this.speed;
+                this.y += (dy / dist) * this.speed;
+            }
+        }
+
+        draw() {
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
+            ctx.fillStyle = '#f1c40f';
+            ctx.fill();
+        }
+    }
+
+    // Main Game Loop
+    function gameLoop() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        drawPath();
+        handleSpawning();
+        updateAndDrawTurrets();
+        updateAndDrawEnemies();
+        updateAndDrawBullets();
+        checkReloadNeed();
+
+        if (baseHealth > 0) {
+            requestAnimationFrame(gameLoop);
+        } else {
+            drawGameOver();
+        }
+    }
+
+    function drawPath() {
+        ctx.beginPath();
+        ctx.moveTo(path[0].x, path[0].y);
+        for (let i = 1; i < path.length; i++) {
+            ctx.lineTo(path[i].x, path[i].y);
+        }
+        ctx.strokeStyle = '#34495e';
+        ctx.lineWidth = 30;
+        ctx.stroke();
+        ctx.strokeStyle = '#2c3e50';
+        ctx.lineWidth = 26;
+        ctx.stroke();
+
+        // Draw Base on Right
+        ctx.fillStyle = '#27ae60';
+        ctx.fillRect(630, 185, 20, 80);
+        ctx.fillStyle = '#fff';
+        ctx.font = '12px sans-serif';
+        ctx.fillText("BASE", 620, 175);
+    }
+
+    function handleSpawning() {
+        if (enemiesSpawnedInWave < maxEnemiesPerWave) {
+            spawnTimer++;
+            if (spawnTimer > 90) { // Spawn every ~1.5s
+                enemies.push(new Enemy());
+                enemiesSpawnedInWave++;
+                spawnTimer = 0;
+            }
+        } else if (enemies.length === 0) {
+            // Wave Complete
+            wave++;
+            enemiesSpawnedInWave = 0;
+            document.getElementById('wave-num').innerText = wave;
+        }
+    }
+
+    function updateAndDrawTurrets() {
+        turrets.forEach(t => {
+            // Lock Timer update
+            if (t.locked) {
+                t.lockTimer--;
+                if (t.lockTimer <= 0) {
+                    t.locked = false;
+                    document.getElementById(`card-${t.id}`).classList.remove('locked');
+                    updateMessage("Turret recovered from lock phase.");
+                }
+            }
+
+            // Draw Turret Range
+            ctx.beginPath();
+            ctx.arc(t.x, t.y, t.range, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(52, 152, 219, 0.05)';
+            ctx.fill();
+
+            // Draw Turret Body
+            ctx.beginPath();
+            ctx.arc(t.x, t.y, 18, 0, Math.PI * 2);
+            ctx.fillStyle = t.locked ? '#7f8c8d' : (t.ammo > 0 ? '#2980b9' : '#c0392b');
+            ctx.fill();
+            ctx.strokeStyle = '#ecf0f1';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Turret Label
+            ctx.fillStyle = '#fff';
+            ctx.font = '10px sans-serif';
+            ctx.fillText(`T${t.id + 1}`, t.x - 5, t.y + 4);
+
+            // Shooting Logic
+            if (t.ammo > 0 && !t.locked) {
+                if (t.cooldown <= 0) {
+                    // Find Target
+                    t.target = enemies.find(e => Math.hypot(e.x - t.x, e.y - t.y) <= t.range);
+                    if (t.target) {
+                        bullets.push(new Bullet(t.x, t.y, t.target));
+                        t.ammo--;
+                        t.cooldown = 30; // ~0.5 sec shoot delay
+                        updateTurretUI(t);
+                    }
+                } else {
+                    t.cooldown--;
+                }
+            }
+        });
+    }
+
+    function updateAndDrawEnemies() {
+        for (let i = enemies.length - 1; i >= 0; i--) {
+            enemies[i].update();
+            enemies[i].draw();
+            if (enemies[i].hp <= 0) {
+                enemies.splice(i, 1);
+            }
+        }
+    }
+
+    function updateAndDrawBullets() {
+        for (let i = bullets.length - 1; i >= 0; i--) {
+            bullets[i].update();
+            bullets[i].draw();
+            if (!bullets[i].active) {
+                bullets.splice(i, 1);
+            }
+        }
+    }
+
+    function updateHealthUI() {
+        document.getElementById('health-bar').style.width = baseHealth + '%';
+        document.getElementById('health-text').innerText = baseHealth + '%';
+    }
+
+    function updateTurretUI(t) {
+        const ammoText = document.getElementById(`ammo-${t.id}`);
+        ammoText.innerText = `Ammo: ${t.ammo}/${t.maxAmmo}`;
+        const card = document.getElementById(`card-${t.id}`);
+        if (t.ammo === 0) {
+            card.classList.add('empty');
+        } else {
+            card.classList.remove('empty');
+        }
+    }
+
+    // Check if any turret needs reload & trigger puzzle
+    function checkReloadNeed() {
+        const outOfAmmoTurret = turrets.find(t => t.ammo === 0 && !t.locked);
+        if (outOfAmmoTurret && !isReloadingActive) {
+            triggerReloadPuzzle();
+        }
+    }
+
+    function triggerReloadPuzzle() {
+        isReloadingActive = true;
+        document.getElementById('puzzle-panel').classList.add('active');
+        
+        // Pick random vocabulary
+        const selected = vocabList[Math.floor(Math.random() * vocabList.length)];
+        activePuzzle = selected;
+
+        document.getElementById('puzzle-def').innerText = `"${selected.def}"`;
+
+        // Generate 3 options (1 correct, 2 distractors)
+        let options = [selected.word];
+        while (options.length < 3) {
+            let randWord = vocabList[Math.floor(Math.random() * vocabList.length)].word;
+            if (!options.includes(randWord)) {
+                options.push(randWord);
+            }
+        }
+        // Shuffle options
+        options.sort(() => Math.random() - 0.5);
+
+        const optionsContainer = document.getElementById('puzzle-options');
+        optionsContainer.innerHTML = '';
+        options.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.className = 'option-btn';
+            btn.innerText = opt;
+            btn.onclick = () => handleAnswer(opt);
+            optionsContainer.appendChild(btn);
+        });
+    }
+
+    function handleAnswer(chosenWord) {
+        if (chosenWord === activePuzzle.word) {
+            // Correct answer: Reload ALL turrets
+            turrets.forEach(t => {
+                t.ammo = t.maxAmmo;
+                t.locked = false;
+                updateTurretUI(t);
+                document.getElementById(`card-${t.id}`).classList.remove('empty', 'locked');
+            });
+            updateMessage(" Correct! All turrets fully reloaded!");
+        } else {
+            // Wrong answer: Lock depleted turrets for 5 seconds (300 frames)
+            turrets.forEach(t => {
+                if (t.ammo === 0) {
+                    t.locked = true;
+                    t.lockTimer = 300; // 5 seconds at 60fps
+                    document.getElementById(`card-${t.id}`).classList.remove('empty');
+                    document.getElementById(`card-${t.id}`).classList.add('locked');
+                }
+            });
+            updateMessage("❌ Incorrect! Empty turrets locked for 5 sec penalty!");
+        }
+
+        // Close Puzzle Panel
+        document.getElementById('puzzle-panel').classList.remove('active');
+        isReloadingActive = false;
+    }
+
+    function updateMessage(msg) {
+        document.getElementById('message-box').innerText = msg;
+    }
+
+    function drawGameOver() {
+        ctx.fillStyle = 'rgba(0,0,0,0.8)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#e94560';
+        ctx.font = '36px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 20);
+        ctx.fillStyle = '#fff';
+        ctx.font = '18px sans-serif';
+        ctx.fillText("Ignorance overthrew the scientific base!", canvas.width / 2, canvas.height / 2 + 20);
+        ctx.fillText("Refresh the page to restart.", canvas.width / 2, canvas.height / 2 + 50);
+    }
+
+    // Start Game Loop
+    requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>

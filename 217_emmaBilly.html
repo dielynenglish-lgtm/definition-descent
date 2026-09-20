@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cyberpunk Snake-Definition Hunt</title>
+  <style>
+    :root {
+      --bg-color: #0d0f18;
+      --panel-bg: #16192b;
+      --neon-cyan: #00f3ff;
+      --neon-magenta: #ff007f;
+      --neon-yellow: #ffe600;
+      --neon-green: #39ff14;
+      --text-color: #e0e6ed;
+    }
+
+    body {
+      margin: 0;
+      padding: 20px;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      font-family: 'Courier New', Courier, monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+
+    #game-container {
+      background-color: var(--panel-bg);
+      border: 2px solid var(--neon-cyan);
+      box-shadow: 0 0 15px var(--neon-cyan);
+      border-radius: 8px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      max-width: 650px;
+      width: 100%;
+    }
+
+    #ui-panel {
+      width: 100%;
+      margin-bottom: 15px;
+      text-align: center;
+    }
+
+    #score-board {
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: var(--neon-yellow);
+      margin-bottom: 10px;
+    }
+
+    #definition-box {
+      background-color: #080910;
+      border: 1px solid var(--neon-magenta);
+      box-shadow: inset 0 0 8px var(--neon-magenta);
+      padding: 12px;
+      border-radius: 4px;
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      color: #ffffff;
+    }
+
+    #canvas-wrapper {
+      position: relative;
+    }
+
+    canvas {
+      background-color: #05060a;
+      border: 2px solid #2a2e45;
+      display: block;
+    }
+
+    #status-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(13, 15, 24, 0.85);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--neon-magenta);
+      font-size: 2rem;
+      font-weight: bold;
+      text-shadow: 0 0 10px var(--neon-magenta);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    #controls-hint {
+      margin-top: 10px;
+      font-size: 0.85rem;
+      color: #8a93b0;
+    }
+
+    button {
+      margin-top: 15px;
+      padding: 10px 20px;
+      background-color: transparent;
+      border: 2px solid var(--neon-cyan);
+      color: var(--neon-cyan);
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--neon-cyan);
+      transition: all 0.2s ease;
+    }
+
+    button:hover {
+      background-color: var(--neon-cyan);
+      color: var(--bg-color);
+    }
+  </style>
+</head>
+<body>
+
+  <div id="game-container">
+    <div id="ui-panel">
+      <div id="score-board">SCORE: <span id="score">0</span></div>
+      <div id="definition-box">
+        <span id="definition">Loading Target Definition...</span>
+      </div>
+    </div>
+
+    <div id="canvas-wrapper">
+      <canvas id="gameCanvas" width="600" height="400"></canvas>
+      <div id="status-overlay" class="hidden">
+        <div id="overlay-message">GAME OVER</div>
+        <button id="restart-btn" onclick="resetGame()">PLAY AGAIN</button>
+      </div>
+    </div>
+
+    <div id="controls-hint">Use Arrow Keys to move. Eat the correct word pellet matching the definition.</div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const GRID_SIZE = 20;
+    const COLS = canvas.width / GRID_SIZE;
+    const ROWS = canvas.height / GRID_SIZE;
+
+    // Vocabulary Dataset (10 Words)
+    const vocabulary = [
+      { word: "PEASANT", def: "A poor farmer or low-status worker in historical times." },
+      { word: "NOBLE", def: "Belonging to a high social or political class." },
+      { word: "ENCOUNTER", def: "To unexpectedly experience or come across something." },
+      { word: "FEAST", def: "A large, elaborate meal typically for celebration." },
+      { word: "MERGE", def: "To combine or cause two or more things to join together." },
+      { word: "DISTINCT", def: "Recognizably different in nature from something else." },
+      { word: "ENDURE", def: "To suffer patiently or withstand a difficult situation." },
+      { word: "REMINDER", def: "A thing that causes someone to remember something." },
+      { word: "CYBERPUNK", def: "A sci-fi subgenre featuring high-tech and low-life themes." },
+      { word: "GRID", def: "A network of lines that cross each other to form squares." }
+    ];
+
+    let snake = [];
+    let dir = { x: 1, y: 0 };
+    let nextDir = { x: 1, y: 0 };
+    let score = 0;
+    let pellets = [];
+    let currentTarget = null;
+    let isKeyLocked = false;
+    let isGameOver = false;
+    let gameLoopInterval = null;
+
+    function initSnake() {
+      snake = [
+        { x: 5, y: 10 },
+        { x: 4, y: 10 },
+        { x: 3, y: 10 }
+      ];
+      dir = { x: 1, y: 0 };
+      nextDir = { x: 1, y: 0 };
+    }
+
+    function generatePellets() {
+      // Pick 1 target vocabulary word
+      const targetIndex = Math.floor(Math.random() * vocabulary.length);
+      currentTarget = vocabulary[targetIndex];
+      document.getElementById('definition').innerText = `TARGET: ${currentTarget.def}`;
+
+      // Pick 2 distinct distractor words
+      let pool = vocabulary.filter(item => item.word !== currentTarget.word);
+      pool = pool.sort(() => 0.5 - Math.random());
+      const distractors = [pool[0], pool[1]];
+
+      const pelletWords = [
+        { word: currentTarget.word, isCorrect: true },
+        { word: distractors[0].word, isCorrect: false },
+        { word: distractors[1].word, isCorrect: false }
+      ].sort(() => 0.5 - Math.random());
+
+      pellets = [];
+      
+      // Spawn 3 pellets at non-overlapping positions away from the snake
+      pelletWords.forEach(item => {
+        let pos;
+        let collision;
+        do {
+          collision = false;
+          pos = {
+            x: Math.floor(Math.random() * COLS),
+            y: Math.floor(Math.random() * ROWS)
+          };
+          
+          // Avoid snake body
+          if (snake.some(segment => segment.x === pos.x && segment.y === pos.y)) {
+            collision = true;
+          }
+          // Avoid existing pellets
+          if (pellets.some(p => p.x === pos.x && p.y === pos.y)) {
+            collision = true;
+          }
+        } while (collision);
+
+        pellets.push({ ...pos, word: item.word, isCorrect: item.isCorrect });
+      });
+    }
+
+    function handleInput(e) {
+      if (isKeyLocked || isGameOver) return;
+
+      switch(e.key) {
+        case 'ArrowUp':
+          if (dir.y === 0) nextDir = { x: 0, y: -1 };
+          break;
+        case 'ArrowDown':
+          if (dir.y === 0) nextDir = { x: 0, y: 1 };
+          break;
+        case 'ArrowLeft':
+          if (dir.x === 0) nextDir = { x: -1, y: 0 };
+          break;
+        case 'ArrowRight':
+          if (dir.x === 0) nextDir = { x: 1, y: 0 };
+          break;
+      }
+    }
+
+    function update() {
+      if (isGameOver) return;
+
+      dir = { ...nextDir };
+      const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+
+      // Wall Collision Loop
+      if (head.x < 0 || head.x >= COLS || head.y < 0 || head.y >= ROWS) {
+        triggerGameOver("WALL COLLISION!");
+        return;
+      }
+
+      // Self Collision Loop
+      if (snake.some(segment => segment.x === head.x && segment.y === head.y)) {
+        triggerGameOver("SELF COLLISION!");
+        return;
+      }
+
+      // Move Snake
+      snake.unshift(head);
+
+      // Check Food Collision
+      let eatenIndex = pellets.findIndex(p => p.x === head.x && p.y === head.y);
+
+      if (eatenIndex !== -1) {
+        const eaten = pellets[eatenIndex];
+
+        if (eaten.isCorrect) {
+          score += 10;
+          document.getElementById('score').innerText = score;
+          generatePellets(); // Tail grows naturally by not popping segment
+        } else {
+          // Poison Mechanic: lock controls for 1.5s, chop off 2 tail segments
+          snake.pop(); // Undo default segment add
+          chopTail(2);
+          
+          if (snake.length === 0) {
+            triggerGameOver("POISON DESTROYED SNAKE!");
+            return;
+          }
+
+          applyKeyLock(1500);
+          generatePellets();
+        }
+      } else {
+        snake.pop(); // Normal movement removes tail end
+      }
+    }
+
+    function chopTail(count) {
+      for (let i = 0; i < count; i++) {
+        if (snake.length > 1) {
+          snake.pop();
+        } else if (snake.length === 1) {
+          snake.pop();
+          break;
+        }
+      }
+    }
+
+    function applyKeyLock(duration) {
+      isKeyLocked = true;
+      let overlayText = document.getElementById('definition');
+      let origText = overlayText.innerText;
+      overlayText.innerText = "SYSTEM LOCKED! (POISONED)";
+      overlayText.style.color = "red";
+
+      setTimeout(() => {
+        isKeyLocked = false;
+        overlayText.style.color = "#ffffff";
+        if (currentTarget) {
+          overlayText.innerText = `TARGET: ${currentTarget.def}`;
+        }
+      }, duration);
+    }
+
+    function render() {
+      // Draw Grid System
+      ctx.fillStyle = '#05060a';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.strokeStyle = '#121629';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < canvas.width; x += GRID_SIZE) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+      for (let y = 0; y < canvas.height; y += GRID_SIZE) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+
+      // Draw Snake
+      snake.forEach((segment, index) => {
+        ctx.fillStyle = index === 0 ? '#00f3ff' : '#00a8b3';
+        ctx.shadowBlur = index === 0 ? 8 : 0;
+        ctx.shadowColor = '#00f3ff';
+        ctx.fillRect(segment.x * GRID_SIZE, segment.y * GRID_SIZE, GRID_SIZE - 1, GRID_SIZE - 1);
+      });
+      ctx.shadowBlur = 0; // Reset shadow
+
+      // Draw Word Pellets
+      pellets.forEach(pellet => {
+        ctx.fillStyle = '#16192b';
+        ctx.strokeStyle = '#ff007f';
+        ctx.lineWidth = 1.5;
+        
+        let px = pellet.x * GRID_SIZE;
+        let py = pellet.y * GRID_SIZE;
+
+        ctx.fillRect(px, py, GRID_SIZE, GRID_SIZE);
+        ctx.strokeRect(px, py, GRID_SIZE, GRID_SIZE);
+
+        // Render Word Label
+        ctx.fillStyle = '#ffe600';
+        ctx.font = 'bold 10px Courier New';
+        ctx.textAlign = 'center';
+        ctx.fillText(pellet.word, px + GRID_SIZE / 2, py - 4);
+      });
+    }
+
+    function gameLoop() {
+      update();
+      render();
+    }
+
+    function triggerGameOver(reason) {
+      isGameOver = true;
+      clearInterval(gameLoopInterval);
+      document.getElementById('overlay-message').innerText = `GAME OVER\n${reason}`;
+      document.getElementById('status-overlay').classList.remove('hidden');
+    }
+
+    function resetGame() {
+      score = 0;
+      isGameOver = false;
+      isKeyLocked = false;
+      document.getElementById('score').innerText = score;
+      document.getElementById('status-overlay').classList.add('hidden');
+      initSnake();
+      generatePellets();
+      if (gameLoopInterval) clearInterval(gameLoopInterval);
+      gameLoopInterval = setInterval(gameLoop, 120);
+    }
+
+    window.addEventListener('keydown', handleInput);
+    
+    // Start game
+    resetGame();
+  </script>
+</body>
+</html>

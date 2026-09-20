@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vocab Tetris - Drop & Unlock</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background-color: #0d0e15;
+      color: #ffffff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+    h1 {
+      font-size: 2rem;]
+      margin-bottom: 10px;
+      color: #00f0ff;
+      text-shadow: 0 0 10px #00f0ff;
+    }
+    #game-container {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+      background: #141622;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.2);
+      border: 1px solid #1f2338;
+    }
+    #canvas-container {
+      position: relative;
+    }
+    canvas {
+      background-color: #08090d;
+      border: 2px solid #00f0ff;
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.3);
+      border-radius: 4px;
+      display: block;
+    }
+    #side-panel {
+      width: 220px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+    .panel-box {
+      background: #1f2338;
+      padding: 15px;
+      border-radius: 8px;
+      border: 1px solid #00f0ff55;
+    }
+    .panel-title {
+      font-size: 0.9rem;
+      color: #8a8ea8;
+      margin-bottom: 5px;
+      text-transform: uppercase;
+    }
+    .panel-value {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #00ff66;
+      text-shadow: 0 0 8px #00ff66;
+    }
+    #prompt-box {
+      background: #251a38;
+      border: 1px solid #ff007f;
+      padding: 15px;
+      border-radius: 8px;
+      text-align: center;
+      box-shadow: 0 0 10px rgba(255, 0, 127, 0.3);
+    }
+    #def-display {
+      font-size: 1.1rem;
+      color: #ff007f;
+      font-weight: bold;
+      margin-top: 5px;
+    }
+    #controls-hint {
+      font-size: 0.85rem;
+      color: #a0a5c0;
+      line-height: 1.4;
+    }
+    #controls-hint span {
+      color: #00f0ff;
+      font-weight: bold;
+    }
+    #game-over-overlay {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(13, 14, 21, 0.85);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      border-radius: 4px;
+    }
+    .hidden { display: none !important; }
+    button {
+      background: #00f0ff;
+      color: #000;
+      border: none;
+      padding: 10px 20px;
+      font-size: 1rem;
+      font-weight: bold;
+      border-radius: 5px;
+      cursor: pointer;
+      box-shadow: 0 0 10px #00f0ff;
+      transition: 0.2s;
+      margin-top: 15px;
+    }
+    button:hover {
+      background: #00ff66;
+      box-shadow: 0 0 15px #00ff66;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>VOCAB TETRIS</h1>
+
+  <div id="game-container">
+    <div id="canvas-container">
+      <canvas id="tetris" width="240" height="480"></canvas>
+      <div id="game-over-overlay" class="hidden">
+        <h2 id="over-title" style="color: #ff0055; text-shadow: 0 0 10px #ff0055;">GAME OVER</h2>
+        <p id="final-score" style="margin-top: 10px;">Score: 0</p>
+        <button onclick="resetGame()">Try Again</button>
+      </div>
+    </div>
+
+    <div id="side-panel">
+      <div id="prompt-box">
+        <div class="panel-title" style="color: #ff007f;">Definition Prompt</div>
+        <div id="def-display">---</div>
+      </div>
+
+      <div class="panel-box">
+        <div class="panel-title">Score</div>
+        <div id="score" class="panel-value">0</div>
+      </div>
+
+      <div class="panel-box">
+        <div class="panel-title">Time Left</div>
+        <div id="timer" class="panel-value" style="color: #ffcc00; text-shadow: 0 0 8px #ffcc00;">60s</div>
+      </div>
+
+      <div class="panel-box" id="controls-hint">
+        <div class="panel-title">Match Prompt?</div>
+        <p><span>[Y]</span> Yes (Correct: Unlock + Fast Drop)</p>
+        <p><span>[N]</span> No (Incorrect: Double Speed)</p>
+        <hr style="border-color: #333; margin: 8px 0;">
+        <div class="panel-title">Unlocked Controls</div>
+        <p><span>[←/→]</span> Move Left/Right</p>
+        <p><span>[↑]</span> Rotate Block</p>
+        <p><span>[↓]</span> Soft Drop</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('tetris');
+    const context = canvas.getContext('2d');
+    context.scale(24, 24); // 10x20 grid (240x480 pixels)
+
+    // 10 高二單字庫 (包含使用者提供的 7 個單字與補充 3 個)
+    const vocabList = [
+      { word: "luxurious", def: "奢華的 / 豪華的" },
+      { word: "innovation", def: "創新 / 新觀念" },
+      { word: "surgery", def: "外科手術" },
+      { word: "terrifying", def: "令人恐懼的" },
+      { word: "physically", def: "身體上地 / 物理上地" },
+      { word: "procedure", def: "程序 / 手術步驟" },
+      { word: "agony", def: "極度痛苦" },
+      { word: "distress", def: "悲傷 / 痛苦" },
+      { word: "precise", def: "精確的" },
+      { word: "substantial", def: "大量的 / 實質的" }
+    ];
+
+    const colors = [
+      null,
+      '#00f0ff', // I - Cyan
+      '#ff007f', // L - Magenta
+      '#ffcc00', // O - Yellow
+      '#00ff66', // T - Green
+      '#9d00ff'  // J - Purple
+    ];
+
+    const arena = createMatrix(10, 20);
+    
+    const player = {
+      pos: {x: 0, y: 0},
+      matrix: null,
+      score: 0,
+      locked: true,
+      wordObj: null,
+      displayedDef: null,
+      isCorrectMatch: false,
+      allowRotation: true
+    };
+
+    let dropCounter = 0;
+    let dropInterval = 1000;
+    let lastTime = 0;
+    let timeRemaining = 60;
+    let timerInterval = null;
+    let isGameOver = false;
+
+    function createMatrix(w, h) {
+      const matrix = [];
+      while (h--) matrix.push(new Array(w).fill(0));
+      return matrix;
+    }
+
+    function createPiece(type) {
+      if (type === 'I') return [[0, 1, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0]];
+      if (type === 'L') return [[0, 2, 0], [0, 2, 0], [0, 2, 2]];
+      if (type === 'O') return [[3, 3], [3, 3]];
+      if (type === 'T') return [[0, 0, 0], [4, 4, 4], [0, 4, 0]];
+      if (type === 'J') return [[0, 5, 0], [0, 5, 0], [5, 5, 0]];
+    }
+
+    function collide(arena, player) {
+      const [m, o] = [player.matrix, player.pos];
+      for (let y = 0; y < m.length; ++y) {
+        for (let x = 0; x < m[y].length; ++x) {
+          if (m[y][x] !== 0 && (arena[y + o.y] && arena[y + o.y][x + o.x]) !== 0) {
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    function merge(arena, player) {
+      player.matrix.forEach((row, y) => {
+        row.forEach((value, x) => {
+          if (value !== 0) arena[y + player.pos.y][x + player.pos.x] = value;
+        });
+      });
+    }
+
+    function arenaSweep() {
+      let rowCount = 1;
+      outer: for (let y = arena.length - 1; y >= 0; --y) {
+        for (let x = 0; x < arena[y].length; ++x) {
+          if (arena[y][x] === 0) continue outer;
+        }
+        const row = arena.splice(y, 1)[0].fill(0);
+        arena.unshift(row);
+        ++y;
+        player.score += rowCount * 10;
+        rowCount *= 2;
+      }
+      updateScore();
+    }
+
+    function draw() {
+      context.fillStyle = '#08090d';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+
+      drawMatrix(arena, {x: 0, y: 0});
+      drawPlayerMatrix(player.matrix, player.pos);
+    }
+
+    function drawMatrix(matrix, offset) {
+      matrix.forEach((row, y) => {
+        row.forEach((value, x) => {
+          if (value !== 0) {
+            context.fillStyle = colors[value];
+            context.fillRect(x + offset.x, y + offset.y, 1, 1);
+            context.lineWidth = 0.05;
+            context.strokeStyle = '#000';
+            context.strokeRect(x + offset.x, y + offset.y, 1, 1);
+          }
+        });
+      });
+    }
+
+    function drawPlayerMatrix(matrix, offset) {
+      matrix.forEach((row, y) => {
+        row.forEach((value, x) => {
+          if (value !== 0) {
+            if (player.locked) {
+              context.fillStyle = 'rgba(255, 255, 255, 0.25)';
+            } else {
+              context.fillStyle = colors[value];
+            }
+            context.fillRect(x + offset.x, y + offset.y, 1, 1);
+            context.lineWidth = 0.08;
+            context.strokeStyle = player.locked ? '#ffffff' : '#000';
+            context.strokeRect(x + offset.x, y + offset.y, 1, 1);
+          }
+        });
+      });
+
+      // 繪製單字在方塊上
+      if (player.wordObj) {
+        context.save();
+        context.fillStyle = '#ffffff';
+        context.font = '0.7px sans-serif';
+        context.textAlign = 'center';
+        context.shadowColor = '#000';
+        context.shadowBlur = 4;
+        context.fillText(player.wordObj.word, offset.x + matrix[0].length / 2, offset.y + 0.8);
+        context.restore();
+      }
+    }
+
+    function playerReset() {
+      const pieces = 'ILOTJ';
+      player.matrix = createPiece(pieces[pieces.length * Math.random() | 0]);
+      player.pos.y = 0;
+      player.pos.x = (arena[0].length / 2 | 0) - (player.matrix[0].length / 2 | 0);
+      
+      // 隨機選單字與中文定義（50% 機率正確配對）
+      player.wordObj = vocabList[Math.floor(Math.random() * vocabList.length)];
+      player.isCorrectMatch = Math.random() < 0.5;
+      
+      if (player.isCorrectMatch) {
+        player.displayedDef = player.wordObj.def;
+      } else {
+        let wrongList = vocabList.filter(v => v.word !== player.wordObj.word);
+        player.displayedDef = wrongList[Math.floor(Math.random() * wrongList.length)].def;
+      }
+
+      document.getElementById('def-display').innerText = player.displayedDef;
+
+      player.locked = true;
+      player.allowRotation = true;
+      dropInterval = 1000;
+
+      if (collide(arena, player)) {
+        triggerGameOver("Grid Blocked!");
+      }
+    }
+
+    function playerDrop() {
+      player.pos.y++;
+      if (collide(arena, player)) {
+        player.pos.y--;
+        merge(arena, player);
+        arenaSweep();
+        playerReset();
+      }
+      dropCounter = 0;
+    }
+
+    function playerMove(dir) {
+      player.pos.x += dir;
+      if (collide(arena, player)) {
+        player.pos.x -= dir;
+      }
+    }
+
+    function playerRotate() {
+      if (!player.allowRotation || player.locked) return;
+      const pos = player.pos.x;
+      let offset = 1;
+      rotate(player.matrix);
+      while (collide(arena, player)) {
+        player.pos.x += offset;
+        offset = -(offset + (offset > 0 ? 1 : -1));
+        if (offset > player.matrix[0].length) {
+          rotate(player.matrix, -1);
+          player.pos.x = pos;
+          return;
+        }
+      }
+    }
+
+    function rotate(matrix, dir = 1) {
+      for (let y = 0; y < matrix.length; ++y) {
+        for (let x = 0; x < y; ++x) {
+          [matrix[x][y], matrix[y][x]] = [matrix[y][x], matrix[x][y]];
+        }
+      }
+      if (dir > 0) matrix.forEach(row => row.reverse());
+      else matrix.reverse();
+    }
+
+    function handleVocabAnswer(userChoice) {
+      if (!player.locked || isGameOver) return;
+
+      const isMatch = (player.wordObj.def === player.displayedDef);
+      const isUserCorrect = (userChoice === isMatch);
+
+      player.locked = false;
+
+      if (isUserCorrect) {
+        // 解鎖成功：立即定位到底部
+        player.allowRotation = true;
+        while (!collide(arena, player)) {
+          player.pos.y++;
+        }
+        player.pos.y--;
+        merge(arena, player);
+        arenaSweep();
+        playerReset();
+      } else {
+        // 答錯：加速落下且禁止旋轉
+        player.allowRotation = false;
+        dropInterval = 200; // 加倍速度
+      }
+    }
+
+    function update(time = 0) {
+      if (isGameOver) return;
+
+      const deltaTime = time - lastTime;
+      lastTime = time;
+
+      dropCounter += deltaTime;
+      if (dropCounter > dropInterval) {
+        playerDrop();
+      }
+
+      draw();
+      requestAnimationFrame(update);
+    }
+
+    function updateScore() {
+      document.getElementById('score').innerText = player.score;
+    }
+
+    function startTimer() {
+      clearInterval(timerInterval);
+      timeRemaining = 60;
+      document.getElementById('timer').innerText = timeRemaining + 's';
+      
+      timerInterval = setInterval(() => {
+        timeRemaining--;
+        document.getElementById('timer').innerText = timeRemaining + 's';
+        if (timeRemaining <= 0) {
+          clearInterval(timerInterval);
+          triggerGameOver("Time's Up!");
+        }
+      }, 1000);
+    }
+
+    function triggerGameOver(reason) {
+      isGameOver = true;
+      clearInterval(timerInterval);
+      document.getElementById('over-title').innerText = reason;
+      document.getElementById('final-score').innerText = `Final Score: ${player.score}`;
+      document.getElementById('game-over-overlay').classList.remove('hidden');
+    }
+
+    function resetGame() {
+      arena.forEach(row => row.fill(0));
+      player.score = 0;
+      updateScore();
+      isGameOver = false;
+      document.getElementById('game-over-overlay').classList.add('hidden');
+      playerReset();
+      startTimer();
+      update();
+    }
+
+    document.addEventListener('keydown', event => {
+      if (isGameOver) return;
+
+      const key = event.key.toLowerCase();
+      if (player.locked) {
+        if (key === 'y') handleVocabAnswer(true);
+        if (key === 'n') handleVocabAnswer(false);
+      } else {
+        if (event.keyCode === 37) playerMove(-1); // Left arrow
+        if (event.keyCode === 39) playerMove(1);  // Right arrow
+        if (event.keyCode === 40) playerDrop();   // Down arrow
+        if (event.keyCode === 38) playerRotate(); // Up arrow
+      }
+    });
+
+    // 初始化遊戲
+    playerReset();
+    startTimer();
+    update();
+  </script>
+</body>
+</html>
