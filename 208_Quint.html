@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word-Chain Miner - Gold Rush Edition</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+        body {
+            background-color: #1a0f07;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+            border-radius: 10px;
+            overflow: hidden;
+            border: 4px solid #8b5a2b;
+        }
+        #ui-header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 90px;
+            background: linear-gradient(180deg, rgba(30,20,10,0.95) 0%, rgba(15,10,5,0.85) 100%);
+            border-bottom: 3px solid #d4af37;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 8px 16px;
+            z-index: 10;
+        }
+        .stats-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 18px;
+            font-weight: bold;
+            color: #ffd700;
+            text-shadow: 1px 1px 2px #000;
+        }
+        .definition-container {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid #d4af37;
+            border-radius: 6px;
+            padding: 6px 12px;
+            text-align: center;
+            font-size: 15px;
+            color: #f0e68c;
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.5);
+        }
+        .definition-container span {
+            color: #ffffff;
+            font-weight: bold;
+        }
+        canvas {
+            display: block;
+            background: #000;
+        }
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+        }
+        .overlay h1 {
+            font-size: 42px;
+            color: #ffd700;
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 4px #000;
+        }
+        .overlay p {
+            font-size: 18px;
+            margin-bottom: 25px;
+            max-width: 80%;
+            text-align: center;
+            line-height: 1.5;
+            color: #ddd;
+        }
+        .btn {
+            background: linear-gradient(180deg, #d4af37 0%, #aa7c11 100%);
+            color: #000;
+            border: none;
+            padding: 12px 30px;
+            font-size: 20px;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+            transition: transform 0.1s, background 0.2s;
+        }
+        .btn:hover {
+            transform: scale(1.05);
+            background: linear-gradient(180deg, #ffe066 0%, #c99318 100%);
+        }
+        .btn:active {
+            transform: scale(0.98);
+        }
+        #controls-hint {
+            position: absolute;
+            bottom: 10px;
+            right: 15px;
+            color: rgba(255,255,255,0.6);
+            font-size: 13px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="ui-header">
+        <div class="stats-bar">
+            <div>SCORE: <span id="score-display">0</span></div>
+            <div>TIME: <span id="timer-display">60</span>s</div>
+        </div>
+        <div class="definition-container">
+            TARGET DEFINITION: <span id="definition-display">Loading definition...</span>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    
+    <div id="controls-hint">Press <b>DOWN ARROW</b> to drop claw</div>
+
+    <!-- Start Overlay -->
+    <div id="start-overlay" class="overlay">
+        <h1>WORD-CHAIN MINER</h1>
+        <p>Mine for gold nuggets that match the target definition! <br><br>
+        • Correct nuggets score points based on depth!<br>
+        • Incorrect nuggets trigger heavy slowdown and penalty points!</p>
+        <button class="btn" onclick="startGame()">START MINING</button>
+    </div>
+
+    <!-- Game Over Overlay -->
+    <div id="game-over-overlay" class="overlay" style="display: none;">
+        <h1>SHIFT COMPLETE!</h1>
+        <p>Final Score: <span id="final-score" style="color:#ffd700; font-weight:bold;">0</span></p>
+        <button class="btn" onclick="restartGame()">PLAY AGAIN</button>
+    </div>
+</div>
+
+<script>
+// Vocabulary Dataset tailored for Grade 11 / Gold Rush Theme
+const vocabData = [
+    { word: "beloved", def: "Dearly loved; held dear or cherished by someone." },
+    { word: "highlight", def: "An outstanding, enjoyable, or memorable part of an event." },
+    { word: "performer", def: "A person who entertains an audience through artistic skills." },
+    { word: "compelling", def: "Evoking interest, attention, or admiration in a powerful way." },
+    { word: "luxury", def: "A state of great comfort, elegance, and expensive living." },
+    { word: "elaborately", def: "Executed or decorated with great detail and complexity." },
+    { word: "surroundings", def: "The things and conditions around a person or place." }
+];
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// Game State Variables
+let score = 0;
+let timeLeft = 60;
+let timerInterval = null;
+let isPlaying = false;
+let currentTarget = null;
+
+// Mining Rig & Claw Parameters
+const rig = {
+    x: 400,
+    y: 95,
+    angle: 0,
+    angleSpeed: 0.02,
+    maxAngle: Math.PI / 3,
+    length: 30,
+    maxLength: 520,
+    state: 'SWINGING', // 'SWINGING', 'SHOOTING', 'RETRACTING'
+    speed: 6,
+    baseRetractSpeed: 6,
+    currentRetractSpeed: 6,
+    caughtNugget: null,
+    windingOffset: 0
+};
+
+// Underground Nugget Items
+let nuggets = [];
+
+function initNuggets() {
+    nuggets = [];
+    const count = 6;
+    const marginX = 80;
+    const startY = 220;
+    const endY = 530;
+    
+    // Pick 6 unique words for active nuggets
+    let shuffled = [...vocabData].sort(() => 0.5 - Math.random());
+    let selectedVocab = shuffled.slice(0, count);
+
+    for (let i = 0; i < count; i++) {
+        let x = marginX + Math.random() * (canvas.width - marginX * 2);
+        let y = startY + Math.random() * (endY - startY);
+        let depth = Math.floor((y - startY) / (endY - startY) * 100) + 10;
+        
+        // Ensure nuggets aren't directly stacked
+        let overlap = nuggets.some(n => Math.hypot(n.x - x, n.y - y) < 65);
+        if (overlap) {
+            i--;
+            continue;
+        }
+
+        nuggets.push({
+            id: i,
+            x: x,
+            y: y,
+            radius: 28,
+            vocab: selectedVocab[i],
+            depth: depth,
+            color: '#ffd700'
+        });
+    }
+    
+    selectNewTarget();
+}
+
+function selectNewTarget() {
+    if (nuggets.length === 0) {
+        initNuggets();
+        return;
+    }
+    // Pick target from active nuggets
+    const randomIndex = Math.floor(Math.random() * nuggets.length);
+    currentTarget = nuggets[randomIndex].vocab;
+    document.getElementById('definition-display').innerText = currentTarget.def;
+}
+
+// Input Handler
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown' || e.code === 'ArrowDown') {
+        if (isPlaying && rig.state === 'SWINGING') {
+            rig.state = 'SHOOTING';
+        }
+    }
+});
+
+function startGame() {
+    score = 0;
+    timeLeft = 60;
+    isPlaying = true;
+    document.getElementById('score-display').innerText = score;
+    document.getElementById('timer-display').innerText = timeLeft;
+    document.getElementById('start-overlay').style.display = 'none';
+    document.getElementById('game-over-overlay').style.display = 'none';
+
+    initNuggets();
+    
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+        if (!isPlaying) return;
+        timeLeft--;
+        document.getElementById('timer-display').innerText = timeLeft;
+        if (timeLeft <= 0) {
+            endGame();
+        }
+    }, 1000);
+
+    requestAnimationFrame(gameLoop);
+}
+
+function restartGame() {
+    startGame();
+}
+
+function endGame() {
+    isPlaying = false;
+    clearInterval(timerInterval);
+    document.getElementById('final-score').innerText = score;
+    document.getElementById('game-over-overlay').style.display = 'flex';
+}
+
+function updatePhysics() {
+    if (!isPlaying) return;
+
+    // Automated Winding Visual Offset
+    rig.windingOffset = (rig.windingOffset + 0.2) % 10;
+
+    // Swing Machine
+    if (rig.state === 'SWINGING') {
+        rig.angle += rig.angleSpeed;
+        if (Math.abs(rig.angle) > rig.maxAngle) {
+            rig.angleSpeed = -rig.angleSpeed;
+        }
+    } 
+    // Fire Claw Downward
+    else if (rig.state === 'SHOOTING') {
+        rig.length += rig.speed;
+        let clawX = rig.x + Math.sin(rig.angle) * rig.length;
+        let clawY = rig.y + Math.cos(rig.angle) * rig.length;
+
+        // Check canvas bounds collision
+        if (clawX < 10 || clawX > canvas.width - 10 || clawY > canvas.height - 10 || rig.length >= rig.maxLength) {
+            rig.state = 'RETRACTING';
+            rig.currentRetractSpeed = rig.baseRetractSpeed;
+        }
+
+        // Check Nugget Collisions
+        for (let i = 0; i < nuggets.length; i++) {
+            let n = nuggets[i];
+            let dist = Math.hypot(clawX - n.x, clawY - n.y);
+            if (dist < n.radius + 10) {
+                rig.caughtNugget = n;
+                nuggets.splice(i, 1);
+                rig.state = 'RETRACTING';
+                
+                // Adjust speed based on correctness (Heavy weight slowdown)
+                if (n.vocab.word === currentTarget.word) {
+                    rig.currentRetractSpeed = rig.baseRetractSpeed * 1.2; // Normal/Fast speed
+                } else {
+                    rig.currentRetractSpeed = rig.baseRetractSpeed / 3.0; // 3x Slowdown Effect!
+                }
+                break;
+            }
+        }
+    } 
+    // Reel In Claw & Items
+    else if (rig.state === 'RETRACTING') {
+        rig.length -= rig.currentRetractSpeed;
+        
+        if (rig.caughtNugget) {
+            rig.caughtNugget.x = rig.x + Math.sin(rig.angle) * rig.length;
+            rig.caughtNugget.y = rig.y + Math.cos(rig.angle) * rig.length + 15;
+        }
+
+        if (rig.length <= rig.baseLength || rig.length <= 30) {
+            rig.length = 30;
+            rig.state = 'SWINGING';
+            
+            if (rig.caughtNugget) {
+                if (rig.caughtNugget.vocab.word === currentTarget.word) {
+                    // Correct answer rewards points based on depth
+                    let earned = 100 + rig.caughtNugget.depth * 2;
+                    score += earned;
+                } else {
+                    // Penalty for incorrect nugget
+                    score = Math.max(0, score - 50);
+                }
+                document.getElementById('score-display').innerText = score;
+                rig.caughtNugget = null;
+                
+                // Refresh targets or respawn grid
+                if (nuggets.length === 0) {
+                    initNuggets();
+                } else {
+                    selectNewTarget();
+                }
+            }
+        }
+    }
+}
+
+function drawScene() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Underground Terrain Gradient Background
+    let bgGradient = ctx.createLinearGradient(0, 90, 0, canvas.height);
+    bgGradient.addColorStop(0, '#3b2312');
+    bgGradient.addColorStop(0.4, '#261408');
+    bgGradient.addColorStop(1, '#110803');
+    ctx.fillStyle = bgGradient;
+    ctx.fillRect(0, 90, canvas.width, canvas.height - 90);
+
+    // Sky / Surface Area
+    ctx.fillStyle = '#1c2833';
+    ctx.fillRect(0, 0, canvas.width, 90);
+
+    // Mining Rig Base / Mechanical Winch
+    ctx.fillStyle = '#8b5a2b';
+    ctx.fillRect(rig.x - 30, rig.y - 15, 60, 20);
+    ctx.fillStyle = '#444';
+    ctx.beginPath();
+    ctx.arc(rig.x, rig.y - 5, 12, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Automated Winding Reel Animation Lines
+    ctx.strokeStyle = '#aaa';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(rig.x, rig.y - 5, 8, rig.windingOffset, rig.windingOffset + Math.PI);
+    ctx.stroke();
+
+    // Calculate Hook Coordinates
+    let clawX = rig.x + Math.sin(rig.angle) * rig.length;
+    let clawY = rig.y + Math.cos(rig.angle) * rig.length;
+
+    // Draw Cable Wire
+    ctx.strokeStyle = '#d4af37';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(rig.x, rig.y);
+    ctx.lineTo(clawX, clawY);
+    ctx.stroke();
+
+    // Draw Mechanical Claw
+    ctx.save();
+    ctx.translate(clawX, clawY);
+    ctx.rotate(-rig.angle);
+    
+    ctx.strokeStyle = '#cccccc';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    // Left Claw Prongs
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-12, 15);
+    ctx.lineTo(-6, 25);
+    // Right Claw Prongs
+    ctx.moveTo(0, 0);
+    ctx.lineTo(12, 15);
+    ctx.lineTo(6, 25);
+    ctx.stroke();
+    ctx.restore();
+
+    // Draw Caught Nugget
+    if (rig.caughtNugget) {
+        drawNugget(rig.caughtNugget);
+    }
+
+    // Draw Active Underground Nuggets
+    nuggets.forEach(n => drawNugget(n));
+}
+
+function drawNugget(n) {
+    ctx.save();
+    ctx.translate(n.x, n.y);
+
+    // Gold Nugget Shape
+    ctx.fillStyle = '#ffd700';
+    ctx.strokeStyle = '#b8860b';
+    ctx.lineWidth = 3;
+    
+    ctx.beginPath();
+    ctx.arc(0, 0, n.radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Label Text (Vocabulary Word)
+    ctx.fillStyle = '#000000';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(n.vocab.word, 0, 0);
+
+    ctx.restore();
+}
+
+function gameLoop() {
+    updatePhysics();
+    drawScene();
+    if (isPlaying) {
+        requestAnimationFrame(gameLoop);
+    }
+}
+
+// Initial Canvas Clear
+drawScene();
+</script>
+
+</body>
+</html>
