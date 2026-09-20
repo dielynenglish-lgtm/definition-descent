@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Whack-A-Word: Why Italians Take Food So Seriously</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background-color: #121212;
+      color: #ffffff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      font-size: 2.2rem;
+      color: #ff9f43;
+      margin-bottom: 5px;
+    }
+
+    p.subtitle {
+      color: #aaa;
+      font-size: 1rem;
+    }
+
+    #game-container {
+      background-color: #1e1e1e;
+      border-radius: 12px;
+      padding: 25px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+      max-width: 650px;
+      width: 100%;
+      text-align: center;
+    }
+
+    #stats-bar {
+      display: flex;
+      justify-content: space-between;
+      background-color: #2a2a2a;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      margin-bottom: 20px;
+    }
+
+    .stat-val {
+      color: #00d2d3;
+    }
+
+    #definition-box {
+      background: linear-gradient(135deg, #2c3e50, #3498db);
+      padding: 15px 20px;
+      border-radius: 8px;
+      font-size: 1.1rem;
+      min-height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 25px;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    /* 6-Hole Grid Layout */
+    #grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .hole {
+      position: relative;
+      height: 110px;
+      background-color: #3e2723;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 4px solid #5d4037;
+      box-shadow: inset 0 10px 0 rgba(0,0,0,0.5);
+    }
+
+    .mole {
+      position: absolute;
+      bottom: -100%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 85%;
+      height: 85%;
+      background-color: #ff6b6b;
+      border-radius: 12px 12px 0 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 5px;
+      text-align: center;
+      font-weight: bold;
+      font-size: 0.95rem;
+      color: #fff;
+      cursor: pointer;
+      user-select: none;
+      transition: bottom 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      box-shadow: 0 -4px 0 rgba(0,0,0,0.2);
+    }
+
+    .mole.up {
+      bottom: 0;
+    }
+
+    .mole.correct-hit {
+      background-color: #10ac84 !important;
+    }
+
+    .mole.wrong-hit {
+      background-color: #ee5253 !important;
+    }
+
+    /* Start / Game Over Overlay */
+    #overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.85);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+
+    #overlay h2 {
+      font-size: 2rem;
+      margin-bottom: 10px;
+      color: #ff9f43;
+    }
+
+    #overlay p {
+      font-size: 1.1rem;
+      margin-bottom: 20px;
+      color: #ccc;
+    }
+
+    .btn {
+      background-color: #10ac84;
+      color: white;
+      border: none;
+      padding: 12px 28px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    .btn:hover {
+      background-color: #1dd1a1;
+      transform: scale(1.05);
+    }
+
+    .relative-wrapper {
+      position: relative;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Whack-A-Word: Arcade Edition</h1>
+    <p class="subtitle">Topic: Why Italians Take Food So Seriously</p>
+  </header>
+
+  <div id="game-container" class="relative-wrapper">
+    
+    <!-- Start/End Overlay -->
+    <div id="overlay">
+      <h2 id="overlay-title">Ready to Play?</h2>
+      <p id="overlay-msg">Match the falling definitions to the correct mole word!</p>
+      <button class="btn" id="start-btn" onclick="startGame()">Start Game</button>
+    </div>
+
+    <!-- Top UI Bar -->
+    <div id="stats-bar">
+      <div>Time: <span id="timer" class="stat-val">60</span>s</div>
+      <div>Score: <span id="score" class="stat-val">0</span></div>
+    </div>
+
+    <!-- Active Target Definition -->
+    <div id="definition-box">
+      <span id="definition">Click Start to begin!</span>
+    </div>
+
+    <!-- 6 Whack-a-Mole Holes -->
+    <div id="grid">
+      <div class="hole"><div class="mole" onclick="whack(0)"></div></div>
+      <div class="hole"><div class="mole" onclick="whack(1)"></div></div>
+      <div class="hole"><div class="mole" onclick="whack(2)"></div></div>
+      <div class="hole"><div class="mole" onclick="whack(3)"></div></div>
+      <div class="hole"><div class="mole" onclick="whack(4)"></div></div>
+      <div class="hole"><div class="mole" onclick="whack(5)"></div></div>
+    </div>
+
+  </div>
+
+  <script>
+    // Vocabulary Data tailored to "Why Italians Take Food So Seriously"
+    const vocabData = [
+      { word: "recipe", def: "A set of instructions for preparing a particular dish, including ingredients." },
+      { word: "pasta", def: "A dish originally from Italy consisting of dough made from durum wheat and water." },
+      { word: "variation", def: "A change or slight difference in condition, amount, or level within a standard form." },
+      { word: "combination", def: "A joining or merging of different parts or qualities together." },
+      { word: "ultimately", def: "At the most basic level; finally, in the end." },
+      { word: "generation", def: "All of the people born and living at about the same time, or family lineage stages." },
+      { word: "deserve", def: "To earn or be worthy of something because of one's actions or qualities." }
+    ];
+
+    let score = 0;
+    let timeLeft = 60;
+    let timerInterval = null;
+    let moleInterval = null;
+    let currentTarget = null;
+    let activeHoleIndex = -1;
+    let isPlaying = false;
+
+    const moles = document.querySelectorAll('.mole');
+    const timerDisplay = document.getElementById('timer');
+    const scoreDisplay = document.getElementById('score');
+    const defDisplay = document.getElementById('definition');
+    const overlay = document.getElementById('overlay');
+    const overlayTitle = document.getElementById('overlay-title');
+    const overlayMsg = document.getElementById('overlay-msg');
+    const startBtn = document.getElementById('start-btn');
+
+    function startGame() {
+      score = 0;
+      timeLeft = 60;
+      isPlaying = true;
+      scoreDisplay.textContent = score;
+      timerDisplay.textContent = timeLeft;
+      overlay.style.display = 'none';
+
+      setNewTarget();
+
+      // Start Countdown Timer
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        timerDisplay.textContent = timeLeft;
+        if (timeLeft <= 0) {
+          endGame();
+        }
+      }, 1000);
+
+      // Start Mole Pop Loop
+      popMole();
+      moleInterval = setInterval(popMole, 1300);
+    }
+
+    function setNewTarget() {
+      // Pick a random target from vocab list
+      const randomIndex = Math.floor(Math.random() * vocabData.length);
+      currentTarget = vocabData[randomIndex];
+      defDisplay.textContent = `"${currentTarget.def}"`;
+    }
+
+    function popMole() {
+      if (!isPlaying) return;
+
+      // Hide active mole first
+      if (activeHoleIndex !== -1) {
+        moles[activeHoleIndex].classList.remove('up', 'correct-hit', 'wrong-hit');
+      }
+
+      // Choose a random hole (0 to 5)
+      const holeIndex = Math.floor(Math.random() * moles.length);
+      activeHoleIndex = holeIndex;
+
+      // Weighted selection: ensure target word pops up MORE frequently (approx 60% chance)
+      let wordToDisplay = "";
+      if (Math.random() < 0.6) {
+        wordToDisplay = currentTarget.word;
+      } else {
+        // Pick a distractor
+        const distractors = vocabData.filter(v => v.word !== currentTarget.word);
+        const randomDistractor = distractors[Math.floor(Math.random() * distractors.length)];
+        wordToDisplay = randomDistractor.word;
+      }
+
+      const moleEl = moles[holeIndex];
+      moleEl.textContent = wordToDisplay;
+      moleEl.dataset.word = wordToDisplay;
+      moleEl.classList.add('up');
+    }
+
+    function whack(holeIndex) {
+      if (!isPlaying || holeIndex !== activeHoleIndex) return;
+
+      const moleEl = moles[holeIndex];
+      if (!moleEl.classList.contains('up')) return;
+
+      const clickedWord = moleEl.dataset.word;
+
+      if (clickedWord === currentTarget.word) {
+        score += 10;
+        scoreDisplay.textContent = score;
+        moleEl.classList.add('correct-hit');
+        // Pick a new target definition after a hit
+        setTimeout(setNewTarget, 300);
+      } else {
+        score = Math.max(0, score - 5);
+        scoreDisplay.textContent = score;
+        moleEl.classList.add('wrong-hit');
+      }
+
+      // Retreat mole after whack
+      setTimeout(() => {
+        moleEl.classList.remove('up');
+      }, 200);
+    }
+
+    function endGame() {
+      isPlaying = false;
+      clearInterval(timerInterval);
+      clearInterval(moleInterval);
+
+      // Hide all moles
+      moles.forEach(m => m.classList.remove('up', 'correct-hit', 'wrong-hit'));
+
+      // Show overlay with results
+      overlayTitle.textContent = "Game Over!";
+      overlayMsg.textContent = `Great effort! Your final score: ${score} points.`;
+      startBtn.textContent = "Play Again";
+      overlay.style.display = 'flex';
+    }
+  </script>
+</body>
+</html>
