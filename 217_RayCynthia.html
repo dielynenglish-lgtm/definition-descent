@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>詞彙吃豆迷宮 - 簡易追逐版</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body {
+            background-color: #1a1a2e;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            margin-bottom: 5px;
+            color: #00f2fe;
+            text-shadow: 0 0 10px rgba(0, 242, 254, 0.5);
+            font-size: 2.2rem;
+        }
+        #target-definition {
+            background: #16213e;
+            border: 2px solid #0f3460;
+            border-radius: 8px;
+            padding: 15px 25px;
+            font-size: 1.6rem;
+            margin-bottom: 10px;
+            color: #e94560;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        #target-meaning {
+            font-size: 1.2rem;
+            color: #4cd137;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+        #stats {
+            display: flex;
+            gap: 20px;
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+        }
+        .stat-box {
+            background: #0f3460;
+            padding: 10px 20px;
+            border-radius: 5px;
+        }
+        #game-board {
+            display: grid;
+            grid-template-columns: repeat(10, 64px);
+            grid-template-rows: repeat(10, 64px);
+            gap: 3px;
+            background-color: #0f3460;
+            padding: 6px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+            position: relative;
+        }
+        .cell {
+            width: 64px;
+            height: 64px;
+            background-color: #1a1a2e;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            font-weight: bold;
+            text-align: center;
+            border-radius: 4px;
+            position: relative;
+            user-select: none;
+            word-break: break-word;
+            padding: 4px;
+        }
+        .wall {
+            background-color: #0f3460;
+            border-radius: 2px;
+        }
+        .player {
+            background-color: #ffdd59;
+            border-radius: 50%;
+            color: #000;
+            font-size: 2rem;
+            z-index: 10;
+        }
+        .ghost {
+            background-color: #ff4757;
+            border-radius: 50%;
+            color: #fff;
+            font-size: 1.8rem;
+            transition: background-color 0.3s;
+            z-index: 5;
+        }
+        .ghost.vulnerable {
+            background-color: #1e90ff !important;
+            animation: pulse 0.5s infinite alternate;
+        }
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            100% { opacity: 1; }
+        }
+        .bean {
+            background-color: #2ed573;
+            color: #000;
+            border-radius: 6px;
+            box-shadow: 0 0 5px #2ed573;
+            font-size: 0.95rem;
+        }
+        #message {
+            margin-top: 15px;
+            font-size: 1.4rem;
+            font-weight: bold;
+            height: 35px;
+            color: #eccc68;
+        }
+        .controls {
+            margin-top: 10px;
+            font-size: 1.1rem;
+            color: #aaa;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🎮 詞彙吃豆迷宮 (簡單AI版)</h1>
+    <div id="target-definition">目標定義：載入中...</div>
+    <div id="target-meaning">單字簡意：載入中...</div>
+
+    <div id="stats">
+        <div class="stat-box">得分: <span id="score">0</span></div>
+        <div class="stat-box">能量剩餘: <span id="power-timer">0</span>s</div>
+    </div>
+
+    <div id="game-board"></div>
+    <div id="message">使用方向鍵 (▲ ▼ ◄ ►) 移動吃豆！</div>
+    <div class="controls">幽靈會直線前進，碰到路口或牆壁時有小機率會追逐你！</div>
+
+    <script>
+        const vocabulary = [
+            { word: "beloved", def: "深愛的" },
+            { word: "highlight", def: "使突出、強調" },
+            { word: "performer", def: "表演者" },
+            { word: "compelling", def: "引人入勝的" },
+            { word: "luxury", def: "奢華的、奢侈品" },
+            { word: "elaborately", def: "精致複雜地" },
+            { word: "surroundings", def: "周遭環境" }
+        ];
+
+        const mapLayout = [
+            [0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+            [0, 1, 1, 0, 1, 0, 1, 1, 1, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 1, 0, 1, 1, 1, 1, 0, 1, 0],
+            [0, 1, 0, 0, 0, 0, 0, 0, 1, 0],
+            [0, 0, 0, 1, 0, 0, 1, 0, 0, 0],
+            [0, 1, 0, 1, 1, 1, 1, 0, 1, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 1, 1, 1, 0, 1, 1, 0, 1, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        ];
+
+        const boardSize = 10;
+        let player = { x: 0, y: 0 };
+        
+        let ghosts = [
+            { x: 9, y: 0, dirX: 0, dirY: 1, baseSpeed: 1400, currentSpeed: 1400, lastMoveTime: 0 },
+            { x: 9, y: 9, dirX: -1, dirY: 0, baseSpeed: 1600, currentSpeed: 1600, lastMoveTime: 0 }
+        ];
+
+        let score = 0;
+        let currentTarget = null;
+        let beans = {};
+        let isPowerActive = false;
+        let powerTimeLeft = 0;
+        let powerInterval = null;
+        let speedBuffTimeout = null;
+        let gameLoopId = null;
+
+        const boardEl = document.getElementById('game-board');
+        const targetDefEl = document.getElementById('target-definition');
+        const targetMeaningEl = document.getElementById('target-meaning');
+        const scoreEl = document.getElementById('score');
+        const powerTimerEl = document.getElementById('power-timer');
+        const messageEl = document.getElementById('message');
+
+        function initGame() {
+            setNewTarget();
+            spawnBeans();
+            renderBoard();
+            startGameLoop();
+            window.addEventListener('keydown', handleKeyPress);
+        }
+
+        function setNewTarget() {
+            const randomIndex = Math.floor(Math.random() * vocabulary.length);
+            currentTarget = vocabulary[randomIndex];
+            targetDefEl.innerText = `請尋找目標單字（${currentTarget.def}）`;
+            targetMeaningEl.innerText = `💡 目標單字涵義：${currentTarget.word} = ${currentTarget.def}`;
+        }
+
+        function getRandomEmptyPos() {
+            let x, y;
+            do {
+                x = Math.floor(Math.random() * boardSize);
+                y = Math.floor(Math.random() * boardSize);
+            } while (
+                mapLayout[y][x] === 1 || 
+                (x === player.x && y === player.y) ||
+                beans[`${x},${y}`]
+            );
+            return { x, y };
+        }
+
+        function spawnBeans() {
+            beans = {};
+            const correctPos = getRandomEmptyPos();
+            beans[`${correctPos.x},${correctPos.y}`] = currentTarget.word;
+
+            let remainingWords = vocabulary.filter(v => v.word !== currentTarget.word);
+            for (let i = 0; i < 3; i++) {
+                if (remainingWords.length === 0) break;
+                const randomWord = remainingWords.splice(Math.floor(Math.random() * remainingWords.length), 1)[0].word;
+                const pos = getRandomEmptyPos();
+                beans[`${pos.x},${pos.y}`] = randomWord;
+            }
+        }
+
+        function renderBoard() {
+            boardEl.innerHTML = '';
+            for (let y = 0; y < boardSize; y++) {
+                for (let x = 0; x < boardSize; x++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell');
+
+                    if (mapLayout[y][x] === 1) {
+                        cell.classList.add('wall');
+                    } else if (player.x === x && player.y === y) {
+                        cell.classList.add('player');
+                        cell.innerText = '😀';
+                    } else {
+                        const ghostIndex = ghosts.findIndex(g => g.x === x && g.y === y);
+                        if (ghostIndex !== -1) {
+                            cell.classList.add('ghost');
+                            if (isPowerActive) cell.classList.add('vulnerable');
+                            cell.innerText = isPowerActive ? '🟦' : '👻';
+                        } else if (beans[`${x},${y}`]) {
+                            cell.classList.add('bean');
+                            cell.innerText = beans[`${x},${y}`];
+                        }
+                    }
+                    boardEl.appendChild(cell);
+                }
+            }
+        }
+
+        function handleKeyPress(e) {
+            let newX = player.x;
+            let newY = player.y;
+
+            if (e.key === 'ArrowUp') newY--;
+            else if (e.key === 'ArrowDown') newY++;
+            else if (e.key === 'ArrowLeft') newX--;
+            else if (e.key === 'ArrowRight') newX++;
+            else return;
+
+            if (newX >= 0 && newX < boardSize && newY >= 0 && newY < boardSize) {
+                if (mapLayout[newY][newX] !== 1) {
+                    player.x = newX;
+                    player.y = newY;
+                    checkCollisions();
+                    renderBoard();
+                }
+            }
+        }
+
+        function checkCollisions() {
+            const posKey = `${player.x},${player.y}`;
+
+            if (beans[posKey]) {
+                const eatenWord = beans[posKey];
+                delete beans[posKey];
+
+                if (eatenWord === currentTarget.word) {
+                    score += 100;
+                    scoreEl.innerText = score;
+                    messageEl.innerText = "🎉 正確！獲得能量狀態，可以捕捉幽靈！";
+                    messageEl.style.color = "#2ed573";
+                    activatePowerMode();
+                    setNewTarget();
+                    spawnBeans();
+                } else {
+                    messageEl.innerText = "❌ 答錯了！幽靈速度提升 25%！";
+                    messageEl.style.color = "#ff4757";
+                    applyGhostSpeedBuff();
+                }
+            }
+
+            ghosts.forEach((ghost) => {
+                if (ghost.x === player.x && ghost.y === player.y) {
+                    if (isPowerActive) {
+                        score += 200;
+                        scoreEl.innerText = score;
+                        messageEl.innerText = "💥 成功捕捉幽靈！+200分";
+                        ghost.x = 9;
+                        ghost.y = 9;
+                    } else {
+                        messageEl.innerText = "💀 你被幽靈抓到了！遊戲結束。";
+                        messageEl.style.color = "#ff4757";
+                        window.removeEventListener('keydown', handleKeyPress);
+                        cancelAnimationFrame(gameLoopId);
+                    }
+                }
+            });
+        }
+
+        function activatePowerMode() {
+            isPowerActive = true;
+            powerTimeLeft = 8;
+            powerTimerEl.innerText = powerTimeLeft;
+
+            clearInterval(powerInterval);
+            powerInterval = setInterval(() => {
+                powerTimeLeft--;
+                powerTimerEl.innerText = powerTimeLeft;
+                if (powerTimeLeft <= 0) {
+                    clearInterval(powerInterval);
+                    isPowerActive = false;
+                    renderBoard();
+                }
+            }, 1000);
+        }
+
+        function applyGhostSpeedBuff() {
+            ghosts.forEach(g => {
+                g.currentSpeed = g.baseSpeed * 0.75;
+            });
+
+            clearTimeout(speedBuffTimeout);
+            speedBuffTimeout = setTimeout(() => {
+                ghosts.forEach(g => {
+                    g.currentSpeed = g.baseSpeed;
+                });
+                messageEl.innerText = "幽靈恢復正常速度。";
+                messageEl.style.color = "#eccc68";
+            }, 5000);
+        }
+
+        function isValidPos(x, y) {
+            return x >= 0 && x < boardSize && y >= 0 && y < boardSize && mapLayout[y][x] !== 1;
+        }
+
+        function updateGhostPosition(ghost) {
+            const nextX = ghost.x + ghost.dirX;
+            const nextY = ghost.y + ghost.dirY;
+
+            const directions = [
+                { x: 0, y: -1 }, { x: 0, y: 1 },
+                { x: -1, y: 0 }, { x: 1, y: 0 }
+            ];
+
+            const validMoves = directions.filter(d => isValidPos(ghost.x + d.x, ghost.y + d.y));
+
+            if (validMoves.length === 0) return;
+
+            const canContinueStraight = isValidPos(nextX, nextY);
+            const isIntersection = validMoves.length > 2;
+
+            if (canContinueStraight && !isIntersection) {
+                ghost.x = nextX;
+                ghost.y = nextY;
+            } else {
+                let chosenDir = null;
+                const shouldTryChase = Math.random() < 0.5;
+
+                if (shouldTryChase) {
+                    let bestDist = Infinity;
+                    validMoves.forEach(d => {
+                        const targetX = ghost.x + d.x;
+                        const targetY = ghost.y + d.y;
+                        const dist = Math.abs(targetX - player.x) + Math.abs(targetY - player.y);
+                        if (dist < bestDist) {
+                            bestDist = dist;
+                            chosenDir = d;
+                        }
+                    });
+                }
+
+                if (!chosenDir) {
+                    const forwardMoves = validMoves.filter(d => !(d.x === -ghost.dirX && d.y === -ghost.dirY));
+                    if (forwardMoves.length > 0) {
+                        chosenDir = forwardMoves[Math.floor(Math.random() * forwardMoves.length)];
+                    } else {
+                        chosenDir = validMoves[Math.floor(Math.random() * validMoves.length)];
+                    }
+                }
+
+                ghost.dirX = chosenDir.x;
+                ghost.dirY = chosenDir.y;
+                ghost.x += ghost.dirX;
+                ghost.y += ghost.dirY;
+            }
+        }
+
+        function gameLoop(timestamp) {
+            ghosts.forEach(ghost => {
+                if (!ghost.lastMoveTime) ghost.lastMoveTime = timestamp;
+                if (timestamp - ghost.lastMoveTime >= ghost.currentSpeed) {
+                    updateGhostPosition(ghost);
+                    ghost.lastMoveTime = timestamp;
+                }
+            });
+
+            checkCollisions();
+            renderBoard();
+            gameLoopId = requestAnimationFrame(gameLoop);
+        }
+
+        function startGameLoop() {
+            gameLoopId = requestAnimationFrame(gameLoop);
+        }
+
+        initGame();
+    </script>
+</body>
+</html>
