@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyberpunk Snake: Definition Hunt</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #0d0f18;
+            color: #00ffcc;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        #game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: #16192b;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.3);
+            border: 2px solid #00ffcc;
+            position: relative;
+        }
+
+        /* UI Panel */
+        #ui-panel {
+            width: 600px;
+            margin-bottom: 15px;
+            text-align: center;
+            background: #0d0f18;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #ff007f;
+        }
+
+        .stats-bar {
+            display: flex;
+            justify-content: space-between;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #ff007f;
+        }
+
+        #prompt-box {
+            font-size: 18px;
+            color: #ffffff;
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #1a1d36;
+            border-radius: 6px;
+            padding: 10px;
+            border-left: 4px solid #00ffcc;
+        }
+
+        canvas {
+            background-color: #05060a;
+            border: 2px solid #00ffcc;
+            box-shadow: inset 0 0 10px rgba(0, 255, 204, 0.2);
+            border-radius: 4px;
+        }
+
+        /* Overlays */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(13, 15, 24, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-radius: 12px;
+            z-index: 10;
+        }
+
+        .overlay h1 {
+            font-size: 32px;
+            color: #ff007f;
+            margin-bottom: 15px;
+            text-shadow: 0 0 10px #ff007f;
+        }
+
+        .overlay p {
+            color: #ffffff;
+            font-size: 16px;
+            margin-bottom: 25px;
+            text-align: center;
+            max-width: 80%;
+            line-height: 1.5;
+        }
+
+        .btn {
+            background: #00ffcc;
+            color: #0d0f18;
+            border: none;
+            padding: 12px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 0 15px #00ffcc;
+            transition: all 0.2s ease;
+        }
+
+        .btn:hover {
+            background: #ff007f;
+            color: #ffffff;
+            box-shadow: 0 0 15px #ff007f;
+            transform: scale(1.05);
+        }
+
+        #status-msg {
+            height: 20px;
+            margin-top: 5px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .status-poison { color: #ff3366; }
+        .status-correct { color: #00ffcc; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="ui-panel">
+        <div class="stats-bar">
+            <span>SCORE: <span id="score">0</span></span>
+            <span>HIGH SCORE: <span id="high-score">0</span></span>
+        </div>
+        <div id="prompt-box">
+            <span id="definition-text">載入中...</span>
+        </div>
+        <div id="status-msg"></div>
+    </div>
+
+    <canvas id="gameCanvas" width="600" height="400"></canvas>
+
+    <!-- Start Overlay -->
+    <div id="start-overlay" class="overlay">
+        <h1>CYBERPUNK SNAKE</h1>
+        <p><b>高一英文目標單字大挑戰！</b><br><br>
+        1. 使用鍵盤 <b>上下左右鍵</b> 控制貪食蛇。<br>
+        2. 閱讀上方定義，吃掉<b>正確的英文單字</b>。<br>
+        3. 吃錯會<b>判定為毒藥</b>：切斷 2 節尾巴並<b>鎖定按鍵 1.5 秒</b>！<br>
+        4. 撞牆或撞到自己即 Game Over。</p>
+        <button class="btn" onclick="startGame()">開始遊戲</button>
+    </div>
+
+    <!-- Game Over Overlay -->
+    <div id="gameover-overlay" class="overlay" style="display: none;">
+        <h1>GAME OVER</h1>
+        <p>最終得分: <span id="final-score">0</span></p>
+        <button class="btn" onclick="startGame()">再試一次</button>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const GRID_SIZE = 20;
+    const TILE_COUNT_X = canvas.width / GRID_SIZE; // 30
+    const TILE_COUNT_Y = canvas.height / GRID_SIZE; // 20
+
+    // 單字與定義資料庫 (7個圖片目標單字 + 相關補充)
+    const vocabList = [
+        { word: "unidentified", def: "Not recognized or known; mysterious." },
+        { word: "phenomenon", def: "A fact or situation that is observed to exist, especially one whose cause is in question." },
+        { word: "radar", def: "A system for detecting the presence, direction, distance, and speed of aircraft, ships, etc." },
+        { word: "sensor", def: "A device which detects or measures a physical property and records, indicates, or responds to it." },
+        { word: "personnel", def: "People employed in an organization or engaged in an organized undertaking such as military." },
+        { word: "strengthen", def: "To make or become stronger." },
+        { word: "mysterious", def: "Difficult or impossible to understand, explain, or identify." },
+        { word: "account for", def: "To provide a explanation for; to cause or be the reason for something." },
+        { word: "meet with", def: "To experience or undergo something (e.g. difficulty, success, or disapproval)." }
+    ];
+
+    let snake = [];
+    let dx = GRID_SIZE;
+    let dy = 0;
+    let score = 0;
+    let highScore = 0;
+    let gameInterval = null;
+    let isControlsLocked = false;
+    let currentTarget = null;
+    let pellets = []; // Array of {x, y, word, isCorrect}
+
+    function startGame() {
+        document.getElementById("start-overlay").style.display = "none";
+        document.getElementById("gameover-overlay").style.display = "none";
+
+        // Reset Snake
+        snake = [
+            { x: 10 * GRID_SIZE, y: 10 * GRID_SIZE },
+            { x: 9 * GRID_SIZE, y: 10 * GRID_SIZE },
+            { x: 8 * GRID_SIZE, y: 10 * GRID_SIZE }
+        ];
+        dx = GRID_SIZE;
+        dy = 0;
+        score = 0;
+        isControlsLocked = false;
+        document.getElementById("score").innerText = score;
+        document.getElementById("status-msg").innerText = "";
+
+        nextQuestion();
+
+        if (gameInterval) clearInterval(gameInterval);
+        gameInterval = setInterval(gameLoop, 120);
+    }
+
+    function nextQuestion() {
+        // Pick a random word
+        const targetIndex = Math.floor(Math.random() * vocabList.length);
+        currentTarget = vocabList[targetIndex];
+        document.getElementById("definition-text").innerText = "定義: " + currentTarget.def;
+
+        // Generate 3 pellets (1 correct, 2 distractors)
+        pellets = [];
+        let distractors = vocabList.filter(v => v.word !== currentTarget.word);
+        // Shuffle distractors
+        distractors.sort(() => Math.random() - 0.5);
+
+        let roundWords = [
+            { word: currentTarget.word, isCorrect: true },
+            { word: distractors[0].word, isCorrect: false },
+            { word: distractors[1].word, isCorrect: false }
+        ];
+        // Shuffle pellets
+        roundWords.sort(() => Math.random() - 0.5);
+
+        // Position pellets on grid without overlapping snake or each other
+        roundWords.forEach(item => {
+            let pos = getFreeRandomPosition();
+            pellets.push({
+                x: pos.x,
+                y: pos.y,
+                word: item.word,
+                isCorrect: item.isCorrect
+            });
+        });
+    }
+
+    function getFreeRandomPosition() {
+        let x, y, collision;
+        do {
+            collision = false;
+            x = Math.floor(Math.random() * TILE_COUNT_X) * GRID_SIZE;
+            y = Math.floor(Math.random() * TILE_COUNT_Y) * GRID_SIZE;
+
+            // Check snake collision
+            for (let segment of snake) {
+                if (segment.x === x && segment.y === y) collision = true;
+            }
+            // Check other pellets collision
+            for (let p of pellets) {
+                if (p.x === x && p.y === y) collision = true;
+            }
+        } while (collision);
+        return { x, y };
+    }
+
+    function gameLoop() {
+        moveSnake();
+        if (checkCollision()) {
+            gameOver();
+            return;
+        }
+        checkPelletEat();
+        draw();
+    }
+
+    function moveSnake() {
+        const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+        snake.unshift(head);
+        snake.pop(); // Normally remove tail, added during correct eat
+    }
+
+    function checkCollision() {
+        const head = snake[0];
+
+        // Wall Collision
+        if (head.x < 0 || head.x >= canvas.width || head.y < 0 || head.y >= canvas.height) {
+            return true;
+        }
+
+        // Self Collision
+        for (let i = 1; i < snake.length; i++) {
+            if (head.x === snake[i].x && head.y === snake[i].y) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    function checkPelletEat() {
+        const head = snake[0];
+
+        for (let i = 0; i < pellets.length; i++) {
+            let p = pellets[i];
+            // Check collision with pellet radius
+            if (head.x === p.x && head.y === p.y) {
+                if (p.isCorrect) {
+                    // Correct!
+                    score += 10;
+                    document.getElementById("score").innerText = score;
+                    showStatus("答對了！蛇身變長！", "status-correct");
+                    
+                    // Grow snake
+                    snake.push({ ...snake[snake.length - 1] });
+
+                    nextQuestion();
+                } else {
+                    // Poison/Incorrect!
+                    showStatus("答錯（毒藥）！砍斷兩節 tail，方向鍵鎖定 1.5 秒！", "status-poison");
+
+                    // Chop off 2 segments
+                    if (snake.length > 2) snake.pop();
+                    if (snake.length > 2) snake.pop();
+
+                    // Lock controls for 1.5 sec
+                    isControlsLocked = true;
+                    setTimeout(() => {
+                        isControlsLocked = false;
+                    }, 1500);
+
+                    // Remove this wrong pellet from board
+                    pellets.splice(i, 1);
+                }
+                break;
+            }
+        }
+    }
+
+    function showStatus(msg, className) {
+        const el = document.getElementById("status-msg");
+        el.innerText = msg;
+        el.className = className;
+    }
+
+    function draw() {
+        // Clear background
+        ctx.fillStyle = "#05060a";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw Grid Lines (Cyberpunk effect)
+        ctx.strokeStyle = "rgba(0, 255, 204, 0.05)";
+        ctx.lineWidth = 1;
+        for (let x = 0; x < canvas.width; x += GRID_SIZE) {
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+        }
+        for (let y = 0; y < canvas.height; y += GRID_SIZE) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+        }
+
+        // Draw Pellets
+        pellets.forEach(p => {
+            ctx.fillStyle = "#ff007f";
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = "#ff007f";
+            ctx.fillRect(p.x + 2, p.y + 2, GRID_SIZE - 4, GRID_SIZE - 4);
+
+            // Draw Word Tag over pellet
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "11px Segoe UI";
+            ctx.textAlign = "center";
+            ctx.fillText(p.word, p.x + GRID_SIZE / 2, p.y - 4);
+        });
+
+        // Draw Snake
+        snake.forEach((segment, index) => {
+            if (index === 0) {
+                // Head
+                ctx.fillStyle = isControlsLocked ? "#ff3366" : "#00ffcc";
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = isControlsLocked ? "#ff3366" : "#00ffcc";
+            } else {
+                // Body
+                ctx.fillStyle = "#00b386";
+                ctx.shadowBlur = 0;
+            }
+            ctx.fillRect(segment.x + 1, segment.y + 1, GRID_SIZE - 2, GRID_SIZE - 2);
+        });
+
+        ctx.shadowBlur = 0; // Reset canvas effects
+    }
+
+    function gameOver() {
+        clearInterval(gameInterval);
+        if (score > highScore) {
+            highScore = score;
+            document.getElementById("high-score").innerText = highScore;
+        }
+        document.getElementById("final-score").innerText = score;
+        document.getElementById("gameover-overlay").style.display = "flex";
+    }
+
+    // Keyboard controls
+    window.addEventListener("keydown", e => {
+        if (isControlsLocked) return; // Prevent movement during lock
+
+        switch (e.key) {
+            case "ArrowUp":
+                if (dy === 0) { dx = 0; dy = -GRID_SIZE; }
+                break;
+            case "ArrowDown":
+                if (dy === 0) { dx = 0; dy = GRID_SIZE; }
+                break;
+            case "ArrowLeft":
+                if (dx === 0) { dx = -GRID_SIZE; dy = 0; }
+                break;
+            case "ArrowRight":
+                if (dx === 0) { dx = GRID_SIZE; dy = 0; }
+                break;
+        }
+    });
+</script>
+
+</body>
+</html>

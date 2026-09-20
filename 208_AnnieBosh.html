@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Breakout Word-Wall Builder</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+        body {
+            background: #0f172a;
+            color: #f8fafc;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            border-radius: 12px;
+            overflow: hidden;
+            background: #1e293b;
+        }
+        canvas {
+            background: #0f172a;
+            display: block;
+        }
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            background: rgba(15, 23, 42, 0.8);
+            border-bottom: 2px solid #334155;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .ui-item {
+            color: #38bdf8;
+        }
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+        .overlay h1 {
+            font-size: 42px;
+            color: #38bdf8;
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+        }
+        .overlay p {
+            font-size: 16px;
+            color: #94a3b8;
+            max-width: 550px;
+            text-align: center;
+            margin-bottom: 25px;
+            line-height: 1.5;
+        }
+        .btn {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 12px 28px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+        }
+        .btn:hover {
+            background: #1d4ed8;
+            transform: translateY(-2px);
+        }
+        #popup-modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #1e293b;
+            border: 3px solid #38bdf8;
+            border-radius: 12px;
+            padding: 25px;
+            width: 500px;
+            text-align: center;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+            z-index: 20;
+            display: none;
+        }
+        #popup-modal h2 {
+            color: #f59e0b;
+            font-size: 22px;
+            margin-bottom: 12px;
+        }
+        #definition-text {
+            color: #f8fafc;
+            font-size: 16px;
+            margin-bottom: 20px;
+            background: #0f172a;
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 4px solid #38bdf8;
+        }
+        .options-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .option-btn {
+            background: #334155;
+            color: #f8fafc;
+            border: 2px solid #475569;
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 600;
+        }
+        .option-btn:hover {
+            background: #475569;
+            border-color: #38bdf8;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="ui-layer">
+        <div class="ui-item">Score: <span id="score">0</span></div>
+        <div class="ui-item">Blocks Smashed: <span id="blocks-smashed">0</span></div>
+        <div class="ui-item">Lives: <span id="lives">3</span></div>
+    </div>
+
+    <canvas id="breakoutCanvas" width="800" height="600"></canvas>
+
+    <!-- Start Overlay -->
+    <div id="start-overlay" class="overlay">
+        <h1>Breakout Word-Wall</h1>
+        <p>Bounce the ball to smash the word-bricks! Cracking bricks reveals hint letters. Shatter an entire word layer to trigger a vocabulary challenge. Choose correctly to unlock a <b>Multiball</b> power-up!</p>
+        <button class="btn" onclick="startGame()">Start Game</button>
+    </div>
+
+    <!-- Game Over Overlay -->
+    <div id="gameover-overlay" class="overlay" style="display: none;">
+        <h1 id="gameover-title">Game Over</h1>
+        <p id="gameover-msg">The wall proved too strong this time!</p>
+        <button class="btn" onclick="restartGame()">Play Again</button>
+    </div>
+
+    <!-- Word Challenge Pop-up Modal -->
+    <div id="popup-modal">
+        <h2>Layer Shattered!</h2>
+        <p>Select the vocabulary word matching this definition:</p>
+        <div id="definition-text">Definition goes here...</div>
+        <div class="options-grid" id="options-container">
+            <!-- Dynamic 3 choices inserted here -->
+        </div>
+    </div>
+</div>
+
+<script>
+    // Targeted Vocabulary Words & Definitions
+    const vocabularyList = [
+        { word: "PRESENTATION", definition: "A speech or talk in which a new idea or product is shown and explained to an audience." },
+        { word: "BOOST", definition: "To help or encourage something to increase, improve, or become better." },
+        { word: "ACCOMPLISH", definition: "To succeed in doing or completing something successfully." },
+        { word: "PURCHASE", definition: "To acquire something by paying money for it; to buy." },
+        { word: "TRIGGER", definition: "To cause an event, action, or emotional reaction to happen or exist." },
+        { word: "PSYCHOLOGY", definition: "The scientific study of the human mind and its functions, especially affecting behavior." },
+        { word: "STABILITY", definition: "The state of being firm, steady, fixed, or not likely to change or fail." },
+        { word: "FORMULA", definition: "A mathematical relationship or rule expressed in symbols." },
+        { word: "EQUATION", definition: "A statement that the values of two mathematical expressions are equal." },
+        { word: "ABSTRACT", definition: "Existing in thought or as an idea but not having a physical or concrete existence." }
+    ];
+
+    const canvas = document.getElementById("breakoutCanvas");
+    const ctx = canvas.getContext("2d");
+
+    // Game Control Variables
+    let score = 0;
+    let blocksSmashed = 0;
+    let lives = 3;
+    let gameRunning = false;
+    let isPaused = false;
+    let activeLayerChallenge = -1;
+
+    // Paddle Configuration
+    let paddleHeight = 12;
+    let paddleWidth = 120;
+    let paddleX = (canvas.width - paddleWidth) / 2;
+    const basePaddleWidth = 120;
+
+    // Ball System (Supports Multiball)
+    let balls = [];
+    const ballRadius = 7;
+    const baseBallSpeed = 5;
+
+    // Brick Grid Setup
+    const rowCount = 7;
+    const colCount = 10;
+    const brickPadding = 4;
+    const brickOffsetTop = 50;
+    const brickOffsetLeft = 15;
+    const brickWidth = (canvas.width - (brickOffsetLeft * 2) - (brickPadding * (colCount - 1))) / colCount;
+    const brickHeight = 22;
+
+    const rowColors = ["#ef4444", "#f97316", "#f59e0b", "#10b981", "#06b6d4", "#3b82f6", "#8b5cf6"];
+    let bricks = [];
+    let layerWords = [];
+
+    // Initialize/Reset Bricks
+    function initBricks() {
+        let shuffled = [...vocabularyList].sort(() => 0.5 - Math.random());
+        layerWords = shuffled.slice(0, rowCount);
+
+        bricks = [];
+        for (let r = 0; r < rowCount; r++) {
+            bricks[r] = [];
+            let targetWord = layerWords[r].word;
+            for (let c = 0; c < colCount; c++) {
+                let letterIndex = Math.floor((c / colCount) * targetWord.length);
+                let hintChar = targetWord[letterIndex] || targetWord[0];
+
+                bricks[r][c] = {
+                    x: 0,
+                    y: 0,
+                    status: 2, // 2 = full, 1 = cracked, 0 = destroyed
+                    hint: hintChar
+                };
+            }
+        }
+    }
+
+    // Paddle Mouse Movement Tracking
+    document.addEventListener("mousemove", (e) => {
+        const relativeX = e.clientX - canvas.getBoundingClientRect().left;
+        if (relativeX > 0 && relativeX < canvas.width) {
+            paddleX = relativeX - paddleWidth / 2;
+            if (paddleX < 0) paddleX = 0;
+            if (paddleX + paddleWidth > canvas.width) paddleX = canvas.width - paddleWidth;
+        }
+    });
+
+    function spawnBall(x, y, dx, dy) {
+        balls.push({ x: x, y: y, dx: dx, dy: dy });
+    }
+
+    function resetBallAndPaddle() {
+        paddleWidth = basePaddleWidth;
+        paddleX = (canvas.width - paddleWidth) / 2;
+        balls = [];
+        spawnBall(canvas.width / 2, canvas.height - 30, baseBallSpeed * (Math.random() > 0.5 ? 1 : -1), -baseBallSpeed);
+    }
+
+    // Dynamic Reflection Vector Formula Implementation
+    function handlePaddleCollision(ball) {
+        if (ball.y + ballRadius >= canvas.height - paddleHeight &&
+            ball.x >= paddleX && ball.x <= paddleX + paddleWidth && ball.dy > 0) {
+
+            let hitPoint = (ball.x - (paddleX + paddleWidth / 2)) / (paddleWidth / 2);
+            let bounceAngle = hitPoint * (Math.PI / 3);
+
+            let speed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
+            
+            ball.dx = speed * Math.sin(bounceAngle);
+            ball.dy = -speed * Math.cos(bounceAngle);
+        }
+    }
+
+    // Block Collision State & Reflection System
+    function handleBrickCollisions(ball) {
+        for (let r = 0; r < rowCount; r++) {
+            for (let c = 0; c < colCount; c++) {
+                let b = bricks[r][c];
+                if (b.status > 0) {
+                    if (ball.x + ballRadius > b.x &&
+                        ball.x - ballRadius < b.x + brickWidth &&
+                        ball.y + ballRadius > b.y &&
+                        ball.y - ballRadius < b.y + brickHeight) {
+
+                        ball.dy = -ball.dy;
+                        b.status--;
+                        score += 10;
+                        
+                        if (b.status === 0) {
+                            blocksSmashed++;
+                            checkLayerShattered(r);
+                        }
+
+                        updateUI();
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    function checkLayerShattered(row) {
+        let remaining = 0;
+        for (let c = 0; c < colCount; c++) {
+            if (bricks[row][c].status > 0) remaining++;
+        }
+
+        if (remaining === 0) {
+            triggerVocabularyChallenge(row);
+        }
+    }
+
+    function triggerVocabularyChallenge(row) {
+        isPaused = true;
+        activeLayerChallenge = row;
+        const currentItem = layerWords[row];
+
+        document.getElementById("definition-text").innerText = `"${currentItem.definition}"`;
+
+        let choices = [currentItem.word];
+        let pool = vocabularyList.filter(item => item.word !== currentItem.word);
+        pool.sort(() => 0.5 - Math.random());
+        choices.push(pool[0].word, pool[1].word);
+        choices.sort(() => 0.5 - Math.random());
+
+        const container = document.getElementById("options-container");
+        container.innerHTML = "";
+        choices.forEach(choice => {
+            const btn = document.createElement("button");
+            btn.className = "option-btn";
+            btn.innerText = choice;
+            btn.onclick = () => handleAnswer(choice === currentItem.word);
+            container.appendChild(btn);
+        });
+
+        document.getElementById("popup-modal").style.display = "block";
+    }
+
+    function handleAnswer(isCorrect) {
+        document.getElementById("popup-modal").style.display = "none";
+        isPaused = false;
+
+        if (isCorrect) {
+            score += 100;
+            let currentBall = balls[0] || { x: canvas.width/2, y: canvas.height/2 };
+            spawnBall(currentBall.x, currentBall.y, baseBallSpeed, -baseBallSpeed);
+            spawnBall(currentBall.x, currentBall.y, -baseBallSpeed, -baseBallSpeed);
+        } else {
+            paddleWidth = Math.max(60, paddleWidth - 25);
+        }
+
+        updateUI();
+        checkVictoryCondition();
+    }
+
+    function checkVictoryCondition() {
+        let totalBricksLeft = 0;
+        for (let r = 0; r < rowCount; r++) {
+            for (let c = 0; c < colCount; c++) {
+                if (bricks[r][c].status > 0) totalBricksLeft++;
+            }
+        }
+        if (totalBricksLeft === 0) {
+            endGame(true);
+        }
+    }
+
+    function updateUI() {
+        document.getElementById("score").innerText = score;
+        document.getElementById("blocks-smashed").innerText = blocksSmashed;
+        document.getElementById("lives").innerText = lives;
+    }
+
+    function drawPaddle() {
+        ctx.beginPath();
+        ctx.roundRect(paddleX, canvas.height - paddleHeight, paddleWidth, paddleHeight, 6);
+        ctx.fillStyle = "#38bdf8";
+        ctx.fill();
+        ctx.closePath();
+    }
+
+    function drawBalls() {
+        balls.forEach(ball => {
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ballRadius, 0, Math.PI * 2);
+            ctx.fillStyle = "#facc15";
+            ctx.fill();
+            ctx.closePath();
+        });
+    }
+
+    function drawBricks() {
+        for (let r = 0; r < rowCount; r++) {
+            for (let c = 0; c < colCount; c++) {
+                let b = bricks[r][c];
+                if (b.status > 0) {
+                    let brickX = (c * (brickWidth + brickPadding)) + brickOffsetLeft;
+                    let brickY = (r * (brickHeight + brickPadding)) + brickOffsetTop;
+                    b.x = brickX;
+                    b.y = brickY;
+
+                    ctx.beginPath();
+                    ctx.roundRect(brickX, brickY, brickWidth, brickHeight, 4);
+                    ctx.fillStyle = b.status === 2 ? rowColors[r] : "#475569";
+                    ctx.fill();
+                    ctx.closePath();
+
+                    if (b.status === 1) {
+                        ctx.fillStyle = "#ffffff";
+                        ctx.font = "bold 12px sans-serif";
+                        ctx.textAlign = "center";
+                        ctx.fillText(b.hint, brickX + brickWidth / 2, brickY + 15);
+                    }
+                }
+            }
+        }
+    }
+
+    function draw() {
+        if (!gameRunning) return;
+
+        if (!isPaused) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBricks();
+            drawPaddle();
+            drawBalls();
+
+            for (let i = balls.length - 1; i >= 0; i--) {
+                let ball = balls[i];
+
+                if (ball.x + ball.dx > canvas.width - ballRadius || ball.x + ball.dx < ballRadius) {
+                    ball.dx = -ball.dx;
+                }
+                if (ball.y + ball.dy < ballRadius) {
+                    ball.dy = -ball.dy;
+                }
+
+                handlePaddleCollision(ball);
+                handleBrickCollisions(ball);
+
+                ball.x += ball.dx;
+                ball.y += ball.dy;
+
+                if (ball.y - ballRadius > canvas.height) {
+                    balls.splice(i, 1);
+                }
+            }
+
+            if (balls.length === 0) {
+                lives--;
+                updateUI();
+                if (lives <= 0) {
+                    endGame(false);
+                } else {
+                    resetBallAndPaddle();
+                }
+            }
+        }
+
+        requestAnimationFrame(draw);
+    }
+
+    function startGame() {
+        document.getElementById("start-overlay").style.display = "none";
+        document.getElementById("gameover-overlay").style.display = "none";
+        score = 0;
+        blocksSmashed = 0;
+        lives = 3;
+        updateUI();
+        initBricks();
+        resetBallAndPaddle();
+        gameRunning = true;
+        isPaused = false;
+        requestAnimationFrame(draw);
+    }
+
+    function endGame(victory) {
+        gameRunning = false;
+        const overlay = document.getElementById("gameover-overlay");
+        const title = document.getElementById("gameover-title");
+        const msg = document.getElementById("gameover-msg");
+
+        if (victory) {
+            title.innerText = "Victory!";
+            title.style.color = "#10b981";
+            msg.innerText = `Outstanding job! You demolished the entire word-wall with a final score of ${score}!`;
+        } else {
+            title.innerText = "Game Over";
+            title.style.color = "#ef4444";
+            msg.innerText = `You ran out of lives. Total Blocks Smashed: ${blocksSmashed} | Final Score: ${score}`;
+        }
+
+        overlay.style.display = "flex";
+    }
+
+    function restartGame() {
+        startGame();
+    }
+</script>
+</body>
+</html>

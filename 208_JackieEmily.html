@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flashcard Memory Matrix</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-back: #1e293b;
+            --card-front: #3b82f6;
+            --accent: #f59e0b;
+            --text-light: #f8fafc;
+            --matched: #10b981;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-light);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            margin: 5px 0 15px 0;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-size: 1.8rem;
+            text-align: center;
+        }
+
+        .stats-bar {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            max-width: 500px;
+            background: #1e293b;
+            padding: 12px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+
+        .stat-item span {
+            color: var(--accent);
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            width: 100%;
+            max-width: 500px;
+            aspect-ratio: 1;
+            perspective: 1000px;
+        }
+
+        .card {
+            background-color: transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            position: relative;
+            transform-style: preserve-3d;
+            transform: rotateY(0deg);
+            transition: transform 0.5s ease;
+        }
+
+        .card.flipped {
+            transform: rotateY(180deg);
+        }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px;
+            box-sizing: border-box;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 0.85rem;
+            font-weight: 600;
+            user-select: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            border: 2px solid #334155;
+        }
+
+        .card-front {
+            background-color: var(--card-back);
+            color: var(--accent);
+            font-size: 1.5rem;
+        }
+
+        .card-back {
+            background-color: var(--card-front);
+            color: #ffffff;
+            transform: rotateY(180deg);
+            word-wrap: break-word;
+            hyphens: auto;
+        }
+
+        .card.matched .card-back {
+            background-color: var(--matched);
+            border-color: #059669;
+        }
+
+        /* Modal Screens */
+        .overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .overlay h2 {
+            font-size: 2.2rem;
+            color: var(--accent);
+            margin-bottom: 10px;
+        }
+
+        .overlay p {
+            font-size: 1.2rem;
+            margin: 8px 0;
+            text-align: center;
+        }
+
+        .btn {
+            margin-top: 20px;
+            padding: 12px 30px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            background-color: var(--accent);
+            color: #000;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: transform 0.2s, background-color 0.2s;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+            background-color: #fbbf24;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Memory Matrix</h1>
+
+    <div class="stats-bar">
+        <div class="stat-item">Time: <span id="timer">90</span>s</div>
+        <div class="stat-item">Moves: <span id="moves">0</span></div>
+        <div class="stat-item">Matches: <span id="matches">0</span>/8</div>
+    </div>
+
+    <div class="grid-container" id="grid"></div>
+
+    <!-- Start Overlay -->
+    <div class="overlay" id="start-screen">
+        <h2>Vocabulary Matrix</h2>
+        <p>Match all 8 vocabulary words to their definitions!</p>
+        <p>You have 90 seconds. Good luck!</p>
+        <button class="btn" onclick="startGame()">Start Game</button>
+    </div>
+
+    <!-- Victory/Defeat Overlay -->
+    <div class="overlay hidden" id="end-screen">
+        <h2 id="end-title">Game Over</h2>
+        <p id="end-stats"></p>
+        <p id="efficiency-rating"></p>
+        <button class="btn" onclick="restartGame()">Play Again</button>
+    </div>
+
+    <script>
+        const vocabPool = [
+            { word: "Coincidence", def: "A remarkable concurrence of events without apparent causal connection." },
+            { word: "Invade", def: "To enter a country or region with an armed force to conquer it." },
+            { word: "Overthrow", def: "To remove forcibly from power or rule." },
+            { word: "Rigid", def: "Not able to be changed or adapted; stiff and unyielding." },
+            { word: "Labor", def: "Hard physical work or effort." },
+            { word: "Peasant", def: "A poor farmer of low social status who owns or rents a small piece of land." },
+            { word: "Noble", def: "Belonging to a high social class with a title." },
+            { word: "Tournament", def: "A series of contests between a number of competitors." },
+            { word: "Shortage", def: "A situation in which something needed cannot be obtained in sufficient amounts." },
+            { word: "Thrilling", def: "Causing a sudden feeling of excitement or pleasure." }
+        ];
+
+        let cards = [];
+        let flippedCards = [];
+        let matchedCount = 0;
+        let moveCount = 0;
+        let timeLeft = 90;
+        let timerInterval = null;
+        let isBoardLocked = false;
+
+        const gridElement = document.getElementById('grid');
+        const timerElement = document.getElementById('timer');
+        const movesElement = document.getElementById('moves');
+        const matchesElement = document.getElementById('matches');
+        const startScreen = document.getElementById('start-screen');
+        const endScreen = document.getElementById('end-screen');
+
+        function shuffle(array) {
+            return array.sort(() => Math.random() - 0.5);
+        }
+
+        function initCards() {
+            // Pick 8 random pairs from the pool of 10
+            const selectedPairs = shuffle([...vocabPool]).slice(0, 8);
+            
+            let cardDeck = [];
+            selectedPairs.forEach((item, index) => {
+                cardDeck.push({ id: index, type: 'word', content: item.word });
+                cardDeck.push({ id: index, type: 'def', content: item.def });
+            });
+
+            return shuffle(cardDeck);
+        }
+
+        function buildGrid() {
+            gridElement.innerHTML = '';
+            cards = initCards();
+            
+            cards.forEach((cardData, index) => {
+                const cardNode = document.createElement('div');
+                cardNode.classList.add('card');
+                cardNode.dataset.index = index;
+                cardNode.dataset.pairId = cardData.id;
+
+                cardNode.innerHTML = `
+                    <div class="card-face card-front">?</div>
+                    <div class="card-face card-back">${cardData.content}</div>
+                `;
+
+                cardNode.addEventListener('click', () => handleCardClick(cardNode));
+                gridElement.appendChild(cardNode);
+            });
+        }
+
+        function handleCardClick(cardNode) {
+            if (isBoardLocked || cardNode.classList.contains('flipped') || cardNode.classList.contains('matched')) {
+                return;
+            }
+
+            cardNode.classList.add('flipped');
+            flippedCards.push(cardNode);
+
+            if (flippedCards.length === 2) {
+                moveCount++;
+                movesElement.textContent = moveCount;
+                checkMatch();
+            }
+        }
+
+        function checkMatch() {
+            isBoardLocked = true;
+            const [card1, card2] = flippedCards;
+            const isMatch = card1.dataset.pairId === card2.dataset.pairId;
+
+            if (isMatch) {
+                card1.classList.add('matched');
+                card2.classList.add('matched');
+                matchedCount++;
+                matchesElement.textContent = `${matchedCount}`;
+                flippedCards = [];
+                isBoardLocked = false;
+
+                if (matchedCount === 8) {
+                    endGame(true);
+                }
+            } else {
+                setTimeout(() => {
+                    card1.classList.remove('flipped');
+                    card2.classList.remove('flipped');
+                    flippedCards = [];
+                    isBoardLocked = false;
+                }, 1000);
+            }
+        }
+
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timerElement.textContent = timeLeft;
+
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    endGame(false);
+                }
+            }, 1000);
+        }
+
+        function calculateEfficiency() {
+            // Perfect game is 8 moves
+            if (moveCount === 8) return "S+ Rank (Flawless Memory!)";
+            if (moveCount <= 12) return "A Rank (Excellent Efficiency)";
+            if (moveCount <= 18) return "B Rank (Good Job!)";
+            return "C Rank (Keep Practicing!)";
+        }
+
+        function endGame(isVictory) {
+            clearInterval(timerInterval);
+            endScreen.classList.remove('hidden');
+            
+            const title = document.getElementById('end-title');
+            const stats = document.getElementById('end-stats');
+            const rating = document.getElementById('efficiency-rating');
+
+            if (isVictory) {
+                title.textContent = "Victory!";
+                title.style.color = "#10b981";
+                stats.textContent = `Completed in ${90 - timeLeft} seconds with ${moveCount} moves!`;
+                rating.textContent = `Efficiency Rating: ${calculateEfficiency()}`;
+            } else {
+                title.textContent = "Time's Up!";
+                title.style.color = "#ef4444";
+                stats.textContent = `You matched ${matchedCount}/8 cards before time ran out.`;
+                rating.textContent = "Try again to improve your memory speed!";
+            }
+        }
+
+        function startGame() {
+            startScreen.classList.add('hidden');
+            resetState();
+            buildGrid();
+            startTimer();
+        }
+
+        function restartGame() {
+            endScreen.classList.add('hidden');
+            resetState();
+            buildGrid();
+            startTimer();
+        }
+
+        function resetState() {
+            matchedCount = 0;
+            moveCount = 0;
+            timeLeft = 90;
+            flippedCards = [];
+            isBoardLocked = false;
+            
+            matchesElement.textContent = "0";
+            movesElement.textContent = "0";
+            timerElement.textContent = "90";
+            
+            if (timerInterval) clearInterval(timerInterval);
+        }
+    </script>
+</body>
+</html>

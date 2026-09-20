@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Split-Screen Vocabulary Battle</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+        }
+
+        body {
+            background-color: #1a1a1a;
+            color: #fff;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Top Header & Timer */
+        #top-bar {
+            height: 60px;
+            background-color: #111;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 30px;
+            border-bottom: 2px solid #333;
+            z-index: 10;
+        }
+
+        .timer-display {
+            font-size: 28px;
+            font-weight: bold;
+            color: #ffcc00;
+        }
+
+        .question-tracker {
+            font-size: 18px;
+            color: #aaa;
+        }
+
+        /* Split Screen Container */
+        #game-container {
+            flex: 1;
+            display: flex;
+            width: 100%;
+            position: relative;
+        }
+
+        .player-side {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            position: relative;
+            transition: background-color 0.2s;
+        }
+
+        #player1-side {
+            background-color: #2b1518;
+            border-right: 2px solid #444;
+        }
+
+        #player2-side {
+            background-color: #132719;
+        }
+
+        /* Score & Player Title */
+        .player-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .player-title {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        #player1-side .player-title { color: #ff5555; }
+        #player2-side .player-title { color: #55ff55; }
+
+        .score-display {
+            font-size: 32px;
+            font-weight: bold;
+        }
+
+        /* Definition Card */
+        .definition-card {
+            background: rgba(0, 0, 0, 0.4);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            min-height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-size: 20px;
+            line-height: 1.4;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        /* Quad Grid Options */
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 15px;
+            height: 260px;
+            margin-top: 15px;
+        }
+
+        .option-btn {
+            background-color: rgba(255, 255, 255, 0.08);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: bold;
+            color: #fff;
+            position: relative;
+        }
+
+        .key-hint {
+            position: absolute;
+            top: 8px;
+            left: 12px;
+            font-size: 14px;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 2px 8px;
+            border-radius: 4px;
+            color: #fff;
+        }
+
+        /* Lockout / Flash Overlay */
+        .lockout-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255, 0, 0, 0.4);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 32px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 2px 4px #000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s ease-in-out;
+            border-radius: 8px;
+        }
+
+        .locked .lockout-overlay {
+            opacity: 1;
+        }
+
+        /* Flash Effects */
+        .flash-correct {
+            animation: flashGreen 0.3s forwards;
+        }
+
+        @keyframes flashGreen {
+            0% { background-color: rgba(0, 255, 0, 0.5); }
+            100% { background-color: inherit; }
+        }
+
+        /* End Screen Overlay */
+        #end-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10, 10, 10, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .mission-complete {
+            font-size: 54px;
+            font-weight: 900;
+            color: #ffcc00;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .winner-text {
+            font-size: 28px;
+            margin-bottom: 30px;
+            color: #fff;
+        }
+
+        .final-scores {
+            display: flex;
+            gap: 40px;
+            margin-bottom: 40px;
+            font-size: 24px;
+        }
+
+        .p1-final { color: #ff5555; }
+        .p2-final { color: #55ff55; }
+
+        .rematch-btn {
+            background-color: #ffcc00;
+            color: #000;
+            border: none;
+            padding: 15px 40px;
+            font-size: 22px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.1s, background-color 0.2s;
+        }
+
+        .rematch-btn:hover {
+            background-color: #ffe066;
+            transform: scale(1.05);
+        }
+
+        .rematch-btn:active {
+            transform: scale(0.98);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="top-bar">
+        <div class="question-tracker">Question: <span id="q-num">1</span> / 10</div>
+        <div class="timer-display" id="timer">60</div>
+        <div>Split-Screen Battle</div>
+    </div>
+
+    <div id="game-container">
+        <!-- Player 1 (Red / Left) -->
+        <div class="player-side" id="player1-side">
+            <div class="player-header">
+                <span class="player-title">Player 1 (Red)</span>
+                <span class="score-display" id="p1-score">0</span>
+            </div>
+            <div class="definition-card" id="p1-def">Loading definition...</div>
+            <div class="options-grid" id="p1-grid">
+                <div class="option-btn" id="p1-opt-Q"><span class="key-hint">Q</span><span class="word-text"></span></div>
+                <div class="option-btn" id="p1-opt-W"><span class="key-hint">W</span><span class="word-text"></span></div>
+                <div class="option-btn" id="p1-opt-A"><span class="key-hint">A</span><span class="word-text"></span></div>
+                <div class="option-btn" id="p1-opt-S"><span class="key-hint">S</span><span class="word-text"></span></div>
+            </div>
+            <div class="lockout-overlay" id="p1-lockout">LOCKED OUT!</div>
+        </div>
+
+        <!-- Player 2 (Green / Right) -->
+        <div class="player-side" id="player2-side">
+            <div class="player-header">
+                <span class="player-title">Player 2 (Green)</span>
+                <span class="score-display" id="p2-score">0</span>
+            </div>
+            <div class="definition-card" id="p2-def">Loading definition...</div>
+            <div class="options-grid" id="p2-grid">
+                <div class="option-btn" id="p2-opt-I"><span class="key-hint">I</span><span class="word-text"></span></div>
+                <div class="option-btn" id="p2-opt-O"><span class="key-hint">O</span><span class="word-text"></span></div>
+                <div class="option-btn" id="p2-opt-K"><span class="key-hint">K</span><span class="word-text"></span></div>
+                <div class="option-btn" id="p2-opt-L"><span class="key-hint">L</span><span class="word-text"></span></div>
+            </div>
+            <div class="lockout-overlay" id="p2-lockout">LOCKED OUT!</div>
+        </div>
+    </div>
+
+    <!-- Victory Screen -->
+    <div id="end-screen" class="hidden">
+        <div class="mission-complete">Mission Complete</div>
+        <div class="winner-text" id="winner-announcement">Player 1 Wins!</div>
+        <div class="final-scores">
+            <div class="p1-final">Player 1: <span id="p1-final-score">0</span></div>
+            <div class="p2-final">Player 2: <span id="p2-final-score">0</span></div>
+        </div>
+        <button class="rematch-btn" id="rematch-btn">Rematch</button>
+    </div>
+
+    <script>
+        const vocabularyPool = [
+            { word: "communication", def: "The imparting or exchanging of information or news." },
+            { word: "conventional", def: "Based on or in accordance with what is generally done or believed." },
+            { word: "fascinating", def: "Extremely interesting or captivating." },
+            { word: "generate", def: "To produce, create, or bring into existence." },
+            { word: "scent", def: "A distinctive smell, especially one that is pleasant." },
+            { word: "prompt", def: "Done without delay; immediate, or to cause an action." },
+            { word: "nutrient", def: "A substance that provides nourishment essential for growth and life." },
+            { word: "strategy", def: "A plan of action designed to achieve a long-term or overall aim." },
+            { word: "efficient", def: "Achieving maximum productivity with minimum wasted effort." },
+            { word: "perspective", def: "A particular attitude toward or way of regarding something; a point of view." }
+        ];
+
+        let questions = [];
+        let currentQIndex = 0;
+        let p1Score = 0;
+        let p2Score = 0;
+        let p1Locked = false;
+        let p2Locked = false;
+        let timeLeft = 60;
+        let timerInterval = null;
+        let gameActive = false;
+
+        // Key mappings
+        const p1Keys = { 'q': 0, 'w': 1, 'a': 2, 's': 3 };
+        const p2Keys = { 'i': 0, 'o': 1, 'k': 2, 'l': 3 };
+
+        // DOM Elements
+        const p1ScoreEl = document.getElementById('p1-score');
+        const p2ScoreEl = document.getElementById('p2-score');
+        const p1DefEl = document.getElementById('p1-def');
+        const p2DefEl = document.getElementById('p2-def');
+        const qNumEl = document.getElementById('q-num');
+        const timerEl = document.getElementById('timer');
+        const endScreen = document.getElementById('end-screen');
+        const winnerEl = document.getElementById('winner-announcement');
+        const p1FinalEl = document.getElementById('p1-final-score');
+        const p2FinalEl = document.getElementById('p2-final-score');
+        const rematchBtn = document.getElementById('rematch-btn');
+
+        const p1Buttons = [
+            document.querySelector('#p1-opt-Q .word-text'),
+            document.querySelector('#p1-opt-W .word-text'),
+            document.querySelector('#p1-opt-A .word-text'),
+            document.querySelector('#p1-opt-S .word-text')
+        ];
+
+        const p2Buttons = [
+            document.querySelector('#p2-opt-I .word-text'),
+            document.querySelector('#p2-opt-O .word-text'),
+            document.querySelector('#p2-opt-K .word-text'),
+            document.querySelector('#p2-opt-L .word-text')
+        ];
+
+        function shuffle(array) {
+            let arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        function initGame() {
+            p1Score = 0;
+            p2Score = 0;
+            currentQIndex = 0;
+            timeLeft = 60;
+            p1Locked = false;
+            p2Locked = false;
+
+            p1ScoreEl.textContent = '0';
+            p2ScoreEl.textContent = '0';
+            timerEl.textContent = '60';
+
+            document.getElementById('player1-side').classList.remove('locked');
+            document.getElementById('player2-side').classList.remove('locked');
+
+            endScreen.classList.add('hidden');
+
+            // Generate 10 randomized questions with distractor options
+            let shuffledPool = shuffle(vocabularyPool);
+            questions = shuffledPool.map(target => {
+                let distractors = vocabularyPool
+                    .filter(item => item.word !== target.word)
+                    .map(item => item.word);
+                distractors = shuffle(distractors).slice(0, 3);
+                
+                let options = shuffle([target.word, ...distractors]);
+                return {
+                    definition: target.def,
+                    correctWord: target.word,
+                    options: options
+                };
+            });
+
+            gameActive = true;
+            loadQuestion();
+            startTimer();
+        }
+
+        function startTimer() {
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                if (!gameActive) return;
+                timeLeft--;
+                timerEl.textContent = timeLeft;
+                if (timeLeft <= 0) {
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        function loadQuestion() {
+            if (currentQIndex >= 10) {
+                endGame();
+                return;
+            }
+
+            p1Locked = false;
+            p2Locked = false;
+            document.getElementById('player1-side').classList.remove('locked');
+            document.getElementById('player2-side').classList.remove('locked');
+
+            qNumEl.textContent = currentQIndex + 1;
+            const q = questions[currentQIndex];
+
+            p1DefEl.textContent = q.definition;
+            p2DefEl.textContent = q.definition;
+
+            for (let i = 0; i < 4; i++) {
+                p1Buttons[i].textContent = q.options[i];
+                p2Buttons[i].textContent = q.options[i];
+            }
+        }
+
+        function handleGuess(player, optionIndex) {
+            if (!gameActive) return;
+            
+            if (player === 1 && p1Locked) return;
+            if (player === 2 && p2Locked) return;
+
+            const q = questions[currentQIndex];
+            const selectedWord = q.options[optionIndex];
+
+            if (selectedWord === q.correctWord) {
+                // Correct Choice
+                if (player === 1) {
+                    p1Score++;
+                    p1ScoreEl.textContent = p1Score;
+                    flashSide('player1-side');
+                } else {
+                    p2Score++;
+                    p2ScoreEl.textContent = p2Score;
+                    flashSide('player2-side');
+                }
+                currentQIndex++;
+                loadQuestion();
+            } else {
+                // Incorrect Choice -> Lockout
+                if (player === 1) {
+                    p1Locked = true;
+                    document.getElementById('player1-side').classList.add('locked');
+                } else {
+                    p2Locked = true;
+                    document.getElementById('player2-side').classList.add('locked');
+                }
+
+                // If both are locked out, move to next question automatically
+                if (p1Locked && p2Locked) {
+                    setTimeout(() => {
+                        currentQIndex++;
+                        loadQuestion();
+                    }, 800);
+                }
+            }
+        }
+
+        function flashSide(elementId) {
+            const side = document.getElementById(elementId);
+            side.classList.add('flash-correct');
+            setTimeout(() => {
+                side.classList.remove('flash-correct');
+            }, 300);
+        }
+
+        function endGame() {
+            gameActive = false;
+            clearInterval(timerInterval);
+
+            p1FinalEl.textContent = p1Score;
+            p2FinalEl.textContent = p2Score;
+
+            if (p1Score > p2Score) {
+                winnerEl.textContent = "Player 1 (Red) Wins!";
+                winnerEl.style.color = "#ff5555";
+            } else if (p2Score > p1Score) {
+                winnerEl.textContent = "Player 2 (Green) Wins!";
+                winnerEl.style.color = "#55ff55";
+            } else {
+                winnerEl.textContent = "It's a Tie!";
+                winnerEl.style.color = "#ffcc00";
+            }
+
+            endScreen.classList.remove('hidden');
+        }
+
+        // Key Listeners
+        window.addEventListener('keydown', (e) => {
+            const key = e.key.toLowerCase();
+
+            if (key in p1Keys) {
+                handleGuess(1, p1Keys[key]);
+            } else if (key in p2Keys) {
+                handleGuess(2, p2Keys[key]);
+            }
+        });
+
+        rematchBtn.addEventListener('click', () => {
+            initGame();
+        });
+
+        // Initialize Game on Load
+        initGame();
+    </script>
+</body>
+</html>

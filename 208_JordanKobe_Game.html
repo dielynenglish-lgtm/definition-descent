@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocab Pac-Maze - Educational Arcade Game</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;600;800&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0b0f19;
+            color: #ffffff;
+            touch-action: manipulation;
+        }
+
+        .font-arcade {
+            font-family: 'Press Start 2P', cursive;
+        }
+
+        .neon-border {
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.5), inset 0 0 15px rgba(59, 130, 246, 0.3);
+            border: 3px solid #3b82f6;
+        }
+
+        .neon-text-yellow {
+            text-shadow: 0 0 8px rgba(234, 179, 8, 0.8);
+        }
+
+        .neon-text-blue {
+            text-shadow: 0 0 8px rgba(59, 130, 246, 0.8);
+        }
+
+        /* Canvas smooth rendering */
+        canvas {
+            image-rendering: pixelated;
+            background-color: #050811;
+        }
+
+        /* Keypad control buttons for touch/mobile UI */
+        .d-btn {
+            background: linear-gradient(145deg, #1f2937, #111827);
+            box-shadow: 4px 4px 8px #080c14, -4px -4px 8px #263346;
+        }
+        .d-btn:active {
+            box-shadow: inset 2px 2px 5px #080c14, inset -2px -2px 5px #263346;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-between p-2 md:p-4 select-none">
+
+    <!-- Top HUD Header -->
+    <header class="w-full max-w-4xl flex flex-col items-center gap-2 mb-2">
+        <div class="w-full flex justify-between items-center bg-gray-900 border-2 border-yellow-500 rounded-xl px-4 py-2 shadow-lg">
+            <h1 class="font-arcade text-yellow-400 text-xs sm:text-base tracking-wider flex items-center gap-2">
+                <span>🟡</span> VOCAB PAC-MAZE
+            </h1>
+            <div class="flex items-center gap-4 text-xs sm:text-sm font-bold">
+                <div class="flex items-center gap-1">
+                    <span class="text-gray-400">SCORE:</span>
+                    <span id="scoreDisplay" class="text-yellow-400 font-arcade text-sm sm:text-base">0</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <span class="text-gray-400">LIVES:</span>
+                    <span id="livesDisplay" class="text-red-500 text-base sm:text-lg">❤️ ❤️ ❤️</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Target Definition Box -->
+        <div id="definitionBox" class="w-full bg-blue-950/80 border-2 border-blue-500 rounded-xl p-3 text-center shadow-lg transition-all duration-300">
+            <div class="text-xs uppercase tracking-widest text-blue-400 font-semibold mb-1">Target Definition</div>
+            <div id="targetDefinition" class="text-sm sm:text-base font-medium text-blue-100 italic">
+                Press "START GAME" to begin mission!
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Play Area -->
+    <main class="relative w-full max-w-4xl flex flex-col items-center justify-center">
+        <!-- Canvas Container -->
+        <div class="relative rounded-2xl overflow-hidden neon-border bg-black">
+            <canvas id="gameCanvas" width="570" height="570" class="block max-w-full h-auto"></canvas>
+
+            <!-- Start / Instructions Overlay -->
+            <div id="startOverlay" class="absolute inset-0 bg-gray-950/95 flex flex-col items-center justify-center p-6 text-center z-20">
+                <h2 class="font-arcade text-2xl sm:text-3xl text-yellow-400 mb-4 neon-text-yellow">VOCAB PAC-MAZE</h2>
+                <div class="max-w-md bg-gray-900 border border-gray-700 rounded-xl p-4 mb-6 text-xs sm:text-sm text-gray-300 space-y-2 text-left leading-relaxed">
+                    <p class="text-yellow-300 font-bold text-center mb-2">🎮 HOW TO PLAY:</p>
+                    <p>• Use <b>Arrow Keys</b> or screen buttons to steer Pac-Man.</p>
+                    <p>• Read the <b>Target Definition</b> at the top of the screen.</p>
+                    <p>• Eat the <b>Power Pellet</b> labeled with the <b>CORRECT</b> word:</p>
+                    <ul class="list-disc list-inside text-blue-300 pl-2 space-y-1">
+                        <li><b>Correct:</b> Ghosts turn vulnerable (blue) for 8s! Hunt them for +200 pts.</li>
+                        <li><b>Incorrect:</b> Ghosts speed up by +25% for 5s! (-50 pts).</li>
+                    </ul>
+                    <p>• Collect small dots to earn extra base points.</p>
+                </div>
+                <button id="startBtn" class="font-arcade bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-extrabold px-8 py-4 rounded-xl text-sm sm:text-base transition transform hover:scale-105 active:scale-95 shadow-lg cursor-pointer">
+                    START GAME 🚀
+                </button>
+            </div>
+
+            <!-- Game Over Overlay -->
+            <div id="gameOverOverlay" class="hidden absolute inset-0 bg-red-950/95 flex flex-col items-center justify-center p-6 text-center z-20">
+                <h2 class="font-arcade text-3xl sm:text-4xl text-red-500 mb-2">GAME OVER</h2>
+                <p class="text-gray-300 mb-4 text-sm sm:text-base">The ghosts caught up with you!</p>
+                <div class="bg-gray-900 border border-red-500/50 rounded-xl p-4 mb-6 w-64">
+                    <span class="text-gray-400 text-xs block uppercase">Final Score</span>
+                    <span id="finalScore" class="font-arcade text-2xl text-yellow-400">0</span>
+                </div>
+                <button id="restartBtn" class="font-arcade bg-red-500 hover:bg-red-400 text-white font-bold px-6 py-3 rounded-xl text-sm transition transform hover:scale-105 active:scale-95 cursor-pointer">
+                    TRY AGAIN 🔄
+                </button>
+            </div>
+
+            <!-- Victory / Mission Complete Overlay -->
+            <div id="victoryOverlay" class="hidden absolute inset-0 bg-blue-950/95 flex flex-col items-center justify-center p-6 text-center z-20">
+                <h2 class="font-arcade text-2xl sm:text-3xl text-yellow-400 mb-2 neon-text-yellow">VICTORY! 🏆</h2>
+                <p class="text-gray-200 mb-4 text-sm sm:text-base">You mastered all 10 vocabulary definitions!</p>
+                <div class="bg-gray-900 border border-yellow-500/50 rounded-xl p-4 mb-6 w-64">
+                    <span class="text-gray-400 text-xs block uppercase">Mastery Score</span>
+                    <span id="victoryScore" class="font-arcade text-2xl text-yellow-400">0</span>
+                </div>
+                <button id="playAgainBtn" class="font-arcade bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-bold px-6 py-3 rounded-xl text-sm transition transform hover:scale-105 active:scale-95 cursor-pointer">
+                    PLAY AGAIN 🚀
+                </button>
+            </div>
+        </div>
+
+        <!-- On-screen D-Pad Controls for Mobile/Touch -->
+        <div class="flex flex-col items-center mt-3 sm:hidden">
+            <button id="btnUp" class="d-btn w-12 h-12 rounded-lg text-lg text-white font-bold mb-1">▲</button>
+            <div class="flex gap-4">
+                <button id="btnLeft" class="d-btn w-12 h-12 rounded-lg text-lg text-white font-bold">◀</button>
+                <button id="btnDown" class="d-btn w-12 h-12 rounded-lg text-lg text-white font-bold">▼</button>
+                <button id="btnRight" class="d-btn w-12 h-12 rounded-lg text-lg text-white font-bold">▶</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer Info -->
+    <footer class="mt-3 text-center text-xs text-gray-500">
+        AI Game Builder • Educational Vocab Pac-Maze
+    </footer>
+
+    <script>
+        /* Vocabulary Dataset definition */
+        const VOCABULARY = [
+            { word: "miraculous", def: "Extremely surprising or pleasing, like a miracle" },
+            { word: "massive", def: "Exceptionally large in size, amount, or degree" },
+            { word: "vomit", def: "Eject contents from the stomach through the mouth" },
+            { word: "physician", def: "A person qualified to practice medicine" },
+            { word: "dose", def: "A quantity of a medicine or drug taken at one time" },
+            { word: "established", def: "Having existed for a long time and generally accepted" },
+            { word: "undergo", def: "Experience or be subjected to something (typically unpleasant)" },
+            { word: "tournament", def: "A series of contests between a number of competitors" },
+            { word: "shortage", def: "A state in which something cannot be obtained in sufficient amounts" },
+            { word: "thrilling", def: "Causing excitement and pleasure" }
+        ];
+
+        /* Maze Grid Layout (1 = Wall, 0 = Dot Path, 2 = Empty Center, 3 = Pellet Spawn Slot) */
+        const TILE_SIZE = 30;
+        const GRID_COLS = 19;
+        const GRID_ROWS = 19;
+
+        const MAZE_LAYOUT = [
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,3,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,3,1],
+            [1,0,1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,0,1],
+            [1,0,1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,0,1],
+            [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+            [1,0,1,1,0,1,0,1,1,1,1,1,0,1,0,1,1,0,1],
+            [1,0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,1],
+            [1,1,1,1,0,1,1,1,2,1,2,1,1,1,0,1,1,1,1],
+            [1,2,2,1,0,1,2,2,2,2,2,2,2,1,0,1,2,2,1],
+            [1,1,1,1,0,1,2,1,1,2,1,1,2,1,0,1,1,1,1],
+            [1,2,2,1,0,1,2,1,2,2,2,1,2,1,0,1,2,2,1],
+            [1,1,1,1,0,1,2,1,1,1,1,1,2,1,0,1,1,1,1],
+            [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
+            [1,0,1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,0,1],
+            [1,3,0,1,0,0,0,0,0,2,0,0,0,0,0,1,0,3,1],
+            [1,1,0,1,0,1,0,1,1,1,1,1,0,1,0,1,0,1,1],
+            [1,0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,1],
+            [1,0,1,1,1,1,1,1,0,1,0,1,1,1,1,1,1,0,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+        ];
+
+        /* Fixed Pellet Spawn Tile Locations */
+        const PELLET_SPAWNS = [
+            { col: 1, row: 1 },
+            { col: 17, row: 1 },
+            { col: 1, row: 14 },
+            { col: 17, row: 14 }
+        ];
+
+        /* Game State variables */
+        let canvas, ctx;
+        let score = 0;
+        let lives = 3;
+        let gameRunning = false;
+        let animationFrameId = null;
+
+        let dots = [];
+        let pellets = [];
+        let activeVocabIndex = 0;
+        let remainingVocabIndices = [];
+
+        let ghostScaredTimer = 0;
+        let ghostSpeedupTimer = 0;
+
+        // Player (Pac-Man) State
+        let player = {
+            x: 9 * TILE_SIZE + TILE_SIZE / 2,
+            y: 14 * TILE_SIZE + TILE_SIZE / 2,
+            dirX: 0,
+            dirY: 0,
+            nextDirX: 0,
+            nextDirY: 0,
+            speed: 2.5,
+            mouthAngle: 0.2,
+            mouthSpeed: 0.02,
+            radius: TILE_SIZE / 2 - 2
+        };
+
+        // Ghosts State
+        let ghosts = [
+            { x: 8 * TILE_SIZE + TILE_SIZE/2, y: 8 * TILE_SIZE + TILE_SIZE/2, dirX: 1, dirY: 0, color: '#ef4444', name: 'Blinky', baseSpeed: 1.8 },
+            { x: 10 * TILE_SIZE + TILE_SIZE/2, y: 8 * TILE_SIZE + TILE_SIZE/2, dirX: -1, dirY: 0, color: '#ec4899', name: 'Pinky', baseSpeed: 1.8 }
+        ];
+
+        window.addEventListener('DOMContentLoaded', () => {
+            canvas = document.getElementById('gameCanvas');
+            ctx = canvas.getContext('2d');
+
+            // Event Listeners
+            document.getElementById('startBtn').addEventListener('click', startGame);
+            document.getElementById('restartBtn').addEventListener('click', startGame);
+            document.getElementById('playAgainBtn').addEventListener('click', startGame);
+
+            window.addEventListener('keydown', handleKeyDown);
+
+            // On-screen Touch Controls
+            document.getElementById('btnUp').addEventListener('click', () => setPlayerDirection(0, -1));
+            document.getElementById('btnDown').addEventListener('click', () => setPlayerDirection(0, 1));
+            document.getElementById('btnLeft').addEventListener('click', () => setPlayerDirection(-1, 0));
+            document.getElementById('btnRight').addEventListener('click', () => setPlayerDirection(1, 0));
+
+            // Initial Draw
+            initMazeGrid();
+            drawGame();
+        });
+
+        function setPlayerDirection(dx, dy) {
+            player.nextDirX = dx;
+            player.nextDirY = dy;
+        }
+
+        function handleKeyDown(e) {
+            if (!gameRunning) return;
+
+            switch (e.key) {
+                case 'ArrowUp':
+                case 'w':
+                case 'W':
+                    setPlayerDirection(0, -1);
+                    e.preventDefault();
+                    break;
+                case 'ArrowDown':
+                case 's':
+                case 'S':
+                    setPlayerDirection(0, 1);
+                    e.preventDefault();
+                    break;
+                case 'ArrowLeft':
+                case 'a':
+                case 'A':
+                    setPlayerDirection(-1, 0);
+                    e.preventDefault();
+                    break;
+                case 'ArrowRight':
+                case 'd':
+                case 'D':
+                    setPlayerDirection(1, 0);
+                    e.preventDefault();
+                    break;
+            }
+        }
+
+        function startGame() {
+            score = 0;
+            lives = 3;
+            ghostScaredTimer = 0;
+            ghostSpeedupTimer = 0;
+
+            document.getElementById('scoreDisplay').innerText = score;
+            updateLivesDisplay();
+
+            document.getElementById('startOverlay').classList.add('hidden');
+            document.getElementById('gameOverOverlay').classList.add('hidden');
+            document.getElementById('victoryOverlay').classList.add('hidden');
+
+            // Shuffle Vocabulary deck
+            remainingVocabIndices = Array.from({ length: VOCABULARY.length }, (_, i) => i);
+            shuffleArray(remainingVocabIndices);
+
+            initMazeGrid();
+            resetPlayerAndGhosts();
+            nextVocabularyQuestion();
+
+            gameRunning = true;
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            gameLoop();
+        }
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        function initMazeGrid() {
+            dots = [];
+            for (let r = 0; r < GRID_ROWS; r++) {
+                for (let c = 0; c < GRID_COLS; c++) {
+                    if (MAZE_LAYOUT[r][c] === 0) {
+                        dots.push({ col: c, row: r, eaten: false });
+                    }
+                }
+            }
+        }
+
+        function resetPlayerAndGhosts() {
+            player.x = 9 * TILE_SIZE + TILE_SIZE / 2;
+            player.y = 14 * TILE_SIZE + TILE_SIZE / 2;
+            player.dirX = 0;
+            player.dirY = 0;
+            player.nextDirX = 0;
+            player.nextDirY = 0;
+
+            ghosts[0].x = 8 * TILE_SIZE + TILE_SIZE / 2;
+            ghosts[0].y = 8 * TILE_SIZE + TILE_SIZE / 2;
+            ghosts[0].dirX = 1;
+            ghosts[0].dirY = 0;
+
+            ghosts[1].x = 10 * TILE_SIZE + TILE_SIZE / 2;
+            ghosts[1].y = 8 * TILE_SIZE + TILE_SIZE / 2;
+            ghosts[1].dirX = -1;
+            ghosts[1].dirY = 0;
+        }
+
+        function nextVocabularyQuestion() {
+            if (remainingVocabIndices.length === 0) {
+                // Player completed all words!
+                gameWin();
+                return;
+            }
+
+            activeVocabIndex = remainingVocabIndices.pop();
+            const currentItem = VOCABULARY[activeVocabIndex];
+
+            // Update Target Definition UI
+            document.getElementById('targetDefinition').innerText = `"${currentItem.def}"`;
+
+            // Prepare 1 Correct Word and 3 Distractor Words for the 4 pellets
+            let options = [currentItem.word];
+            let otherWords = VOCABULARY.filter((_, idx) => idx !== activeVocabIndex).map(v => v.word);
+            shuffleArray(otherWords);
+
+            while (options.length < 4 && otherWords.length > 0) {
+                options.push(otherWords.pop());
+            }
+            shuffleArray(options);
+
+            // Assign options to 4 corner Power Pellets
+            pellets = PELLET_SPAWNS.map((spawn, idx) => ({
+                col: spawn.col,
+                row: spawn.row,
+                word: options[idx],
+                isCorrect: options[idx] === currentItem.word,
+                eaten: false
+            }));
+        }
+
+        function isWall(x, y) {
+            const col = Math.floor(x / TILE_SIZE);
+            const row = Math.floor(y / TILE_SIZE);
+            if (row < 0 || row >= GRID_ROWS || col < 0 || col >= GRID_COLS) return true;
+            return MAZE_LAYOUT[row][col] === 1;
+        }
+
+        function canMove(x, y, dirX, dirY, speed) {
+            const nextX = x + dirX * speed;
+            const nextY = y + dirY * speed;
+            const r = player.radius - 1;
+
+            // Check corners of bounding box
+            return !isWall(nextX - r, nextY - r) &&
+                   !isWall(nextX + r, nextY - r) &&
+                   !isWall(nextX - r, nextY + r) &&
+                   !isWall(nextX + r, nextY + r);
+        }
+
+        function updatePlayer() {
+            // Check if player can change direction
+            if (player.nextDirX !== 0 || player.nextDirY !== 0) {
+                // Snap to center line when turning
+                const col = Math.floor(player.x / TILE_SIZE);
+                const row = Math.floor(player.y / TILE_SIZE);
+                const centerX = col * TILE_SIZE + TILE_SIZE / 2;
+                const centerY = row * TILE_SIZE + TILE_SIZE / 2;
+
+                if (canMove(player.x, player.y, player.nextDirX, player.nextDirY, player.speed)) {
+                    if (player.nextDirX !== 0 && Math.abs(player.y - centerY) < player.speed * 2) {
+                        player.y = centerY;
+                        player.dirX = player.nextDirX;
+                        player.dirY = 0;
+                    } else if (player.nextDirY !== 0 && Math.abs(player.x - centerX) < player.speed * 2) {
+                        player.x = centerX;
+                        player.dirY = player.nextDirY;
+                        player.dirX = 0;
+                    }
+                }
+            }
+
+            // Move player in current direction
+            if (canMove(player.x, player.y, player.dirX, player.dirY, player.speed)) {
+                player.x += player.dirX * player.speed;
+                player.y += player.dirY * player.speed;
+            }
+
+            // Animate mouth
+            player.mouthAngle += player.mouthSpeed;
+            if (player.mouthAngle > 0.45 || player.mouthAngle < 0.05) {
+                player.mouthSpeed = -player.mouthSpeed;
+            }
+
+            // Check Dot Collisions
+            const playerCol = Math.floor(player.x / TILE_SIZE);
+            const playerRow = Math.floor(player.y / TILE_SIZE);
+
+            dots.forEach(dot => {
+                if (!dot.eaten && dot.col === playerCol && dot.row === playerRow) {
+                    dot.eaten = true;
+                    score += 10;
+                    document.getElementById('scoreDisplay').innerText = score;
+                }
+            });
+
+            // Check Power Pellet Collisions
+            pellets.forEach(pellet => {
+                if (!pellet.eaten && pellet.col === playerCol && pellet.row === playerRow) {
+                    pellet.eaten = true;
+                    handlePelletEaten(pellet);
+                }
+            });
+        }
+
+        function handlePelletEaten(pellet) {
+            const defBox = document.getElementById('definitionBox');
+
+            if (pellet.isCorrect) {
+                // Correct Choice
+                score += 150;
+                document.getElementById('scoreDisplay').innerText = score;
+
+                ghostScaredTimer = 480; // 8 seconds at 60 FPS
+                ghostSpeedupTimer = 0;
+
+                defBox.className = "w-full bg-green-950/90 border-2 border-green-500 rounded-xl p-3 text-center shadow-lg transition-all duration-300";
+                setTimeout(() => {
+                    defBox.className = "w-full bg-blue-950/80 border-2 border-blue-500 rounded-xl p-3 text-center shadow-lg transition-all duration-300";
+                }, 1200);
+
+                nextVocabularyQuestion();
+            } else {
+                // Incorrect Choice
+                score = Math.max(0, score - 50);
+                document.getElementById('scoreDisplay').innerText = score;
+
+                ghostSpeedupTimer = 300; // 5 seconds at 60 FPS
+                ghostScaredTimer = 0;
+
+                defBox.className = "w-full bg-red-950/90 border-2 border-red-500 rounded-xl p-3 text-center shadow-lg transition-all duration-300";
+                setTimeout(() => {
+                    defBox.className = "w-full bg-blue-950/80 border-2 border-blue-500 rounded-xl p-3 text-center shadow-lg transition-all duration-300";
+                }, 1200);
+
+                nextVocabularyQuestion();
+            }
+        }
+
+        function updateGhosts() {
+            if (ghostScaredTimer > 0) ghostScaredTimer--;
+            if (ghostSpeedupTimer > 0) ghostSpeedupTimer--;
+
+            ghosts.forEach(ghost => {
+                let currentSpeed = ghost.baseSpeed;
+
+                if (ghostScaredTimer > 0) {
+                    currentSpeed *= 0.6; // Slow down when scared
+                } else if (ghostSpeedupTimer > 0) {
+                    currentSpeed *= 1.25; // Speed up penalty
+                }
+
+                const col = Math.floor(ghost.x / TILE_SIZE);
+                const row = Math.floor(ghost.y / TILE_SIZE);
+                const centerX = col * TILE_SIZE + TILE_SIZE / 2;
+                const centerY = row * TILE_SIZE + TILE_SIZE / 2;
+
+                const isAtCenter = Math.abs(ghost.x - centerX) < currentSpeed && Math.abs(ghost.y - centerY) < currentSpeed;
+
+                if (isAtCenter) {
+                    ghost.x = centerX;
+                    ghost.y = centerY;
+
+                    // Choose next valid direction
+                    const possibleDirs = [
+                        { dx: 1, dy: 0 },
+                        { dx: -1, dy: 0 },
+                        { dx: 0, dy: 1 },
+                        { dx: 0, dy: -1 }
+                    ].filter(d => {
+                        // Prevent instant 180 reverse unless trapped
+                        if (d.dx === -ghost.dirX && d.dy === -ghost.dirY) return false;
+                        return !isWall(centerX + d.dx * TILE_SIZE, centerY + d.dy * TILE_SIZE);
+                    });
+
+                    if (possibleDirs.length > 0) {
+                        let chosen;
+                        if (ghostScaredTimer > 0) {
+                            // Move randomly when scared
+                            chosen = possibleDirs[Math.floor(Math.random() * possibleDirs.length)];
+                        } else {
+                            // Smart chase player
+                            possibleDirs.sort((a, b) => {
+                                const distA = Math.hypot((ghost.x + a.dx * TILE_SIZE) - player.x, (ghost.y + a.dy * TILE_SIZE) - player.y);
+                                const distB = Math.hypot((ghost.x + b.dx * TILE_SIZE) - player.x, (ghost.y + b.dy * TILE_SIZE) - player.y);
+                                return distA - distB;
+                            });
+                            chosen = possibleDirs[0];
+                        }
+                        ghost.dirX = chosen.dx;
+                        ghost.dirY = chosen.dy;
+                    } else {
+                        ghost.dirX = -ghost.dirX;
+                        ghost.dirY = -ghost.dirY;
+                    }
+                }
+
+                ghost.x += ghost.dirX * currentSpeed;
+                ghost.y += ghost.dirY * currentSpeed;
+
+                // Collision with Player
+                const distToPlayer = Math.hypot(ghost.x - player.x, ghost.y - player.y);
+                if (distToPlayer < TILE_SIZE * 0.8) {
+                    if (ghostScaredTimer > 0) {
+                        // Player eats ghost
+                        score += 200;
+                        document.getElementById('scoreDisplay').innerText = score;
+                        ghost.x = 9 * TILE_SIZE + TILE_SIZE / 2;
+                        ghost.y = 8 * TILE_SIZE + TILE_SIZE / 2;
+                    } else {
+                        // Ghost catches player
+                        handlePlayerHit();
+                    }
+                }
+            });
+        }
+
+        function handlePlayerHit() {
+            lives--;
+            updateLivesDisplay();
+
+            if (lives <= 0) {
+                gameOver();
+            } else {
+                resetPlayerAndGhosts();
+            }
+        }
+
+        function updateLivesDisplay() {
+            let hearts = "";
+            for (let i = 0; i < lives; i++) hearts += "❤️ ";
+            document.getElementById('livesDisplay').innerText = hearts || "💀";
+        }
+
+        function gameOver() {
+            gameRunning = false;
+            document.getElementById('finalScore').innerText = score;
+            document.getElementById('gameOverOverlay').classList.remove('hidden');
+        }
+
+        function gameWin() {
+            gameRunning = false;
+            document.getElementById('victoryScore').innerText = score;
+            document.getElementById('victoryOverlay').classList.remove('hidden');
+        }
+
+        function drawMaze() {
+            for (let r = 0; r < GRID_ROWS; r++) {
+                for (let c = 0; c < GRID_COLS; c++) {
+                    if (MAZE_LAYOUT[r][c] === 1) {
+                        ctx.fillStyle = '#1e40af'; // Wall outer
+                        ctx.fillRect(c * TILE_SIZE, r * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                        ctx.strokeStyle = '#3b82f6'; // Wall inner neon glow border
+                        ctx.lineWidth = 1;
+                        ctx.strokeRect(c * TILE_SIZE + 2, r * TILE_SIZE + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+                    }
+                }
+            }
+
+            // Draw Dots
+            ctx.fillStyle = '#fef08a';
+            dots.forEach(dot => {
+                if (!dot.eaten) {
+                    ctx.beginPath();
+                    ctx.arc(dot.col * TILE_SIZE + TILE_SIZE/2, dot.row * TILE_SIZE + TILE_SIZE/2, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+
+            // Draw Power Pellets with Labeled Words
+            pellets.forEach(pellet => {
+                if (!pellet.eaten) {
+                    const px = pellet.col * TILE_SIZE + TILE_SIZE / 2;
+                    const py = pellet.row * TILE_SIZE + TILE_SIZE / 2;
+
+                    // Glowing Pellet Circle
+                    ctx.beginPath();
+                    ctx.arc(px, py, 11, 0, Math.PI * 2);
+                    ctx.fillStyle = pellet.isCorrect ? '#eab308' : '#f43f5e';
+                    ctx.shadowColor = pellet.isCorrect ? '#fde047' : '#fb7185';
+                    ctx.shadowBlur = 10;
+                    ctx.fill();
+                    ctx.shadowBlur = 0; // Reset blur
+
+                    // Label Banner for Word
+                    ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+                    ctx.fillRect(px - 38, py + 12, 76, 16);
+                    ctx.strokeStyle = pellet.isCorrect ? '#eab308' : '#f43f5e';
+                    ctx.strokeRect(px - 38, py + 12, 76, 16);
+
+                    // Word Text
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 9px Inter';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(pellet.word, px, py + 24);
+                }
+            });
+        }
+
+        function drawPlayer() {
+            ctx.save();
+            ctx.translate(player.x, player.y);
+
+            // Determine rotation angle based on direction
+            let angle = 0;
+            if (player.dirX === 1) angle = 0;
+            if (player.dirX === -1) angle = Math.PI;
+            if (player.dirY === 1) angle = Math.PI / 2;
+            if (player.dirY === -1) angle = -Math.PI / 2;
+
+            ctx.rotate(angle);
+
+            // Draw Pac-Man Body
+            ctx.beginPath();
+            ctx.arc(0, 0, player.radius, player.mouthAngle * Math.PI, (2 - player.mouthAngle) * Math.PI);
+            ctx.lineTo(0, 0);
+            ctx.fillStyle = '#facc15';
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawGhosts() {
+            ghosts.forEach(ghost => {
+                ctx.save();
+                ctx.translate(ghost.x, ghost.y);
+
+                const isScared = ghostScaredTimer > 0;
+                const isFast = ghostSpeedupTimer > 0;
+
+                // Body Color Logic
+                if (isScared) {
+                    ctx.fillStyle = (ghostScaredTimer < 120 && Math.floor(ghostScaredTimer / 10) % 2 === 0) ? '#ffffff' : '#3b82f6';
+                } else if (isFast) {
+                    ctx.fillStyle = (Math.floor(Date.now() / 150) % 2 === 0) ? '#ef4444' : '#f97316';
+                } else {
+                    ctx.fillStyle = ghost.color;
+                }
+
+                // Ghost Head & Body Arc
+                ctx.beginPath();
+                ctx.arc(0, -2, 11, Math.PI, 0, false);
+                ctx.lineTo(11, 10);
+                // Tentacles
+                ctx.lineTo(6, 6);
+                ctx.lineTo(0, 10);
+                ctx.lineTo(-6, 6);
+                ctx.lineTo(-11, 10);
+                ctx.closePath();
+                ctx.fill();
+
+                // Eyes
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(-4, -4, 3, 0, Math.PI * 2);
+                ctx.arc(4, -4, 3, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Pupils
+                ctx.fillStyle = isScared ? '#facc15' : '#1e1b4b';
+                ctx.beginPath();
+                ctx.arc(-4 + ghost.dirX * 1.5, -4 + ghost.dirY * 1.5, 1.5, 0, Math.PI * 2);
+                ctx.arc(4 + ghost.dirX * 1.5, -4 + ghost.dirY * 1.5, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            });
+        }
+
+        function drawGame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawMaze();
+            drawPlayer();
+            drawGhosts();
+        }
+
+        function gameLoop() {
+            if (!gameRunning) return;
+
+            updatePlayer();
+            updateGhosts();
+            drawGame();
+
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+    </script>
+</body>
+</html>
