@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vocab Tetris - Drop & Unlock</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background-color: #0d0e15;
+      color: #ffffff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 10px;
+    }
+
+    #game-container {
+      background: #161925;
+      border: 2px solid #00f3ff;
+      box-shadow: 0 0 20px rgba(0, 243, 255, 0.3);
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      max-width: 500px;
+      width: 100%;
+    }
+
+    header {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 15px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: #00f3ff;
+      text-shadow: 0 0 5px rgba(0, 243, 255, 0.5);
+    }
+
+    #def-card {
+      width: 100%;
+      background: #222738;
+      border: 1px solid #ff007f;
+      box-shadow: 0 0 10px rgba(255, 0, 127, 0.2);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 15px;
+      text-align: center;
+      min-height: 80px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    #def-title {
+      font-size: 0.8rem;
+      color: #ff007f;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 5px;
+    }
+
+    #def-text {
+      font-size: 1rem;
+      color: #e0e0e0;
+      line-height: 1.3;
+    }
+
+    #status-banner {
+      width: 100%;
+      text-align: center;
+      font-weight: bold;
+      height: 24px;
+      margin-bottom: 10px;
+      font-size: 0.95rem;
+    }
+
+    .locked-text { color: #ffbc00; text-shadow: 0 0 5px rgba(255, 188, 0, 0.5); }
+    .unlocked-text { color: #00ff66; text-shadow: 0 0 5px rgba(0, 255, 102, 0.5); }
+    .penalty-text { color: #ff3333; text-shadow: 0 0 5px rgba(255, 51, 51, 0.5); }
+
+    #canvas-wrapper {
+      position: relative;
+      border: 2px solid #3d445d;
+      border-radius: 4px;
+    }
+
+    canvas {
+      background-color: #090a0f;
+      display: block;
+    }
+
+    #controls-hint {
+      margin-top: 15px;
+      font-size: 0.85rem;
+      color: #a0a5b5;
+      text-align: center;
+      line-height: 1.4;
+    }
+
+    kbd {
+      background: #2a2f45;
+      border: 1px solid #4f5675;
+      border-radius: 3px;
+      padding: 2px 6px;
+      color: #ffffff;
+      font-weight: bold;
+    }
+
+    .overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(13, 14, 21, 0.9);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      border-radius: 4px;
+      z-index: 10;
+    }
+
+    .overlay h2 {
+      font-size: 2rem;
+      color: #00f3ff;
+      margin-bottom: 10px;
+      text-shadow: 0 0 10px #00f3ff;
+    }
+
+    .overlay p {
+      font-size: 1.1rem;
+      margin-bottom: 20px;
+    }
+
+    .btn {
+      background: #ff007f;
+      color: white;
+      border: none;
+      padding: 10px 24px;
+      font-size: 1rem;
+      font-weight: bold;
+      border-radius: 20px;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(255, 0, 127, 0.5);
+      transition: transform 0.1s, background 0.2s;
+    }
+
+    .btn:hover {
+      background: #ff3399;
+      transform: scale(1.05);
+    }
+  </style>
+</head>
+<body>
+
+<div id="game-container">
+  <header>
+    <div>SCORE: <span id="score-val">0</span></div>
+    <div>TIME: <span id="timer-val">60</span>s</div>
+  </header>
+
+  <div id="def-card">
+    <div id="def-title">Target Definition</div>
+    <div id="def-text">Press Start Game to Begin</div>
+  </div>
+
+  <div id="status-banner" class="locked-text">Press 'Y' if Word Matches, 'N' if Not!</div>
+
+  <div id="canvas-wrapper">
+    <canvas id="tetris" width="240" height="480"></canvas>
+    
+    <div id="start-overlay" class="overlay">
+      <h2>VOCAB TETRIS</h2>
+      <p>Match definitions & clear lines!</p>
+      <button class="btn" onclick="startGame()">START GAME</button>
+    </div>
+
+    <div id="gameover-overlay" class="overlay" style="display: none;">
+      <h2 id="over-title">GAME OVER</h2>
+      <p>Final Score: <span id="final-score">0</span></p>
+      <button class="btn" onclick="startGame()">PLAY AGAIN</button>
+    </div>
+  </div>
+
+  <div id="controls-hint">
+    <strong>Locked Stage:</strong> Press <kbd>Y</kbd> (Yes) or <kbd>N</kbd> (No)<br>
+    <strong>Unlocked Controls:</strong> <kbd>←</kbd> <kbd>→</kbd> Move | <kbd>↑</kbd> Rotate | <kbd>↓</kbd> Drop
+  </div>
+</div>
+
+<script>
+const vocabData = [
+  { word: "tournament", def: "A series of contests between a number of competitors." },
+  { word: "shortage", def: "A state or situation in which something needed cannot be obtained in sufficient amounts." },
+  { word: "thrilling", def: "Causing a sudden feeling of excitement or pleasure." },
+  { word: "unforgettable", def: "Impossible to forget; very memorable." },
+  { word: "eliminate", def: "To completely remove or get rid of something/someone from a competition." },
+  { word: "defeat", def: "To win a victory over someone in a battle or contest." },
+  { word: "victory", def: "An act of defeating an enemy or opponent in a game or competition." },
+  { word: "defend", def: "To protect from harm or resist an attack to keep a title or goal." },
+  { word: "olympics", def: "A major international sports competition held every four years." },
+  { word: "determined", def: "Having made a firm decision and being resolved not to change it." }
+];
+
+const COLS = 10;
+const ROWS = 20;
+const BLOCK_SIZE = 24;
+
+const canvas = document.getElementById('tetris');
+const ctx = canvas.getContext('2d');
+
+const SHAPES = [
+  { shape: [[1, 1, 1, 1]], color: '#00f3ff' }, // I
+  { shape: [[1, 1], [1, 1]], color: '#ffea00' }, // O
+  { shape: [[0, 1, 0], [1, 1, 1]], color: '#b000ff' }, // T
+  { shape: [[1, 0, 0], [1, 1, 1]], color: '#ff007f' }, // L
+  { shape: [[0, 0, 1], [1, 1, 1]], color: '#ff8800' }  // J
+];
+
+let board = [];
+let score = 0;
+let timeLeft = 60;
+let gameInterval = null;
+let timerInterval = null;
+let isPlaying = false;
+
+let currentPiece = null;
+let currentDef = null;
+let currentDisplayedWord = "";
+let isCorrectMatch = false;
+let isUnlocked = false;
+let isPenalty = false;
+
+let normalSpeed = 800;
+let penaltySpeed = 150;
+let currentSpeed = normalSpeed;
+
+function initBoard() {
+  board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+}
+
+function startGame() {
+  initBoard();
+  score = 0;
+  timeLeft = 60;
+  isPlaying = true;
+  document.getElementById('score-val').innerText = score;
+  document.getElementById('timer-val').innerText = timeLeft;
+  document.getElementById('start-overlay').style.display = 'none';
+  document.getElementById('gameover-overlay').style.display = 'none';
+
+  spawnPiece();
+
+  if (gameInterval) clearInterval(gameInterval);
+  if (timerInterval) clearInterval(timerInterval);
+
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    document.getElementById('timer-val').innerText = timeLeft;
+    if (timeLeft <= 0) {
+      endGame("TIME'S UP!");
+    }
+  }, 1000);
+
+  resetDropTimer();
+}
+
+function resetDropTimer() {
+  if (gameInterval) clearInterval(gameInterval);
+  gameInterval = setInterval(gameLoop, currentSpeed);
+}
+
+function spawnPiece() {
+  const randomShapeIdx = Math.floor(Math.random() * SHAPES.length);
+  const shapeData = SHAPES[randomShapeIdx];
+  
+  // Pick random target definition
+  const targetVocab = vocabData[Math.floor(Math.random() * vocabData.length)];
+  currentDef = targetVocab.def;
+  
+  // Decide whether to match or show distractor
+  isCorrectMatch = Math.random() < 0.5;
+  if (isCorrectMatch) {
+    currentDisplayedWord = targetVocab.word;
+  } else {
+    let wrongWords = vocabData.filter(v => v.word !== targetVocab.word);
+    currentDisplayedWord = wrongWords[Math.floor(Math.random() * wrongWords.length)].word;
+  }
+
+  isUnlocked = false;
+  isPenalty = false;
+  currentSpeed = normalSpeed;
+
+  currentPiece = {
+    shape: shapeData.shape,
+    color: shapeData.color,
+    x: Math.floor((COLS - shapeData.shape[0].length) / 2),
+    y: 0
+  };
+
+  document.getElementById('def-text').innerText = `"${currentDef}"`;
+  updateStatusBanner("LOCKED: Press 'Y' (Match) or 'N' (No Match)", "locked-text");
+
+  if (checkCollision(currentPiece.x, currentPiece.y, currentPiece.shape)) {
+    endGame("GAME OVER");
+  }
+
+  resetDropTimer();
+}
+
+function updateStatusBanner(msg, cls) {
+  const banner = document.getElementById('status-banner');
+  banner.innerText = msg;
+  banner.className = cls;
+}
+
+function gameLoop() {
+  if (!isPlaying) return;
+
+  if (!checkCollision(currentPiece.x, currentPiece.y + 1, currentPiece.shape)) {
+    currentPiece.y++;
+  } else {
+    lockPiece();
+    clearLines();
+    spawnPiece();
+  }
+  draw();
+}
+
+function checkCollision(x, y, shape) {
+  for (let r = 0; r < shape.length; r++) {
+    for (let c = 0; c < shape[r].length; c++) {
+      if (shape[r][c]) {
+        let newX = x + c;
+        let newY = y + r;
+        if (newX < 0 || newX >= COLS || newY >= ROWS) return true;
+        if (newY >= 0 && board[newY][newX]) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function lockPiece() {
+  for (let r = 0; r < currentPiece.shape.length; r++) {
+    for (let c = 0; c < currentPiece.shape[r].length; c++) {
+      if (currentPiece.shape[r][c]) {
+        board[currentPiece.y + r][currentPiece.x + c] = currentPiece.color;
+      }
+    }
+  }
+}
+
+function clearLines() {
+  let linesCleared = 0;
+  for (let r = ROWS - 1; r >= 0; r--) {
+    if (board[r].every(cell => cell !== 0)) {
+      board.splice(r, 1);
+      board.unshift(Array(COLS).fill(0));
+      linesCleared++;
+      r++; // Check same row again after shift
+    }
+  }
+  if (linesCleared > 0) {
+    score += linesCleared * 100;
+    document.getElementById('score-val').innerText = score;
+  }
+}
+
+function evaluateGuess(userGuessedYes) {
+  if (isUnlocked || isPenalty) return;
+
+  if ((userGuessedYes && isCorrectMatch) || (!userGuessedYes && !isCorrectMatch)) {
+    isUnlocked = true;
+    updateStatusBanner("UNLOCKED! Full control active.", "unlocked-text");
+  } else {
+    isPenalty = true;
+    currentSpeed = penaltySpeed;
+    updateStatusBanner("WRONG! Fast drop penalty applied!", "penalty-text");
+    resetDropTimer();
+  }
+  draw();
+}
+
+function rotate(shape) {
+  return shape[0].map((_, index) => shape.map(row => row[index]).reverse());
+}
+
+document.addEventListener('keydown', (e) => {
+  if (!isPlaying) return;
+
+  const key = e.key.toLowerCase();
+
+  if (!isUnlocked && !isPenalty) {
+    if (key === 'y') evaluateGuess(true);
+    if (key === 'n') evaluateGuess(false);
+    return;
+  }
+
+  if (isUnlocked) {
+    if (e.key === 'ArrowLeft') {
+      if (!checkCollision(currentPiece.x - 1, currentPiece.y, currentPiece.shape)) {
+        currentPiece.x--;
+      }
+    } else if (e.key === 'ArrowRight') {
+      if (!checkCollision(currentPiece.x + 1, currentPiece.y, currentPiece.shape)) {
+        currentPiece.x++;
+      }
+    } else if (e.key === 'ArrowDown') {
+      if (!checkCollision(currentPiece.x, currentPiece.y + 1, currentPiece.shape)) {
+        currentPiece.y++;
+      }
+    } else if (e.key === 'ArrowUp') {
+      const rotated = rotate(currentPiece.shape);
+      if (!checkCollision(currentPiece.x, currentPiece.y, rotated)) {
+        currentPiece.shape = rotated;
+      }
+    }
+    draw();
+  }
+});
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Draw Grid Lines
+  ctx.strokeStyle = '#1d2230';
+  ctx.lineWidth = 1;
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      ctx.strokeRect(c * BLOCK_SIZE, r * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+    }
+  }
+
+  // Draw Locked Board Blocks
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (board[r][c]) {
+        ctx.fillStyle = board[r][c];
+        ctx.fillRect(c * BLOCK_SIZE, r * BLOCK_SIZE, BLOCK_SIZE - 1, BLOCK_SIZE - 1);
+      }
+    }
+  }
+
+  // Draw Falling Piece
+  if (currentPiece) {
+    ctx.save();
+    if (!isUnlocked) {
+      ctx.globalAlpha = 0.45; // Translucent when locked or penalized
+      ctx.fillStyle = isPenalty ? '#ff3333' : '#888888';
+    } else {
+      ctx.globalAlpha = 1.0;
+      ctx.fillStyle = currentPiece.color;
+    }
+
+    for (let r = 0; r < currentPiece.shape.length; r++) {
+      for (let c = 0; c < currentPiece.shape[r].length; c++) {
+        if (currentPiece.shape[r][c]) {
+          let px = (currentPiece.x + c) * BLOCK_SIZE;
+          let py = (currentPiece.y + r) * BLOCK_SIZE;
+          ctx.fillRect(px, py, BLOCK_SIZE - 1, BLOCK_SIZE - 1);
+        }
+      }
+    }
+    ctx.restore();
+
+    // Draw Vocabulary Word on Active Piece
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 11px Segoe UI';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = '#000';
+    ctx.shadowBlur = 4;
+    let wordX = (currentPiece.x + currentPiece.shape[0].length / 2) * BLOCK_SIZE;
+    let wordY = (currentPiece.y + currentPiece.shape.length / 2) * BLOCK_SIZE + 4;
+    ctx.fillText(currentDisplayedWord.toUpperCase(), wordX, wordY);
+    ctx.shadowBlur = 0;
+  }
+}
+
+function endGame(title) {
+  isPlaying = false;
+  clearInterval(gameInterval);
+  clearInterval(timerInterval);
+
+  document.getElementById('over-title').innerText = title;
+  document.getElementById('final-score').innerText = score;
+  document.getElementById('gameover-overlay').style.display = 'flex';
+}
+</script>
+
+</body>
+</html>
