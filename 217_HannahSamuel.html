@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocabulary Diner - Retro Language Game</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts for Retro Diner Styling -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Righteous&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Fredoka', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .font-retro {
+            font-family: 'Righteous', cursive;
+        }
+        /* Diner Checkerboard Pattern */
+        .bg-checkered {
+            background-color: #0f172a;
+            background-image: 
+                linear-gradient(45deg, #1e293b 25%, transparent 25%), 
+                linear-gradient(-45deg, #1e293b 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #1e293b 75%), 
+                linear-gradient(-45deg, transparent 75%, #1e293b 75%);
+            background-size: 30px 30px;
+            background-position: 0 0, 0 15px, 15px -15px, -15px 0px;
+        }
+        /* Neon Glow Effects */
+        .neon-title {
+            text-shadow: 0 0 10px #f43f5e, 0 0 20px #f43f5e, 0 0 30px #e11d48;
+        }
+        .neon-box {
+            box-shadow: 0 0 15px rgba(244, 63, 94, 0.4), inset 0 0 15px rgba(244, 63, 94, 0.2);
+        }
+        .tray-card {
+            transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .tray-card:hover {
+            transform: translateY(-6px) scale(1.02);
+        }
+        .tray-card.selected {
+            transform: translateY(-10px) scale(1.06);
+            border-color: #f59e0b;
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.8);
+        }
+        .customer-seat {
+            transition: all 0.3s ease;
+        }
+        .customer-seat.selected-target {
+            box-shadow: 0 0 25px rgba(59, 130, 246, 0.8);
+            border-color: #60a5fa;
+        }
+        /* Animations */
+        @keyframes popIn {
+            0% { transform: scale(0.5) translateY(30px); opacity: 0; }
+            80% { transform: scale(1.05) translateY(-5px); opacity: 1; }
+            100% { transform: scale(1) translateY(0); opacity: 1; }
+        }
+        .animate-pop-in {
+            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(-50px) scale(1.2); opacity: 0; }
+        }
+        .animate-float-score {
+            animation: floatUp 0.9s ease-out forwards;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+        .animate-shake {
+            animation: shake 0.4s ease-in-out;
+        }
+        /* Custom Scrollbar for Cookbook */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #f43f5e;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body class="bg-checkered min-h-screen text-slate-100 flex flex-col justify-between overflow-x-hidden selection:bg-rose-500 selection:text-white">
+
+    <!-- TOP DINER HEADER HUD -->
+    <header class="bg-slate-900/90 border-b-4 border-rose-500 backdrop-blur-md sticky top-0 z-30 px-4 py-3 shadow-xl">
+        <div class="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-3">
+            <!-- Brand / Title -->
+            <div class="flex items-center space-x-3">
+                <span class="text-3xl">🍔</span>
+                <div>
+                    <h1 class="font-retro text-2xl md:text-3xl text-rose-400 tracking-wider neon-title">VOCAB DINER</h1>
+                    <p class="text-xs text-rose-200/80 font-medium hidden sm:block">Serve definitions, master vocabulary!</p>
+                </div>
+            </div>
+
+            <!-- Game Stats Display -->
+            <div id="hud-stats" class="hidden flex items-center space-x-3 md:space-x-6 bg-slate-800/80 px-4 py-2 rounded-2xl border border-slate-700">
+                <!-- Hearts / Lives -->
+                <div class="flex items-center space-x-1">
+                    <span class="text-xs uppercase tracking-wider text-slate-400 font-bold mr-1 hidden sm:inline">Lives</span>
+                    <div id="hearts-container" class="flex space-x-1 text-xl">
+                        <span>❤️</span><span>❤️</span><span>❤️</span>
+                    </div>
+                </div>
+
+                <!-- Shift Timer -->
+                <div class="text-center px-2 border-x border-slate-700">
+                    <div class="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Shift Time</div>
+                    <div id="timer-display" class="font-retro text-2xl text-amber-400">60s</div>
+                </div>
+
+                <!-- Score & Combo -->
+                <div class="text-right">
+                    <div class="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Earnings</div>
+                    <div class="flex items-center justify-end space-x-2">
+                        <span id="combo-badge" class="hidden bg-rose-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold animate-bounce">2x</span>
+                        <span id="score-display" class="font-retro text-2xl text-emerald-400">$0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Controls -->
+            <div class="flex items-center space-x-2">
+                <button id="btn-cookbook" onclick="toggleCookbook(true)" class="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold text-xs md:text-sm px-3 py-2 rounded-xl transition flex items-center space-x-1 shadow-lg border border-indigo-400/30">
+                    <span>📖</span>
+                    <span>Menu Guide</span>
+                </button>
+                <button id="btn-sound" onclick="toggleSound()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm p-2 rounded-xl border border-slate-700 transition">
+                    <span id="sound-icon">🔊</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN INTERACTIVE DINER STAGE -->
+    <main class="max-w-6xl mx-auto w-full px-4 py-4 flex-grow flex flex-col justify-between space-y-6">
+
+        <!-- START SCREEN OVERLAY -->
+        <div id="start-screen" class="my-auto bg-slate-900/95 border-2 border-rose-500/50 rounded-3xl p-6 md:p-10 max-w-2xl mx-auto text-center shadow-2xl neon-box backdrop-blur-lg">
+            <div class="text-6xl mb-4 animate-bounce">🌭</div>
+            <h2 class="font-retro text-4xl md:text-5xl text-rose-400 mb-2 tracking-wide neon-title">WELCOME TO THE DINER!</h2>
+            <p class="text-slate-300 mb-6 text-sm md:text-base leading-relaxed">
+                Hungry patrons are arriving! Read their <span class="text-amber-300 font-bold">definition speech bubbles</span>, then match them with the correct <span class="text-emerald-300 font-bold">Vocabulary Word Dish</span> on your tray before their patience runs out!
+            </p>
+
+            <div class="bg-slate-800/80 rounded-2xl p-4 mb-6 border border-slate-700 text-left text-xs md:text-sm space-y-2">
+                <div class="font-bold text-rose-300 text-sm mb-1 uppercase tracking-wider flex items-center space-x-1">
+                    <span>⚡</span><span>Quick Shift Rules:</span>
+                </div>
+                <p>• <span class="text-emerald-400 font-semibold">Match:</span> Click a dish, then click the customer who defined it (or vice versa)!</p>
+                <p>• <span class="text-amber-400 font-semibold">Patience:</span> Serve customers before their progress bar turns red and empties.</p>
+                <p>• <span class="text-indigo-400 font-semibold">Cookbook:</span> Click "Menu Guide" anytime if you need a quick hint!</p>
+            </div>
+
+            <button onclick="startGame()" class="w-full sm:w-auto bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-400 hover:to-amber-400 active:scale-95 text-slate-950 font-retro text-2xl px-10 py-4 rounded-2xl shadow-xl transition transform hover:-translate-y-1">
+                START DINER SHIFT 🚀
+            </button>
+        </div>
+
+        <!-- ACTIVE DINER COUNTER (HIDDEN INITIALLY) -->
+        <div id="game-stage" class="hidden flex-grow flex flex-col justify-between space-y-6">
+
+            <!-- DINER SEATS / CUSTOMERS ROW -->
+            <section class="space-y-2">
+                <div class="flex items-center justify-between text-xs font-bold text-slate-400 uppercase tracking-widest px-1">
+                    <span>Counter Seats (3 Patrons Max)</span>
+                    <span class="text-rose-400 font-normal">Tap Customer &amp; Dish to Serve</span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- SEAT 0 -->
+                    <div id="seat-0" onclick="handleSeatClick(0)" class="customer-seat cursor-pointer bg-slate-900/80 border-2 border-slate-700 rounded-2xl p-4 flex flex-col justify-between items-center relative min-h-[220px] transition hover:border-slate-500">
+                        <!-- Seat content inserted dynamically -->
+                    </div>
+                    <!-- SEAT 1 -->
+                    <div id="seat-1" onclick="handleSeatClick(1)" class="customer-seat cursor-pointer bg-slate-900/80 border-2 border-slate-700 rounded-2xl p-4 flex flex-col justify-between items-center relative min-h-[220px] transition hover:border-slate-500">
+                        <!-- Seat content inserted dynamically -->
+                    </div>
+                    <!-- SEAT 2 -->
+                    <div id="seat-2" onclick="handleSeatClick(2)" class="customer-seat cursor-pointer bg-slate-900/80 border-2 border-slate-700 rounded-2xl p-4 flex flex-col justify-between items-center relative min-h-[220px] transition hover:border-slate-500">
+                        <!-- Seat content inserted dynamically -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- KITCHEN SERVING TRAY / DISH SELECTION -->
+            <section class="bg-slate-900/90 border-2 border-amber-500/40 rounded-3xl p-4 md:p-5 shadow-2xl relative">
+                <div class="flex items-center justify-between mb-3 px-1">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-xl">🍳</span>
+                        <h3 class="font-retro text-lg text-amber-400 tracking-wide">KITCHEN SERVING TRAY</h3>
+                    </div>
+                    <span id="selected-indicator" class="text-xs text-amber-300 font-semibold bg-amber-500/20 px-3 py-1 rounded-full border border-amber-500/30">
+                        Select a dish below
+                    </span>
+                </div>
+
+                <!-- DISH GRID (7 TARGET WORDS) -->
+                <div id="dishes-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5">
+                    <!-- Dishes populated dynamically by JavaScript -->
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- COOKBOOK MENU GUIDE MODAL -->
+    <div id="cookbook-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border-2 border-indigo-500/50 rounded-3xl p-6 max-w-xl w-full max-h-[85vh] flex flex-col shadow-2xl">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+                <div class="flex items-center space-x-2">
+                    <span class="text-3xl">📖</span>
+                    <h2 class="font-retro text-2xl text-indigo-400">DINER VOCABULARY MENU</h2>
+                </div>
+                <button onclick="toggleCookbook(false)" class="text-slate-400 hover:text-white text-2xl font-bold px-2">✕</button>
+            </div>
+
+            <div class="py-4 overflow-y-auto space-y-3 flex-grow pr-1 text-sm" id="cookbook-words-list">
+                <!-- Dynamically populated vocabulary items -->
+            </div>
+
+            <div class="pt-4 border-t border-slate-800 text-center">
+                <button onclick="toggleCookbook(false)" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-6 py-2.5 rounded-xl transition w-full sm:w-auto">
+                    Resume Shift 🍽️
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- GAME OVER / SHIFT COMPLETE MODAL -->
+    <div id="gameover-modal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border-2 border-rose-500 rounded-3xl p-6 md:p-8 max-w-md w-full text-center shadow-2xl animate-pop-in">
+            <div id="gameover-icon" class="text-6xl mb-2">🏆</div>
+            <h2 id="gameover-title" class="font-retro text-3xl text-rose-400 mb-1 neon-title">SHIFT COMPLETE!</h2>
+            <p id="gameover-subtitle" class="text-slate-400 text-xs mb-4">Great work running the Vocabulary Diner!</p>
+
+            <div class="bg-slate-800/80 rounded-2xl p-4 mb-5 border border-slate-700 space-y-3 text-left">
+                <div class="flex justify-between items-center text-sm">
+                    <span class="text-slate-400">Total Score:</span>
+                    <span id="end-score" class="font-retro text-xl text-emerald-400">$0</span>
+                </div>
+                <div class="flex justify-between items-center text-sm">
+                    <span class="text-slate-400">Customers Served:</span>
+                    <span id="end-served" class="font-bold text-slate-200">0</span>
+                </div>
+                <div class="flex justify-between items-center text-sm">
+                    <span class="text-slate-400">Highest Streak:</span>
+                    <span id="end-combo" class="font-bold text-amber-400">x0</span>
+                </div>
+                <div class="border-t border-slate-700 pt-2 flex justify-between items-center">
+                    <span class="text-slate-400 text-xs">Performance Rating:</span>
+                    <div id="end-stars" class="text-lg">⭐ ⭐ ⭐</div>
+                </div>
+            </div>
+
+            <div id="recap-section" class="mb-5 text-left bg-slate-950/50 p-3 rounded-xl border border-slate-800 max-h-36 overflow-y-auto text-xs">
+                <span class="font-bold text-rose-300 block mb-1">Study Refresher for Missed Words:</span>
+                <ul id="recap-list" class="space-y-1 text-slate-400">
+                    <!-- Populated dynamically -->
+                </ul>
+            </div>
+
+            <button onclick="startGame()" class="w-full bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-400 hover:to-amber-400 active:scale-95 text-slate-950 font-retro text-xl py-3.5 rounded-xl shadow-lg transition">
+                PLAY AGAIN 🔄
+            </button>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="bg-slate-950/80 border-t border-slate-800 py-3 text-center text-xs text-slate-500">
+        Vocabulary Diner • Interactive Learning Game for Word Mastery
+    </footer>
+
+    <script>
+        /* VOCABULARY DATA (7 TARGET WORDS FROM PROMPT) */
+        const VOCAB_DATA = [
+            { id: 'grip', word: 'grip', def: 'To hold tightly or a firm grasp', dish: 'Grip Burger', icon: '🍔' },
+            { id: 'adjustment', word: 'adjustment', def: 'A small change to fit or fix something', dish: 'Adjustment Shake', icon: '🥤' },
+            { id: 'strain', word: 'strain', def: 'Great force or pressure causing tension', dish: 'Strain Soup', icon: '🥣' },
+            { id: 'flexible', word: 'flexible', def: 'Able to bend easily without breaking', dish: 'Flexible Taco', icon: '🌮' },
+            { id: 'loosen', word: 'loosen', def: 'To make or become less tight', dish: 'Loosen Fries', icon: '🍟' },
+            { id: 'slightly', word: 'slightly', def: 'Only a little bit or to a small degree', dish: 'Slightly Sundae', icon: '🍨' },
+            { id: 'demonstrate', word: 'demonstrate', def: 'To show or explain clearly', dish: 'Demonstrate Pizza', icon: '🍕' }
+        ];
+
+        /* AVATARS FOR PATRONS */
+        const CUSTOMER_AVATARS = [
+            { name: 'Cool Cat', color: '#f43f5e', svg: `<svg class="w-14 h-14" viewBox="0 0 100 100"><circle cx="50" cy="55" r="35" fill="#f43f5e"/><polygon points="20,30 35,10 40,35" fill="#f43f5e"/><polygon points="80,30 65,10 60,35" fill="#f43f5e"/><circle cx="38" cy="50" r="5" fill="#fff"/><circle cx="62" cy="50" r="5" fill="#fff"/><circle cx="38" cy="50" r="2" fill="#000"/><circle cx="62" cy="50" r="2" fill="#000"/><polygon points="50,58 45,63 55,63" fill="#fda4af"/><path d="M 40 68 Q 50 78 60 68" stroke="#000" stroke-width="3" fill="none"/></svg>` },
+            { name: 'Smart Bear', color: '#3b82f6', svg: `<svg class="w-14 h-14" viewBox="0 0 100 100"><circle cx="50" cy="55" r="36" fill="#3b82f6"/><circle cx="22" cy="28" r="14" fill="#3b82f6"/><circle cx="78" cy="28" r="14" fill="#3b82f6"/><circle cx="50" cy="62" r="18" fill="#93c5fd"/><circle cx="38" cy="48" r="4" fill="#000"/><circle cx="62" cy="48" r="4" fill="#000"/><ellipse cx="50" cy="58" rx="6" ry="4" fill="#000"/><path d="M 42 68 Q 50 74 58 68" stroke="#000" stroke-width="3" fill="none"/></svg>` },
+            { name: 'Happy Bunny', color: '#10b981', svg: `<svg class="w-14 h-14" viewBox="0 0 100 100"><ellipse cx="35" cy="25" rx="9" ry="22" fill="#10b981"/><ellipse cx="65" cy="25" rx="9" ry="22" fill="#10b981"/><circle cx="50" cy="60" r="32" fill="#10b981"/><circle cx="38" cy="55" r="4" fill="#000"/><circle cx="62" cy="55" r="4" fill="#000"/><polygon points="50,62 46,67 54,67" fill="#6ee7b7"/><path d="M 44 72 Q 50 78 56 72" stroke="#000" stroke-width="3" fill="none"/></svg>` },
+            { name: 'Diner Dog', color: '#f59e0b', svg: `<svg class="w-14 h-14" viewBox="0 0 100 100"><circle cx="50" cy="55" r="35" fill="#f59e0b"/><ellipse cx="18" cy="50" rx="10" ry="20" fill="#d97706"/><ellipse cx="82" cy="50" rx="10" ry="20" fill="#d97706"/><circle cx="50" cy="62" r="15" fill="#fde68a"/><circle cx="38" cy="48" r="4" fill="#000"/><circle cx="62" cy="48" r="4" fill="#000"/><ellipse cx="50" cy="58" rx="5" ry="4" fill="#000"/><path d="M 42 66 Q 50 75 58 66" stroke="#000" stroke-width="3" fill="none"/></svg>` }
+        ];
+
+        /* GAME STATE VARIABLES */
+        let gameState = {
+            active: false,
+            score: 0,
+            lives: 3,
+            timeRemaining: 60,
+            combo: 1,
+            maxCombo: 1,
+            servedCount: 0,
+            selectedDishId: null,
+            selectedSeatIndex: null,
+            soundEnabled: true,
+            missedWords: new Set(),
+            seats: [null, null, null],
+            timerInterval: null,
+            loopInterval: null,
+            bgMusicInterval: null,
+            musicStep: 0
+        };
+
+        /* WEB AUDIO SYNTHESIZER & BACKGROUND MUSIC */
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        /* RETRO DINER CHIPTUNE BGM GENERATOR */
+        const bgmNotes = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63, 293.66, 349.23, 440.00, 349.23, 329.63, 261.63];
+        
+        function startBackgroundMusic() {
+            stopBackgroundMusic();
+            gameState.musicStep = 0;
+            gameState.bgMusicInterval = setInterval(() => {
+                if (!gameState.soundEnabled || !gameState.active) return;
+                initAudio();
+                if (!audioCtx) return;
+
+                const freq = bgmNotes[gameState.musicStep % bgmNotes.length];
+                gameState.musicStep++;
+
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(freq, now);
+
+                gain.gain.setValueAtTime(0.03, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start(now);
+                osc.stop(now + 0.2);
+            }, 220);
+        }
+
+        function stopBackgroundMusic() {
+            if (gameState.bgMusicInterval) {
+                clearInterval(gameState.bgMusicInterval);
+                gameState.bgMusicInterval = null;
+            }
+        }
+
+        function playSound(type) {
+            if (!gameState.soundEnabled) return;
+            initAudio();
+            if (!audioCtx) return;
+
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            if (type === 'click') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.exponentialRampToValueAtTime(800, now + 0.05);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+                osc.start(now);
+                osc.stop(now + 0.05);
+            } else if (type === 'correct') {
+                [523.25, 659.25, 783.99].forEach((freq, idx) => {
+                    const o = audioCtx.createOscillator();
+                    const g = audioCtx.createGain();
+                    o.type = 'triangle';
+                    o.frequency.setValueAtTime(freq, now + idx * 0.06);
+                    g.gain.setValueAtTime(0.15, now + idx * 0.06);
+                    g.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.06 + 0.25);
+                    o.connect(g);
+                    g.connect(audioCtx.destination);
+                    o.start(now + idx * 0.06);
+                    o.stop(now + idx * 0.06 + 0.25);
+                });
+            } else if (type === 'wrong') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(160, now);
+                osc.frequency.linearRampToValueAtTime(110, now + 0.25);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            } else if (type === 'bell') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(987.77, now);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+                osc.start(now);
+                osc.stop(now + 0.4);
+            } else if (type === 'gameover') {
+                [400, 300, 200].forEach((freq, idx) => {
+                    const o = audioCtx.createOscillator();
+                    const g = audioCtx.createGain();
+                    o.type = 'sawtooth';
+                    o.frequency.setValueAtTime(freq, now + idx * 0.15);
+                    g.gain.setValueAtTime(0.15, now + idx * 0.15);
+                    g.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.15 + 0.2);
+                    o.connect(g);
+                    g.connect(audioCtx.destination);
+                    o.start(now + idx * 0.15);
+                    o.stop(now + idx * 0.15 + 0.2);
+                });
+            }
+        }
+
+        function toggleSound() {
+            gameState.soundEnabled = !gameState.soundEnabled;
+            document.getElementById('sound-icon').textContent = gameState.soundEnabled ? '🔊' : 'MUTE';
+            if (!gameState.soundEnabled) {
+                stopBackgroundMusic();
+            } else if (gameState.active) {
+                startBackgroundMusic();
+            }
+        }
+
+        function initCookbookUI() {
+            const container = document.getElementById('cookbook-words-list');
+            container.innerHTML = VOCAB_DATA.map(v => `
+                <div class="bg-slate-800/80 p-3.5 rounded-2xl border border-slate-700 flex items-start space-x-3 hover:border-indigo-500/50 transition">
+                    <div class="text-3xl bg-slate-900 p-2 rounded-xl border border-slate-800 flex-shrink-0">${v.icon}</div>
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <span class="font-retro text-lg text-amber-400 capitalize">${v.word}</span>
+                            <span class="text-[10px] text-indigo-300 bg-indigo-950 px-2 py-0.5 rounded-full border border-indigo-800">${v.dish}</span>
+                        </div>
+                        <p class="text-slate-300 text-xs mt-1 leading-snug">"<span class="text-rose-200">${v.def}</span>"</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function toggleCookbook(show) {
+            playSound('click');
+            const modal = document.getElementById('cookbook-modal');
+            if (show) {
+                modal.classList.remove('hidden');
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        function renderKitchenTray() {
+            const grid = document.getElementById('dishes-grid');
+            grid.innerHTML = VOCAB_DATA.map(item => `
+                <div id="dish-${item.id}" onclick="handleDishClick('${item.id}')" 
+                     class="tray-card cursor-pointer bg-slate-800 hover:bg-slate-750 border-2 border-slate-700 rounded-2xl p-2.5 flex flex-col items-center justify-between text-center min-h-[105px]">
+                    <span class="text-3xl mb-1 filter drop-shadow">${item.icon}</span>
+                    <span class="font-retro text-xs md:text-sm text-slate-200 capitalize tracking-wide">${item.word}</span>
+                    <span class="text-[10px] text-amber-400 font-medium truncate max-w-full opacity-80">${item.dish}</span>
+                </div>
+            `).join('');
+        }
+
+        function startGame() {
+            initAudio();
+            playSound('click');
+
+            gameState.active = true;
+            gameState.score = 0;
+            gameState.lives = 3;
+            gameState.timeRemaining = 60;
+            gameState.combo = 1;
+            gameState.maxCombo = 1;
+            gameState.servedCount = 0;
+            gameState.selectedDishId = null;
+            gameState.selectedSeatIndex = null;
+            gameState.missedWords.clear();
+            gameState.seats = [null, null, null];
+
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('gameover-modal').classList.add('hidden');
+            document.getElementById('game-stage').classList.remove('hidden');
+            document.getElementById('hud-stats').classList.remove('hidden');
+
+            updateHUD();
+            renderKitchenTray();
+
+            if (gameState.timerInterval) clearInterval(gameState.timerInterval);
+            if (gameState.loopInterval) clearInterval(gameState.loopInterval);
+
+            // Clean existing seat elements
+            [0, 1, 2].forEach(i => {
+                const el = document.getElementById(`seat-${i}`);
+                el.innerHTML = '';
+                renderSeat(i);
+            });
+
+            spawnCustomer(0);
+            setTimeout(() => spawnCustomer(1), 1000);
+
+            gameState.timerInterval = setInterval(() => {
+                if (!gameState.active) return;
+                gameState.timeRemaining--;
+                document.getElementById('timer-display').textContent = gameState.timeRemaining + 's';
+
+                if (gameState.timeRemaining <= 0) {
+                    endGame(true);
+                }
+            }, 1000);
+
+            gameState.loopInterval = setInterval(gameLoop, 100);
+
+            startBackgroundMusic();
+        }
+
+        function spawnCustomer(seatIndex) {
+            if (!gameState.active || gameState.seats[seatIndex] !== null) return;
+
+            const vocab = VOCAB_DATA[Math.floor(Math.random() * VOCAB_DATA.length)];
+            const avatar = CUSTOMER_AVATARS[Math.floor(Math.random() * CUSTOMER_AVATARS.length)];
+            const maxPatience = Math.max(10, 16 - Math.floor(gameState.servedCount / 4));
+
+            gameState.seats[seatIndex] = {
+                vocab: vocab,
+                avatar: avatar,
+                patience: maxPatience,
+                maxPatience: maxPatience,
+                status: 'waiting'
+            };
+
+            playSound('bell');
+            
+            // Wipe inner HTML to force full fresh seat render for new customer
+            const seatEl = document.getElementById(`seat-${seatIndex}`);
+            seatEl.innerHTML = '';
+            renderSeat(seatIndex);
+        }
+
+        /* FIXED RENDER SEAT FUNCTION: PREVENTS TEXT FLICKERING */
+        function renderSeat(seatIndex) {
+            const seatEl = document.getElementById(`seat-${seatIndex}`);
+            const customer = gameState.seats[seatIndex];
+
+            if (!customer) {
+                seatEl.innerHTML = `
+                    <div class="my-auto flex flex-col items-center justify-center text-slate-600 space-y-1 py-6">
+                        <span class="text-3xl opacity-40">🪑</span>
+                        <span class="text-xs font-bold uppercase tracking-wider">Empty Seat</span>
+                    </div>
+                `;
+                seatEl.classList.remove('border-rose-500', 'selected-target');
+                return;
+            }
+
+            const patiencePct = Math.max(0, (customer.patience / customer.maxPatience) * 100);
+            let barColor = 'bg-emerald-500';
+            if (patiencePct < 50) barColor = 'bg-amber-500';
+            if (patiencePct < 25) barColor = 'bg-rose-500 animate-pulse';
+
+            // Create initial customer seat markup once to avoid text re-rendering flicker
+            if (!seatEl.querySelector('.speech-bubble')) {
+                seatEl.innerHTML = `
+                    <!-- PATIENCE BAR -->
+                    <div class="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden border border-slate-700 mb-2">
+                        <div class="patience-bar ${barColor} h-full transition-all duration-200" style="width: ${patiencePct}%"></div>
+                    </div>
+
+                    <!-- SPEECH BUBBLE (DEFINITION ORDER) -->
+                    <div class="speech-bubble w-full bg-slate-100 text-slate-900 rounded-2xl p-3 shadow-lg relative mb-2">
+                        <div class="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-0.5 flex items-center justify-between">
+                            <span>Customer Order:</span>
+                            <span>💬</span>
+                        </div>
+                        <p class="text-xs md:text-sm font-semibold leading-tight text-slate-800">
+                            "${customer.vocab.def}"
+                        </p>
+                        <div class="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-8 border-l-transparent border-r-8 border-r-transparent border-t-8 border-t-slate-100"></div>
+                    </div>
+
+                    <!-- CUSTOMER AVATAR -->
+                    <div class="mt-1 flex flex-col items-center">
+                        <div class="transform transition hover:scale-110">
+                            ${customer.avatar.svg}
+                        </div>
+                        <span class="text-[11px] font-bold text-slate-300 mt-1">${customer.avatar.name}</span>
+                    </div>
+                `;
+            } else {
+                // Smoothly update only the timer bar without re-animating text
+                const bar = seatEl.querySelector('.patience-bar');
+                if (bar) {
+                    bar.className = `patience-bar ${barColor} h-full transition-all duration-200`;
+                    bar.style.width = `${patiencePct}%`;
+                }
+            }
+        }
+
+        function gameLoop() {
+            if (!gameState.active) return;
+
+            gameState.seats.forEach((customer, index) => {
+                if (customer && customer.status === 'waiting') {
+                    customer.patience -= 0.1;
+
+                    if (customer.patience <= 0) {
+                        customerFailed(index);
+                    } else {
+                        renderSeat(index);
+                    }
+                }
+            });
+
+            gameState.seats.forEach((customer, index) => {
+                if (!customer && Math.random() < 0.08) {
+                    spawnCustomer(index);
+                }
+            });
+        }
+
+        function customerFailed(seatIndex) {
+            const customer = gameState.seats[seatIndex];
+            if (!customer) return;
+
+            playSound('wrong');
+            gameState.lives--;
+            gameState.combo = 1;
+            gameState.missedWords.add(customer.vocab);
+
+            const seatEl = document.getElementById(`seat-${seatIndex}`);
+            seatEl.classList.add('animate-shake');
+
+            showFloatingText(seatEl, "😠 Timed Out! -1 ❤️", "text-rose-400");
+
+            gameState.seats[seatIndex] = null;
+            updateHUD();
+
+            setTimeout(() => {
+                seatEl.classList.remove('animate-shake');
+                renderSeat(seatIndex);
+            }, 500);
+
+            if (gameState.lives <= 0) {
+                endGame(false);
+            }
+        }
+
+        function handleDishClick(dishId) {
+            playSound('click');
+
+            if (gameState.selectedDishId === dishId) {
+                gameState.selectedDishId = null;
+            } else {
+                gameState.selectedDishId = dishId;
+            }
+
+            updateTraySelectionUI();
+
+            if (gameState.selectedSeatIndex !== null && gameState.selectedDishId !== null) {
+                attemptServe(gameState.selectedSeatIndex, gameState.selectedDishId);
+            }
+        }
+
+        function handleSeatClick(seatIndex) {
+            playSound('click');
+
+            if (!gameState.seats[seatIndex]) return;
+
+            if (gameState.selectedSeatIndex === seatIndex) {
+                gameState.selectedSeatIndex = null;
+            } else {
+                gameState.selectedSeatIndex = seatIndex;
+            }
+
+            updateSeatSelectionUI();
+
+            if (gameState.selectedDishId !== null && gameState.selectedSeatIndex !== null) {
+                attemptServe(gameState.selectedSeatIndex, gameState.selectedDishId);
+            }
+        }
+
+        function updateTraySelectionUI() {
+            VOCAB_DATA.forEach(item => {
+                const el = document.getElementById(`dish-${item.id}`);
+                if (item.id === gameState.selectedDishId) {
+                    el.classList.add('selected');
+                } else {
+                    el.classList.remove('selected');
+                }
+            });
+
+            const indicator = document.getElementById('selected-indicator');
+            if (gameState.selectedDishId) {
+                const vocab = VOCAB_DATA.find(v => v.id === gameState.selectedDishId);
+                indicator.textContent = `Picked: ${vocab.word.toUpperCase()} ${vocab.icon}`;
+                indicator.className = "text-xs text-amber-300 font-bold bg-amber-500/30 px-3 py-1 rounded-full border border-amber-400";
+            } else {
+                indicator.textContent = "Select a dish below";
+                indicator.className = "text-xs text-amber-300 font-semibold bg-amber-500/20 px-3 py-1 rounded-full border border-amber-500/30";
+            }
+        }
+
+        function updateSeatSelectionUI() {
+            [0, 1, 2].forEach(index => {
+                const el = document.getElementById(`seat-${index}`);
+                if (index === gameState.selectedSeatIndex) {
+                    el.classList.add('selected-target');
+                } else {
+                    el.classList.remove('selected-target');
+                }
+            });
+        }
+
+        function attemptServe(seatIndex, dishId) {
+            const customer = gameState.seats[seatIndex];
+            if (!customer || customer.status !== 'waiting') return;
+
+            const seatEl = document.getElementById(`seat-${seatIndex}`);
+
+            if (customer.vocab.id === dishId) {
+                playSound('correct');
+
+                const pointsEarned = 100 * gameState.combo;
+                gameState.score += pointsEarned;
+                gameState.servedCount++;
+                gameState.combo++;
+                if (gameState.combo > gameState.maxCombo) gameState.maxCombo = gameState.combo;
+
+                customer.status = 'eating';
+
+                showFloatingText(seatEl, `+$${pointsEarned}! 😋`, "text-emerald-400");
+
+                setTimeout(() => {
+                    gameState.seats[seatIndex] = null;
+                    renderSeat(seatIndex);
+                    setTimeout(() => spawnCustomer(seatIndex), 1200);
+                }, 600);
+
+            } else {
+                playSound('wrong');
+
+                gameState.combo = 1;
+                customer.patience = Math.max(1, customer.patience - 3.5);
+                gameState.missedWords.add(customer.vocab);
+
+                seatEl.classList.add('animate-shake');
+                showFloatingText(seatEl, "Wrong Dish! 😅", "text-amber-400");
+
+                setTimeout(() => seatEl.classList.remove('animate-shake'), 400);
+            }
+
+            gameState.selectedDishId = null;
+            gameState.selectedSeatIndex = null;
+            updateTraySelectionUI();
+            updateSeatSelectionUI();
+            updateHUD();
+        }
+
+        function showFloatingText(parentEl, text, colorClass) {
+            const floatEl = document.createElement('div');
+            floatEl.className = `absolute z-20 font-retro text-lg ${colorClass} animate-float-score pointer-events-none`;
+            floatEl.style.top = '30%';
+            floatEl.style.left = '25%';
+            floatEl.textContent = text;
+            parentEl.appendChild(floatEl);
+
+            setTimeout(() => floatEl.remove(), 900);
+        }
+
+        function updateHUD() {
+            document.getElementById('score-display').textContent = `$${gameState.score}`;
+
+            const comboBadge = document.getElementById('combo-badge');
+            if (gameState.combo > 1) {
+                comboBadge.textContent = `${gameState.combo}x Combo!`;
+                comboBadge.classList.remove('hidden');
+            } else {
+                comboBadge.classList.add('hidden');
+            }
+
+            const heartsContainer = document.getElementById('hearts-container');
+            let heartsHTML = '';
+            for (let i = 0; i < 3; i++) {
+                if (i < gameState.lives) {
+                    heartsHTML += '<span>❤️</span>';
+                } else {
+                    heartsHTML += '<span class="opacity-30 filter grayscale">💔</span>';
+                }
+            }
+            heartsContainer.innerHTML = heartsHTML;
+        }
+
+        function endGame(shiftCompleted) {
+            gameState.active = false;
+            clearInterval(gameState.timerInterval);
+            clearInterval(gameState.loopInterval);
+            stopBackgroundMusic();
+
+            playSound('gameover');
+
+            const modal = document.getElementById('gameover-modal');
+            const title = document.getElementById('gameover-title');
+            const subtitle = document.getElementById('gameover-subtitle');
+            const icon = document.getElementById('gameover-icon');
+
+            if (shiftCompleted) {
+                icon.textContent = '🏆';
+                title.textContent = 'SHIFT COMPLETED!';
+                subtitle.textContent = 'Awesome hustle! You kept the diner patrons happy.';
+            } else {
+                icon.textContent = '💔';
+                title.textContent = 'SHIFT ENDED!';
+                subtitle.textContent = 'The patrons got too impatient. Time to brush up!';
+            }
+
+            document.getElementById('end-score').textContent = `$${gameState.score}`;
+            document.getElementById('end-served').textContent = gameState.servedCount;
+            document.getElementById('end-combo').textContent = `x${gameState.maxCombo}`;
+
+            let stars = '⭐ ⭐ ⭐';
+            if (gameState.score < 300) stars = '⭐ ⭐ ⚪';
+            if (gameState.score < 150) stars = '⭐ ⚪ ⚪';
+            document.getElementById('end-stars').textContent = stars;
+
+            const recapList = document.getElementById('recap-list');
+            if (gameState.missedWords.size > 0) {
+                recapList.innerHTML = Array.from(gameState.missedWords).map(v => `
+                    <li class="py-1 border-b border-slate-800">
+                        <strong class="text-amber-400 capitalize">${v.word}:</strong> "${v.def}"
+                    </li>
+                `).join('');
+            } else {
+                recapList.innerHTML = '<li class="text-emerald-400 font-semibold">🌟 Perfect execution! No definitions missed!</li>';
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initCookbookUI();
+        });
+    </script>
+</body>
+</html>
