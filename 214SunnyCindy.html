@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>17. Cyberpunk Snake-Definition Hunt</title>
+    <style>
+        body {
+            background-color: #0d0e15;
+            color: #00ffcc;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        #ui-container {
+            width: 600px;
+            background: #141622;
+            border: 2px solid #00ffcc;
+            box-shadow: 0 0 15px #00ffcc55;
+            padding: 15px;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+            border-radius: 5px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        #target-word-box {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #ff007f;
+            text-shadow: 0 0 5px #ff007f;
+        }
+
+        #definition-display {
+            background: #090a0f;
+            border: 1px solid #ff007f;
+            padding: 10px;
+            color: #e0e0e0;
+            font-size: 0.95rem;
+            min-height: 40px;
+            border-radius: 3px;
+        }
+
+        #game-container {
+            position: relative;
+        }
+
+        canvas {
+            background-color: #050508;
+            border: 2px solid #00ffcc;
+            box-shadow: 0 0 20px #00ffcc33;
+            display: block;
+        }
+
+        #lock-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 600px;
+            height: 400px;
+            background: rgba(255, 0, 0, 0.2);
+            color: #ff3333;
+            font-size: 2rem;
+            font-weight: bold;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            text-shadow: 0 0 10px #ff0000;
+            pointer-events: none;
+        }
+
+        #game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 600px;
+            height: 400px;
+            background: rgba(5, 5, 8, 0.9);
+            color: #ff007f;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-shadow: 0 0 10px #ff007f;
+        }
+
+        button {
+            background: #00ffcc;
+            color: #050508;
+            border: none;
+            padding: 10px 20px;
+            font-size: 1rem;
+            font-weight: bold;
+            font-family: inherit;
+            cursor: pointer;
+            margin-top: 15px;
+            box-shadow: 0 0 10px #00ffcc;
+        }
+
+        button:hover {
+            background: #ff007f;
+            color: #fff;
+            box-shadow: 0 0 10px #ff007f;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-container">
+        <div class="header">
+            <div>SCORE: <span id="score-val">0</span></div>
+            <div id="target-word-box">TARGET: <span id="target-word">???</span></div>
+        </div>
+        <div id="definition-display">
+            Target Definition: <span id="definition-text">Loading...</span>
+        </div>
+    </div>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="600" height="400"></canvas>
+        <div id="lock-overlay">SYSTEM LOCKED! (POISON)</div>
+        <div id="game-over-screen">
+            <h1>GAME OVER</h1>
+            <p>FINAL SCORE: <span id="final-score">0</span></p>
+            <button onclick="resetGame()">RESTART</button>
+        </div>
+    </div>
+
+    <script>
+        // -------------------------------------------------------------
+        // 10 VOCABULARY WORDS & DEFINITIONS
+        // -------------------------------------------------------------
+        const vocabulary = [
+            { word: "RECIPE", def: "A set of instructions for preparing a particular dish." },
+            { word: "PASTA", def: "An Italian dish made from dough of wheat flour mixed with water or eggs." },
+            { word: "VARIATION", def: "A change or slight difference in condition, amount, or level." },
+            { word: "COMBINATION", def: "A joining or merging of different parts or qualities." },
+            { word: "ULTIMATELY", def: "Finally, in the end, or at the most basic level." },
+            { word: "GENERATION", def: "All of the people born and living at about the same time." },
+            { word: "DESERVE", def: "Do something or have qualities worthy of a reaction or reward." },
+            { word: "CYBERPUNK", def: "A subgenre of science fiction in a futuristic, dystopian setting." },
+            { word: "MECHANIC", def: "A piece of logic or rule governing game behavior." },
+            { word: "DISTRACTOR", def: "An incorrect choice designed to draw attention away from the correct answer." }
+        ];
+
+        // -------------------------------------------------------------
+        // GAME CONFIG & VARIABLES
+        // -------------------------------------------------------------
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        const GRID_SIZE = 20;
+        const COLS = canvas.width / GRID_SIZE; // 30
+        const ROWS = canvas.height / GRID_SIZE; // 20
+
+        let snake = [];
+        let dx = GRID_SIZE;
+        let dy = 0;
+        let nextDx = GRID_SIZE;
+        let nextDy = 0;
+
+        let score = 0;
+        let gameActive = false;
+        let keysLocked = false;
+        let lockTimer = null;
+        let gameLoopInterval = null;
+
+        let currentTarget = null;
+        let activePellets = []; // Holds 3 pellets: 1 correct, 2 distractors
+
+        // -------------------------------------------------------------
+        // GAME INITIALIZATION & RESET
+        // -------------------------------------------------------------
+        function resetGame() {
+            snake = [
+                { x: 5 * GRID_SIZE, y: 10 * GRID_SIZE },
+                { x: 4 * GRID_SIZE, y: 10 * GRID_SIZE },
+                { x: 3 * GRID_SIZE, y: 10 * GRID_SIZE },
+                { x: 2 * GRID_SIZE, y: 10 * GRID_SIZE },
+                { x: 1 * GRID_SIZE, y: 10 * GRID_SIZE }
+            ];
+
+            dx = GRID_SIZE;
+            dy = 0;
+            nextDx = GRID_SIZE;
+            nextDy = 0;
+
+            score = 0;
+            keysLocked = false;
+            gameActive = true;
+
+            if (lockTimer) clearTimeout(lockTimer);
+            document.getElementById("lock-overlay").style.display = "none";
+            document.getElementById("game-over-screen").style.display = "none";
+            document.getElementById("score-val").textContent = score;
+
+            spawnNewWordRound();
+
+            if (gameLoopInterval) clearInterval(gameLoopInterval);
+            gameLoopInterval = setInterval(gameLoop, 120);
+        }
+
+        // -------------------------------------------------------------
+        // PELLET & WORD SPAWNING SYSTEM
+        // -------------------------------------------------------------
+        function spawnNewWordRound() {
+            // Pick a target word randomly
+            currentTarget = vocabulary[Math.floor(Math.random() * vocabulary.length)];
+            
+            // Update UI with definition at top (Target word is hidden/shown as clue)
+            document.getElementById("target-word").textContent = currentTarget.word;
+            document.getElementById("definition-text").textContent = currentTarget.def;
+
+            // Pick 2 distinct distractor words
+            let distractors = vocabulary.filter(v => v.word !== currentTarget.word);
+            distractors.sort(() => 0.5 - Math.random());
+            let chosenDistractors = distractors.slice(0, 2);
+
+            let roundWords = [
+                { word: currentTarget.word, isCorrect: true },
+                { word: chosenDistractors[0].word, isCorrect: false },
+                { word: chosenDistractors[1].word, isCorrect: false }
+            ];
+
+            // Shuffle pellet order
+            roundWords.sort(() => 0.5 - Math.random());
+
+            // Assign unique grid positions for 3 pellets
+            activePellets = [];
+            for (let item of roundWords) {
+                let pos = getFreeGridPosition();
+                activePellets.push({
+                    x: pos.x,
+                    y: pos.y,
+                    word: item.word,
+                    isCorrect: item.isCorrect
+                });
+            }
+        }
+
+        function getFreeGridPosition() {
+            let position;
+            let collision;
+            do {
+                collision = false;
+                position = {
+                    x: Math.floor(Math.random() * COLS) * GRID_SIZE,
+                    y: Math.floor(Math.random() * ROWS) * GRID_SIZE
+                };
+
+                // Avoid snake body collision
+                for (let segment of snake) {
+                    if (segment.x === position.x && segment.y === position.y) {
+                        collision = true;
+                        break;
+                    }
+                }
+
+                // Avoid existing pellets collision
+                for (let pellet of activePellets) {
+                    if (pellet.x === position.x && pellet.y === position.y) {
+                        collision = true;
+                        break;
+                    }
+                }
+            } while (collision);
+
+            return position;
+        }
+
+        // -------------------------------------------------------------
+        // INPUT CONTROLS (ARROW KEYS)
+        // -------------------------------------------------------------
+        window.addEventListener("keydown", (e) => {
+            if (!gameActive || keysLocked) return;
+
+            // Prevent reversing onto self
+            if (e.key === "ArrowUp" && dy === 0) {
+                nextDx = 0;
+                nextDy = -GRID_SIZE;
+            } else if (e.key === "ArrowDown" && dy === 0) {
+                nextDx = 0;
+                nextDy = GRID_SIZE;
+            } else if (e.key === "ArrowLeft" && dx === 0) {
+                nextDx = -GRID_SIZE;
+                nextDy = 0;
+            } else if (e.key === "ArrowRight" && dx === 0) {
+                nextDx = GRID_SIZE;
+                nextDy = 0;
+            }
+        });
+
+        // -------------------------------------------------------------
+        // MAIN GAME LOOP
+        // -------------------------------------------------------------
+        function gameLoop() {
+            if (!gameActive) return;
+
+            update();
+            draw();
+        }
+
+        function update() {
+            dx = nextDx;
+            dy = nextDy;
+
+            // Calculate new head position
+            const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+
+            // 1. Wall Collision Detection
+            if (head.x < 0 || head.x >= canvas.width || head.y < 0 || head.y >= canvas.height) {
+                triggerGameOver();
+                return;
+            }
+
+            // 2. Self-Collision Detection
+            for (let segment of snake) {
+                if (head.x === segment.x && head.y === segment.y) {
+                    triggerGameOver();
+                    return;
+                }
+            }
+
+            // Move Snake forward
+            snake.unshift(head);
+
+            // 3. Check Food/Pellet Collision
+            let eatenIndex = activePellets.findIndex(p => p.x === head.x && p.y === head.y);
+
+            if (eatenIndex !== -1) {
+                let eatenPellet = activePellets[eatenIndex];
+
+                if (eatenPellet.isCorrect) {
+                    // CORRECT PELLET MECHANICS:
+                    // Extends tail (keep tail), gains score, spawns 3 new words
+                    score += 10;
+                    document.getElementById("score-val").textContent = score;
+                    spawnNewWordRound();
+                } else {
+                    // INCORRECT PELLET MECHANICS (POISON):
+                    // Chop off two tail segments & lock movement for 1.5s
+                    snake.pop(); // Standard move pop
+
+                    // Remove 2 additional tail segments
+                    if (snake.length > 2) snake.pop();
+                    if (snake.length > 1) snake.pop();
+
+                    // Lock arrow key movement for 1.5 seconds
+                    applyKeyLock(1500);
+
+                    // Refresh pellets for continuing play
+                    spawnNewWordRound();
+                }
+            } else {
+                // Normal step without eating
+                snake.pop();
+            }
+        }
+
+        function applyKeyLock(duration) {
+            keysLocked = true;
+            document.getElementById("lock-overlay").style.display = "flex";
+
+            if (lockTimer) clearTimeout(lockTimer);
+            lockTimer = setTimeout(() => {
+                keysLocked = false;
+                document.getElementById("lock-overlay").style.display = "none";
+            }, duration);
+        }
+
+        function triggerGameOver() {
+            gameActive = false;
+            clearInterval(gameLoopInterval);
+            document.getElementById("final-score").textContent = score;
+            document.getElementById("game-over-screen").style.display = "flex";
+        }
+
+        // -------------------------------------------------------------
+        // RENDERING / GRID DRAWING SYSTEM
+        // -------------------------------------------------------------
+        function draw() {
+            // Clear canvas
+            ctx.fillStyle = "#050508";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw subtle cyberpunk grid lines
+            ctx.strokeStyle = "#121929";
+            ctx.lineWidth = 1;
+            for (let x = 0; x <= canvas.width; x += GRID_SIZE) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            for (let y = 0; y <= canvas.height; y += GRID_SIZE) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+
+            // Draw Snake
+            snake.forEach((segment, index) => {
+                if (index === 0) {
+                    ctx.fillStyle = "#ff007f"; // Snake Head
+                    ctx.shadowColor = "#ff007f";
+                    ctx.shadowBlur = 8;
+                } else {
+                    ctx.fillStyle = "#00ffcc"; // Tail Segments
+                    ctx.shadowColor = "#00ffcc";
+                    ctx.shadowBlur = 4;
+                }
+                ctx.fillRect(segment.x + 1, segment.y + 1, GRID_SIZE - 2, GRID_SIZE - 2);
+            });
+            ctx.shadowBlur = 0; // Reset blur
+
+            // Draw Pellets & Vocabulary Labels
+            activePellets.forEach(pellet => {
+                // Draw Pellet Box
+                ctx.fillStyle = "#1a0933";
+                ctx.strokeStyle = "#ff007f";
+                ctx.lineWidth = 1.5;
+                ctx.fillRect(pellet.x, pellet.y, GRID_SIZE, GRID_SIZE);
+                ctx.strokeRect(pellet.x, pellet.y, GRID_SIZE, GRID_SIZE);
+
+                // Draw Word Label above pellet
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "10px 'Courier New'";
+                ctx.textAlign = "center";
+                ctx.fillText(pellet.word, pellet.x + GRID_SIZE / 2, pellet.y - 4);
+            });
+        }
+
+        // Start game on load
+        resetGame();
+    </script>
+</body
+
+</html>
