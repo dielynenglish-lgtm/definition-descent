@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flashcard Memory Matrix</title>
+<style>
+  :root{
+    --board-green: #1f3a2e;
+    --board-green-dark: #16291f;
+    --chalk: #f2efe4;
+    --chalk-dim: #c8cdb9;
+    --amber: #d9a441;
+    --sage: #7fa88f;
+    --rust: #b5563c;
+    --frame: #4a3626;
+  }
+
+  *{ box-sizing: border-box; }
+
+  html, body{
+    margin:0;
+    padding:0;
+    min-height:100vh;
+    background: var(--board-green-dark);
+    font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+    color: var(--chalk);
+  }
+
+  body{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding: 32px 16px 60px;
+  }
+
+  .title{
+    font-size: clamp(28px, 5vw, 42px);
+    letter-spacing: 0.5px;
+    margin: 0 0 4px;
+    text-align:center;
+  }
+
+  .subtitle{
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    color: var(--chalk-dim);
+    margin: 0 0 24px;
+    text-align:center;
+    max-width: 480px;
+    line-height:1.5;
+  }
+
+  .stats-rail{
+    display:flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content:center;
+    margin-bottom: 26px;
+  }
+
+  .stat{
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--board-green);
+    border: 1px solid #35543f;
+    border-radius: 6px;
+    padding: 10px 18px;
+    min-width: 108px;
+    text-align:center;
+  }
+
+  .stat .num{
+    display:block;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--amber);
+    font-family: Georgia, serif;
+  }
+
+  .stat .lbl{
+    display:block;
+    font-size: 11px;
+    color: var(--chalk-dim);
+    margin-top: 2px;
+  }
+
+  .stat.timer-low .num{ color: var(--rust); }
+
+  .board{
+    display:grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 12px;
+    width: min(620px, 92vw);
+    aspect-ratio: 4 / 3;
+    padding: 14px;
+    background: var(--frame);
+    border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4), inset 0 0 0 4px #2c2015;
+  }
+
+  .card{
+    position: relative;
+    cursor: pointer;
+    perspective: 800px;
+  }
+
+  .card-inner{
+    position:relative;
+    width:100%;
+    height:100%;
+    border-radius: 8px;
+    transition: transform 0.45s ease;
+    transform-style: preserve-3d;
+  }
+
+  .card.flipped .card-inner,
+  .card.matched .card-inner{
+    transform: rotateY(180deg);
+  }
+
+  .card-face{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    padding: 8px;
+    border-radius: 8px;
+    backface-visibility: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  .card-back{
+    background: var(--board-green);
+    border: 1px solid #35543f;
+  }
+
+  .card-back::after{
+    content: "";
+    width: 42%;
+    height: 42%;
+    border-radius: 50%;
+    border: 2px solid #35543f;
+    opacity: 0.6;
+  }
+
+  .card-front{
+    background: #2a4636;
+    border: 1px solid var(--sage);
+    transform: rotateY(180deg);
+    font-size: 13px;
+    line-height: 1.3;
+    color: var(--chalk);
+  }
+
+  .card.word .card-front{ font-weight: 600; font-size: 16px; }
+
+  .card.matched .card-front{
+    background: #2f5b3f;
+    border-color: var(--amber);
+    color: var(--amber);
+  }
+
+  .card.mismatch .card-front{
+    border-color: var(--rust);
+    animation: shake 0.4s;
+  }
+
+  @keyframes shake{
+    0%,100%{ transform: rotateY(180deg) translateX(0); }
+    25%{ transform: rotateY(180deg) translateX(-4px); }
+    75%{ transform: rotateY(180deg) translateX(4px); }
+  }
+
+  .overlay{
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 18, 14, 0.92);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index: 10;
+    padding: 20px;
+  }
+
+  .overlay.show{ display:flex; }
+
+  .panel{
+    background: var(--board-green);
+    border: 1px solid var(--sage);
+    border-radius: 12px;
+    padding: 36px 32px;
+    max-width: 380px;
+    width: 100%;
+    text-align:center;
+  }
+
+  .panel h2{
+    margin: 0 0 6px;
+    font-size: 26px;
+    color: var(--amber);
+  }
+
+  .panel p.rating{
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 15px;
+    color: var(--chalk-dim);
+    margin: 0 0 20px;
+  }
+
+  .panel .final-stats{
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    display:flex;
+    justify-content: space-around;
+    margin-bottom: 24px;
+    font-size: 13px;
+    color: var(--chalk-dim);
+  }
+
+  .panel .final-stats b{
+    display:block;
+    font-size: 20px;
+    color: var(--chalk);
+    font-family: Georgia, serif;
+  }
+
+  button.action{
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--amber);
+    color: #2a1c0a;
+    border: none;
+    border-radius: 6px;
+    padding: 12px 26px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  button.action:hover{ opacity: 0.9; }
+
+  @media (prefers-reduced-motion: reduce){
+    .card-inner{ transition: none; }
+    .card.mismatch .card-front{ animation: none; }
+  }
+</style>
+</head>
+<body>
+
+  <h1 class="title">Flashcard Memory Matrix</h1>
+  <p class="subtitle">Match each vocabulary word to its definition. Flip two cards per turn — find all 6 pairs before the clock runs out.</p>
+
+  <div class="stats-rail">
+    <div class="stat">
+      <span class="num" id="moveCount">0</span>
+      <span class="lbl">Moves</span>
+    </div>
+    <div class="stat">
+      <span class="num" id="matchCount">0/6</span>
+      <span class="lbl">Matches</span>
+    </div>
+    <div class="stat" id="timerStat">
+      <span class="num" id="timeLeft">90</span>
+      <span class="lbl">Seconds Left</span>
+    </div>
+  </div>
+
+  <div class="board" id="board"></div>
+
+  <div class="overlay" id="overlay">
+    <div class="panel" id="panel">
+      <h2 id="resultTitle">You Matched Them All!</h2>
+      <p class="rating" id="resultRating"></p>
+      <div class="final-stats">
+        <div><b id="finalMoves">0</b>Moves</div>
+        <div><b id="finalTime">0s</b>Time Used</div>
+        <div><b id="finalMatches">0/6</b>Matches</div>
+      </div>
+      <button class="action" id="playAgain">Play Again</button>
+    </div>
+  </div>
+
+<script>
+(function(){
+
+  const pairs = [
+    { word: "formula", def: "A set method or fixed set of symbols expressing a rule or relationship" },
+    { word: "equation", def: "A statement that two mathematical expressions are equal in value" },
+    { word: "orbit", def: "The curved path an object follows as it circles around another body" },
+    { word: "abstract", def: "Existing as an idea or quality rather than a physical, concrete thing" },
+    { word: "contribution", def: "Something given or added to help produce a shared result" },
+    { word: "forge", def: "To shape metal by heating and hammering, or to create through effort" }
+  ];
+
+  const TOTAL_PAIRS = pairs.length;
+  const TOTAL_TIME = 90;
+  const board = document.getElementById('board');
+  const moveCountEl = document.getElementById('moveCount');
+  const matchCountEl = document.getElementById('matchCount');
+  const timeLeftEl = document.getElementById('timeLeft');
+  const timerStat = document.getElementById('timerStat');
+  const overlay = document.getElementById('overlay');
+  const resultTitle = document.getElementById('resultTitle');
+  const resultRating = document.getElementById('resultRating');
+  const finalMoves = document.getElementById('finalMoves');
+  const finalTime = document.getElementById('finalTime');
+  const finalMatches = document.getElementById('finalMatches');
+  const playAgainBtn = document.getElementById('playAgain');
+
+  let cards = [];
+  let flipped = [];
+  let matches = 0;
+  let moves = 0;
+  let timeLeft = TOTAL_TIME;
+  let timerId = null;
+  let locked = false;
+  let gameOver = false;
+
+  function shuffle(arr){
+    for(let i = arr.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  function buildDeck(){
+    const deck = [];
+    pairs.forEach((p, idx) => {
+      deck.push({ id: idx, type: 'word', text: p.word });
+      deck.push({ id: idx, type: 'def', text: p.def });
+    });
+    return shuffle(deck);
+  }
+
+  function render(){
+    board.innerHTML = '';
+    cards.forEach((card, i) => {
+      const el = document.createElement('div');
+      el.className = 'card' + (card.type === 'word' ? ' word' : '');
+      el.dataset.index = i;
+
+      const inner = document.createElement('div');
+      inner.className = 'card-inner';
+
+      const back = document.createElement('div');
+      back.className = 'card-face card-back';
+
+      const front = document.createElement('div');
+      front.className = 'card-face card-front';
+      front.textContent = card.text;
+
+      inner.appendChild(back);
+      inner.appendChild(front);
+      el.appendChild(inner);
+
+      el.addEventListener('click', () => handleClick(i, el));
+      board.appendChild(el);
+      card.el = el;
+    });
+  }
+
+  function handleClick(index, el){
+    if(locked || gameOver) return;
+    if(el.classList.contains('flipped') || el.classList.contains('matched')) return;
+    if(flipped.length === 2) return;
+
+    el.classList.add('flipped');
+    flipped.push({ index, el });
+
+    if(flipped.length === 2){
+      moves++;
+      moveCountEl.textContent = moves;
+      locked = true;
+      const [a, b] = flipped;
+      const cardA = cards[a.index];
+      const cardB = cards[b.index];
+      const isMatch = cardA.id === cardB.id && cardA.type !== cardB.type;
+
+      if(isMatch){
+        setTimeout(() => {
+          a.el.classList.add('matched');
+          b.el.classList.add('matched');
+          matches++;
+          matchCountEl.textContent = matches + '/' + TOTAL_PAIRS;
+          flipped = [];
+          locked = false;
+          if(matches === TOTAL_PAIRS) finishGame(true);
+        }, 350);
+      } else {
+        a.el.classList.add('mismatch');
+        b.el.classList.add('mismatch');
+        setTimeout(() => {
+          a.el.classList.remove('flipped', 'mismatch');
+          b.el.classList.remove('flipped', 'mismatch');
+          flipped = [];
+          locked = false;
+        }, 1000);
+      }
+    }
+  }
+
+  function tick(){
+    timeLeft--;
+    timeLeftEl.textContent = timeLeft;
+    if(timeLeft <= 15) timerStat.classList.add('timer-low');
+    if(timeLeft <= 0){
+      timeLeft = 0;
+      timeLeftEl.textContent = 0;
+      finishGame(false);
+    }
+  }
+
+  function ratingFor(moves, won){
+    if(!won) return "Time ran out — the board wins this round.";
+    if(moves <= 7) return "Flawless recall — near-perfect efficiency.";
+    if(moves <= 10) return "Sharp memory — well above average efficiency.";
+    if(moves <= 14) return "Solid run — steady, methodical matching.";
+    return "You got there — plenty of room to sharpen your recall.";
+  }
+
+  function finishGame(won){
+    gameOver = true;
+    clearInterval(timerId);
+    const timeUsed = TOTAL_TIME - timeLeft;
+
+    resultTitle.textContent = won ? "You Matched Them All!" : "Time's Up!";
+    resultRating.textContent = ratingFor(moves, won);
+    finalMoves.textContent = moves;
+    finalTime.textContent = timeUsed + 's';
+    finalMatches.textContent = matches + '/' + TOTAL_PAIRS;
+
+    overlay.classList.add('show');
+  }
+
+  function startGame(){
+    cards = buildDeck();
+    flipped = [];
+    matches = 0;
+    moves = 0;
+    timeLeft = TOTAL_TIME;
+    locked = false;
+    gameOver = false;
+
+    moveCountEl.textContent = '0';
+    matchCountEl.textContent = '0/' + TOTAL_PAIRS;
+    timeLeftEl.textContent = TOTAL_TIME;
+    timerStat.classList.remove('timer-low');
+    overlay.classList.remove('show');
+
+    render();
+    clearInterval(timerId);
+    timerId = setInterval(tick, 1000);
+  }
+
+  playAgainBtn.addEventListener('click', startGame);
+
+  startGame();
+})();
+</script>
+
+</body>
+</html>
