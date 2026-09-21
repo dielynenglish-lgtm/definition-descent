@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Black Death - Reverse: 1999 Style</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Playfair+Display:ital,wght@0,600;1,400&family=Special+Elite&display=swap');
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: #050404;
+            color: #d1c7bd;
+            font-family: 'Playfair Display', serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Main Viewport Container */
+        #game-viewport {
+            width: 1000px;
+            height: 650px;
+            background: #0a0908;
+            border: 4px solid #4a3b2c;
+            box-shadow: 0 0 30px rgba(0,0,0,0.9), inset 0 0 50px rgba(0,0,0,0.8);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Cover Screen / Start Title */
+        #cover-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image: linear-gradient(to bottom, rgba(0,0,0,0.4), rgba(0,0,0,0.85)), url('black-death-plague-10.jpg');
+            background-size: cover;
+            background-position: center;
+            z-index: 300;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .cover-title {
+            font-family: 'Cinzel', serif;
+            font-size: 3.8rem;
+            color: #e74c3c;
+            text-shadow: 0 0 20px rgba(231, 76, 60, 0.6);
+            letter-spacing: 6px;
+            margin-bottom: 10px;
+        }
+
+        .cover-subtitle {
+            font-family: 'Special Elite', cursive;
+            color: #d4af37;
+            font-size: 1.2rem;
+            margin-bottom: 40px;
+            letter-spacing: 2px;
+        }
+
+        .start-btn {
+            background: linear-gradient(180deg, #3d2f24 0%, #1c1510 100%);
+            border: 2px solid #c5a059;
+            color: #f1c40f;
+            padding: 15px 40px;
+            font-family: 'Cinzel', serif;
+            font-size: 1.2rem;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 15px rgba(197, 160, 89, 0.3);
+        }
+
+        .start-btn:hover {
+            background: linear-gradient(180deg, #5c4737 0%, #2e231b 100%);
+            box-shadow: 0 0 25px rgba(241, 196, 15, 0.6);
+            color: #fff;
+        }
+
+        /* Top Bar Info */
+        #top-bar {
+            height: 50px;
+            background: rgba(15, 12, 10, 0.95);
+            border-bottom: 2px solid #5c4835;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            font-family: 'Cinzel', serif;
+            letter-spacing: 2px;
+            z-index: 10;
+        }
+
+        .stage-title {
+            color: #d4af37;
+            font-size: 1.05rem;
+            text-transform: uppercase;
+        }
+
+        .hp-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .hp-hearts {
+            color: #e74c3c;
+            font-size: 1.2rem;
+            letter-spacing: 3px;
+        }
+
+        /* Battle Stage Area */
+        #battle-stage {
+            flex: 1;
+            position: relative;
+            background-size: cover;
+            background-position: center;
+            transition: background 0.8s ease-in-out;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding: 30px 60px;
+        }
+
+        /* Character Cards */
+        .party-group, .enemy-group {
+            display: flex;
+            gap: 20px;
+            align-items: flex-end;
+            z-index: 2;
+        }
+
+        .char-card {
+            width: 110px;
+            height: 185px;
+            background: rgba(20, 16, 13, 0.88);
+            border: 2px solid #7a603c;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 5px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.8);
+            transition: transform 0.3s ease;
+        }
+
+        .char-card.active {
+            border-color: #f1c40f;
+            box-shadow: 0 0 18px rgba(241, 196, 15, 0.7);
+            transform: translateY(-10px);
+        }
+
+        .char-avatar {
+            width: 75px;
+            height: 75px;
+            border-radius: 50%;
+            border: 2px solid #a68a56;
+            background-size: cover;
+            background-position: center;
+        }
+
+        .char-name {
+            font-family: 'Cinzel', serif;
+            font-size: 0.8rem;
+            color: #e6d3a3;
+            text-align: center;
+            font-weight: 700;
+        }
+
+        .char-weapon {
+            font-size: 0.7rem;
+            color: #99836a;
+            font-style: italic;
+        }
+
+        /* Dialogue Box & Control Panel */
+        #control-panel {
+            height: 230px;
+            background: rgba(10, 8, 6, 0.96);
+            border-top: 3px solid #5c4835;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            z-index: 10;
+        }
+
+        #dialogue-box {
+            display: none;
+            flex-direction: column;
+            gap: 8px;
+            background: rgba(22, 17, 13, 0.92);
+            border: 1px solid #8c6d46;
+            padding: 15px 20px;
+            border-radius: 4px;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .speaker-name {
+            font-family: 'Cinzel', serif;
+            color: #f1c40f;
+            font-size: 1.1rem;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        .dialogue-text {
+            font-size: 0.98rem;
+            color: #ded5c9;
+            line-height: 1.5;
+            font-family: 'Playfair Display', serif;
+        }
+
+        .click-hint {
+            align-self: flex-end;
+            font-size: 0.75rem;
+            color: #7a6855;
+            animation: blink 1.2s infinite;
+        }
+
+        /* Quiz Panel */
+        #quiz-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            height: 100%;
+        }
+
+        .quiz-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .question-text {
+            font-size: 1.05rem;
+            color: #f7ebd3;
+            font-family: 'Playfair Display', serif;
+        }
+
+        .timer-badge {
+            font-family: 'Cinzel', serif;
+            background: #8e1c1c;
+            color: #fff;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+
+        .option-btn {
+            background: linear-gradient(180deg, #2b231c 0%, #17130f 100%);
+            border: 1px solid #6e5741;
+            color: #d1c7bd;
+            padding: 14px;
+            font-family: 'Cinzel', serif;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .option-btn:hover {
+            border-color: #d4af37;
+            color: #fff;
+            background: linear-gradient(180deg, #3d3127 0%, #241d17 100%);
+        }
+
+        .option-btn.guided {
+            border: 2px solid #f1c40f;
+            animation: pulse-border 1s infinite alternate;
+        }
+
+        @keyframes pulse-border {
+            from { box-shadow: 0 0 5px #f1c40f; }
+            to { box-shadow: 0 0 20px #f1c40f; }
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* Real Comet FX Overlay */
+        #comet-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image: url('72199ef9-a0e9-2305.jpg');
+            background-size: cover;
+            background-position: center;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 400;
+            opacity: 0;
+            transition: opacity 1.2s ease-in-out;
+        }
+
+        .comet-text {
+            font-family: 'Cinzel', serif;
+            color: #fff;
+            font-size: 3.2rem;
+            text-shadow: 0 0 30px #a29bfe, 0 0 60px #6c5ce7;
+            letter-spacing: 5px;
+        }
+
+        /* Final Photo Screen */
+        #ending-screen {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #000;
+            z-index: 500;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .photo-frame {
+            border: 8px solid #c5a059;
+            box-shadow: 0 0 50px rgba(212, 175, 55, 0.5);
+            margin-bottom: 25px;
+            max-width: 580px;
+        }
+
+        .photo-frame img {
+            width: 100%;
+            display: block;
+        }
+
+        .ending-quote {
+            font-family: 'Cinzel', serif;
+            color: #d4af37;
+            font-size: 1.35rem;
+            margin-bottom: 10px;
+        }
+
+        .ending-sub {
+            font-family: 'Special Elite', cursive;
+            color: #a6927d;
+            font-size: 0.95rem;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-viewport">
+    <!-- Cover Screen -->
+    <div id="cover-screen">
+        <h1 class="cover-title">BLACK DEATH</h1>
+        <div class="cover-subtitle">London, 1666 — The Dawn of Reason & Contagion</div>
+        <button class="start-btn" onclick="startGame()">ENTER THE AGE OF REASON</button>
+    </div>
+
+    <!-- Top Bar -->
+    <div id="top-bar">
+        <div class="stage-title" id="stage-display">STAGE 1: ROYAL SOCIETY HQ</div>
+        <div class="hp-container">
+            <span>RESISTANCE:</span>
+            <div class="hp-hearts" id="hp-display">❤️❤️❤️❤️❤️❤️❤️</div>
+        </div>
+    </div>
+
+    <!-- Battle Stage -->
+    <div id="battle-stage">
+        <!-- Party Members -->
+        <div class="party-group" id="party-group"></div>
+
+        <!-- Enemy Group -->
+        <div class="enemy-group">
+            <div class="char-card" id="enemy-card" style="border-color: #8e1c1c;">
+                <div class="char-avatar" id="enemy-avatar" style="background-image: url('XE1705161406-00.jpg');"></div>
+                <div class="char-name" id="enemy-name" style="color:#e74c3c;">Plague</div>
+                <div class="char-weapon" id="enemy-sub">The Abyssal Contagion</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Control Panel -->
+    <div id="control-panel">
+        <!-- Dialogue Box -->
+        <div id="dialogue-box">
+            <div class="speaker-name" id="speaker-name">Speaker</div>
+            <div class="dialogue-text" id="dialogue-text">Dialogue text goes here...</div>
+            <div class="click-hint">[ Click anywhere to continue ]</div>
+        </div>
+
+        <!-- Quiz Panel -->
+        <div id="quiz-panel">
+            <div class="quiz-header">
+                <div class="question-text" id="question-text">Loading question...</div>
+                <div class="timer-badge" id="timer-display">⏱ 10s</div>
+            </div>
+            <div class="options-grid" id="options-container"></div>
+        </div>
+    </div>
+
+    <!-- Cosmic Comet Overlay -->
+    <div id="comet-overlay">
+        <h1 class="comet-text">HALLEY'S COMET</h1>
+    </div>
+
+    <!-- Ending Photo Screen -->
+    <div id="ending-screen">
+        <div class="photo-frame">
+            <img src="Gemini_Generated_Image_wpg2tbwpg2tbwpg2.jfif" alt="Halley Portrait">
+        </div>
+        <div class="ending-quote">"Reason illuminated the darkest night of London."</div>
+        <div class="ending-sub">Isaac Newton, Robert Hooke, & Edmond Halley — 1666</div>
+    </div>
+</div>
+
+<script>
+    let currentStage = 1;
+    let playerHP = 7;
+    let timer = 10;
+    let timerInterval = null;
+    let isDialogueActive = false;
+
+    // Assigned Character Database with User Images
+    const charData = {
+        newton: { name: 'Isaac Newton', weapon: 'Prism Ray', avatar: '牛頓.jfif' },
+        halley: { name: 'Edmond Halley', weapon: 'Brass Telescope', avatar: 'Gemini_Generated_Image_wpg2tbwpg2tbwpg2.jfif' },
+        hooke: { name: 'Robert Hooke', weapon: 'Quill & Springs', avatar: 'Gemini_Generated_Image_gfjhsygfjhsygfjh.jfif' }
+    };
+
+    // Stage Backgrounds
+    const stageBG = {
+        1: 'images (7).jfif',
+        2: 'istockphoto-1195032319-612x612.jpg',
+        3: 'mottimes_images_9020161006134758.jpg'
+    };
+
+    // Questions Database
+    const stageQuestions = {
+        1: [
+            { q: "TUTORIAL: What is the systematic study of the physical and natural world through observation?", correct: "science", options: ["science", "magic", "alchemy"], guide: true },
+            { q: "Newton deduced gravity after observing the fall of which fruit?", correct: "apple", options: ["apple", "orange", "pear"] },
+            { q: "A mathematical relationship or rule expressed in symbols:", correct: "formula", options: ["formula", "equation", "orbit"] },
+            { q: "A statement asserting the equality of two mathematical expressions:", correct: "equation", options: ["equation", "formula", "abstract"] },
+            { q: "The curved path of a celestial object around a star or planet:", correct: "orbit", options: ["orbit", "forge", "contribution"] }
+        ],
+        2: [
+            { q: "GEOGRAPHY: What is the historic capital city of England?", correct: "London", options: ["London", "Oxford", "Cambridge"] },
+            { q: "Existing in thought or as an idea without physical existence:", correct: "abstract", options: ["abstract", "formula", "forge"] },
+            { q: "A gift or service that helps advance knowledge or achieve a result:", correct: "contribution", options: ["contribution", "equation", "orbit"] },
+            { q: "To create, shape, or produce something through concentrated effort:", correct: "forge", options: ["forge", "abstract", "apple"] },
+            { q: "The catastrophic element that began spreading in a Pudding Lane bakery:", correct: "fire", options: ["fire", "water", "plague"] }
+        ],
+        3: [
+            { q: "RECAP 1: A mathematical relationship or rule expressed in symbols:", correct: "formula", options: ["formula", "equation", "orbit"] },
+            { q: "RECAP 2: A statement that two mathematical expressions are equal:", correct: "equation", options: ["equation", "abstract", "forge"] },
+            { q: "RECAP 3: The curved path of a celestial body around another:", correct: "orbit", options: ["orbit", "contribution", "science"] },
+            { q: "RECAP 4: Existing in thought rather than concrete existence:", correct: "abstract", options: ["abstract", "formula", "apple"] },
+            { q: "RECAP 5: A service or effort that helps bring about a result:", correct: "contribution", options: ["contribution", "forge", "fire"] },
+            { q: "RECAP 6: To shape or produce through concentrated effort:", correct: "forge", options: ["forge", "orbit", "equation"] },
+            { q: "FINAL QUESTION: What is the name of the dark scourge we must stop tonight?", correct: "Black Death", options: ["Black Death", "Great Fire", "Ignorance"] }
+        ]
+    };
+
+    let activeQueue = [];
+
+    function startGame() {
+        document.getElementById('cover-screen').style.display = 'none';
+        setupStage(1);
+    }
+
+    function setupStage(stageNum) {
+        currentStage = stageNum;
+        activeQueue = [...stageQuestions[stageNum]];
+
+        const stageDisplay = document.getElementById('stage-display');
+        const battleStage = document.getElementById('battle-stage');
+        const partyGroup = document.getElementById('party-group');
+
+        battleStage.style.backgroundImage = `linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.85)), url('${stageBG[stageNum]}')`;
+
+        if (stageNum === 1) {
+            stageDisplay.innerText = "STAGE 1: ROYAL SOCIETY HQ";
+            partyGroup.innerHTML = renderCharCard(charData.newton, true) + renderCharCard(charData.halley);
+
+            // Extended Stage 1 Prologue Dialogue
+            triggerDialogue([
+                { speaker: "Narrator", text: "In the year of 1666, a dark shadow named 'Plague' swept across London. Despair choked the streets, and superstition ruled the night." },
+                { speaker: "Isaac Newton", text: "Look around us, Halley. The city suffocates not merely under contagion, but under the suffocating weight of ignorance and fear." },
+                { speaker: "Edmond Halley", text: "The populace relies on talismans and superstition, Mr. Newton. But we... we carry the light of empirical observation." },
+                { speaker: "Isaac Newton", text: "Indeed. The Royal Society shall not retreat! We shall forge our optical apparatuses, quantify nature's laws, and strike down this Plague with pure, unyielding reason!" },
+                { speaker: "Edmond Halley", text: "The infected approach the hall gates. Prepare your prism rays—let the first experiment begin!" }
+            ], startQuiz);
+
+        } else if (stageNum === 2) {
+            stageDisplay.innerText = "STAGE 2: LONDON STREETS & BAKERY";
+            partyGroup.innerHTML = renderCharCard(charData.newton, true) + renderCharCard(charData.hooke) + renderCharCard(charData.halley);
+
+            // Extended Stage 2 Aristocratic Snark Dialogue (Newton vs Hooke)
+            triggerDialogue([
+                { speaker: "Robert Hooke", text: "Ah, if it isn't Mr. Newton! Strolling through the soot of Pudding Lane with your nose buried in celestial calculations? How delightfully aristocratic of you." },
+                { speaker: "Isaac Newton", text: "My dear Hooke. I see your penchant for micro-observations remains intact, though it seems to miss the colossal plumes of smoke rising behind Westminster Abbey." },
+                { speaker: "Robert Hooke", text: "At least my instruments are built with precision, whereas your grand theories seem to rely rather heavily on borrowing... shall we say... 'inspiration' from my micro-graphia?" },
+                { speaker: "Isaac Newton", text: "To borrow from you, Hooke, would require you to first possess something worthy of being borrowed. But I digress—the bakery burns, and the Plague surges anew." },
+                { speaker: "Edmond Halley", text: "Gentlemen! Must every encounter between you two devolve into an academic duel? The streets are teeming with infected!" },
+                { speaker: "Robert Hooke", text: "Very well. Let us see if your mathematical formulas can slice through contagion as swiftly as my quill!" }
+            ], startQuiz);
+
+        } else if (stageNum === 3) {
+            stageDisplay.innerText = "STAGE 3: ST. PAUL'S CATHEDRAL";
+            partyGroup.innerHTML = renderCharCard(charData.newton) + renderCharCard(charData.hooke) + renderCharCard(charData.halley, true);
+
+            // Extended Stage 3 Boss Conflict Dialogue
+            triggerDialogue([
+                { speaker: "Plague King", text: "Pathetic mortal scholars! The Great Fire consumes your cathedral, and my Plague rots your flesh! You cannot rewrite destiny with ink!" },
+                { speaker: "Isaac Newton", text: "Destiny is merely a variable in an equation you are far too primitive to comprehend!" },
+                { speaker: "Robert Hooke", text: "You speak of decay, yet you stand before men who have unraveled the very elasticity of nature itself!" },
+                { speaker: "Plague King", text: "Suffer under my reign! London shall burn, and reason shall die in the ashes!" },
+                { speaker: "Edmond Halley", text: "Hold the line! Stand beneath the dome of St. Paul's—our final proof awaits!" }
+            ], startQuiz);
+        }
+    }
+
+    function renderCharCard(char, isActive = false) {
+        return `
+            <div class="char-card ${isActive ? 'active' : ''}">
+                <div class="char-avatar" style="background-image: url('${char.avatar}');"></div>
+                <div class="char-name">${char.name}</div>
+                <div class="char-weapon">${char.weapon}</div>
+            </div>
+        `;
+    }
+
+    function triggerDialogue(lines, onComplete) {
+        isDialogueActive = true;
+        document.getElementById('quiz-panel').style.display = 'none';
+        const dialogBox = document.getElementById('dialogue-box');
+        dialogBox.style.display = 'flex';
+
+        let lineIndex = 0;
+        
+        const showLine = () => {
+            if (lineIndex < lines.length) {
+                document.getElementById('speaker-name').innerText = lines[lineIndex].speaker;
+                document.getElementById('dialogue-text').innerText = `"${lines[lineIndex].text}"`;
+                lineIndex++;
+            } else {
+                dialogBox.style.display = 'none';
+                isDialogueActive = false;
+                dialogBox.onclick = null;
+                if (onComplete) onComplete();
+            }
+        };
+
+        showLine();
+        dialogBox.onclick = showLine;
+    }
+
+    function startQuiz() {
+        if (activeQueue.length === 0) {
+            handleStageClear();
+            return;
+        }
+
+        document.getElementById('quiz-panel').style.display = 'flex';
+        const currentQ = activeQueue[0];
+
+        document.getElementById('question-text').innerText = currentQ.q;
+        
+        const optionsContainer = document.getElementById('options-container');
+        optionsContainer.innerHTML = '';
+
+        currentQ.options.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.className = `option-btn ${currentQ.guide && opt === currentQ.correct ? 'guided' : ''}`;
+            btn.innerText = opt;
+            btn.onclick = () => handleAnswer(opt);
+            optionsContainer.appendChild(btn);
+        });
+
+        resetTimer();
+    }
+
+    function resetTimer() {
+        clearInterval(timerInterval);
+        timer = 10;
+        document.getElementById('timer-display').innerText = `⏱ ${timer}s`;
+
+        timerInterval = setInterval(() => {
+            timer--;
+            document.getElementById('timer-display').innerText = `⏱ ${timer}s`;
+            if (timer <= 0) {
+                clearInterval(timerInterval);
+                handleAnswer(null);
+            }
+        }, 1000);
+    }
+
+    function handleAnswer(selectedOpt) {
+        clearInterval(timerInterval);
+        const currentQ = activeQueue[0];
+
+        if (selectedOpt === currentQ.correct) {
+            activeQueue.shift();
+
+            if (currentStage === 3 && currentQ.correct === "Black Death") {
+                triggerClimaxSequence();
+                return;
+            }
+
+            startQuiz();
+        } else {
+            playerHP--;
+            updateHPUI();
+
+            if (playerHP <= 0) {
+                alert("Game Over! Ignorance has consumed London. Refresh to try again.");
+                location.reload();
+                return;
+            }
+
+            const failedQ = activeQueue.shift();
+            failedQ.guide = false;
+            activeQueue.push(failedQ);
+
+            startQuiz();
+        }
+    }
+
+    function updateHPUI() {
+        let hearts = "";
+        for (let i = 0; i < playerHP; i++) hearts += "❤️";
+        document.getElementById('hp-display').innerText = hearts;
+    }
+
+    function handleStageClear() {
+        if (currentStage === 1) {
+            setupStage(2);
+        } else if (currentStage === 2) {
+            setupStage(3);
+        }
+    }
+
+    // Final Stage 3 Climax Sequence
+    function triggerClimaxSequence() {
+        document.getElementById('quiz-panel').style.display = 'none';
+
+        triggerDialogue([
+            { speaker: "Isaac Newton", text: "Yes... what should we stop tonight?" },
+            { speaker: "All Scientists", text: "BLACK DEATH." },
+            { speaker: "Plague King", text: "FOOLS! Taste the absolute despair of my full power!" }
+        ], () => {
+            playerHP = 1;
+            updateHPUI();
+
+            triggerDialogue([
+                { speaker: "Plague King", text: "Hahaha! One strike left! You are broken!" },
+                { speaker: "Robert Hooke", text: "Confound it... my microscope lens shattered!" },
+                { speaker: "Isaac Newton", text: "Is this... the boundary of human reason?" },
+                { speaker: "Edmond Halley", text: "No. It is simply time to look higher than the earth!" },
+                { speaker: "Edmond Halley", text: "By my precise calculations... its cosmic orbit intersects our fate RIGHT NOW! HALLEY'S COMET!" }
+            ], executeHalleyComet);
+        });
+    }
+
+    function executeHalleyComet() {
+        const overlay = document.getElementById('comet-overlay');
+        overlay.style.display = 'flex';
+        setTimeout(() => { overlay.style.opacity = '1'; }, 50);
+
+        setTimeout(() => {
+            overlay.style.display = 'none';
+            document.getElementById('ending-screen').style.display = 'flex';
+        }, 3200);
+    }
+</script>
+</body>
+</html>
