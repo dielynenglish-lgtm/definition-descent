@@ -1,0 +1,57 @@
+function renderSeat(seatIndex) {
+    const seatEl = document.getElementById(`seat-${seatIndex}`);
+    const customer = gameState.seats[seatIndex];
+
+    if (!customer) {
+        seatEl.innerHTML = `
+            <div class="my-auto flex flex-col items-center justify-center text-slate-600 space-y-1 py-6">
+                <span class="text-3xl opacity-40">🪑</span>
+                <span class="text-xs font-bold uppercase tracking-wider">Empty Seat</span>
+            </div>
+        `;
+        seatEl.classList.remove('border-rose-500', 'selected-target');
+        return;
+    }
+
+    const patiencePct = Math.max(0, (customer.patience / customer.maxPatience) * 100);
+    let barColor = 'bg-emerald-500';
+    if (patiencePct < 50) barColor = 'bg-amber-500';
+    if (patiencePct < 25) barColor = 'bg-rose-500 animate-pulse';
+
+    // Only render full structure if it's not already rendered for this customer
+    if (!seatEl.querySelector('.speech-bubble')) {
+        seatEl.innerHTML = `
+            <!-- PATIENCE BAR -->
+            <div class="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden border border-slate-700 mb-2">
+                <div class="patience-bar ${barColor} h-full transition-all duration-200" style="width: ${patiencePct}%"></div>
+            </div>
+
+            <!-- SPEECH BUBBLE (DEFINITION ORDER) -->
+            <div class="speech-bubble w-full bg-slate-100 text-slate-900 rounded-2xl p-3 shadow-lg relative mb-2">
+                <div class="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-0.5 flex items-center justify-between">
+                    <span>Customer Order:</span>
+                    <span>💬</span>
+                </div>
+                <p class="text-xs md:text-sm font-semibold leading-tight text-slate-800">
+                    "${customer.vocab.def}"
+                </p>
+                <div class="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-8 border-l-transparent border-r-8 border-r-transparent border-t-8 border-t-slate-100"></div>
+            </div>
+
+            <!-- CUSTOMER AVATAR -->
+            <div class="mt-1 flex flex-col items-center">
+                <div class="transform transition hover:scale-110">
+                    ${customer.avatar.svg}
+                </div>
+                <span class="text-[11px] font-bold text-slate-300 mt-1">${customer.avatar.name}</span>
+            </div>
+        `;
+    } else {
+        // Smoothly update only the progress bar during game loop ticks
+        const bar = seatEl.querySelector('.patience-bar');
+        if (bar) {
+            bar.className = `patience-bar ${barColor} h-full transition-all duration-200`;
+            bar.style.width = `${patiencePct}%`;
+        }
+    }
+}
