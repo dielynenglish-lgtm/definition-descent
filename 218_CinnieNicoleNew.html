@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Whack-A-Word Arcade</title>
+  <style>
+    body {
+      font-family: 'Courier New', Courier, monospace;
+      background-color: #1a1a2e;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+
+    h1 {
+      color: #e94560;
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    .dashboard {
+      display: flex;
+      gap: 30px;
+      font-size: 1.2rem;
+      margin-bottom: 15px;
+    }
+
+    .definition-box {
+      background: #0f3460;
+      border: 3px solid #e94560;
+      padding: 15px 25px;
+      border-radius: 10px;
+      max-width: 600px;
+      text-align: center;
+      font-size: 1.1rem;
+      font-weight: bold;
+      min-height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 160px);
+      grid-template-rows: repeat(2, 160px);
+      gap: 20px;
+    }
+
+    .hole {
+      background: #16213e;
+      border: 4px solid #0f3460;
+      border-radius: 50%;
+      position: relative;
+      overflow: hidden;
+      box-shadow: inset 0 10px 10px rgba(0,0,0,0.7);
+    }
+
+    .mole {
+      width: 100%;
+      height: 100%;
+      background-color: #e94560;
+      border-radius: 50%;
+      position: absolute;
+      top: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: bold;
+      font-size: 1rem;
+      text-align: center;
+      padding: 10px;
+      box-sizing: border-box;
+      cursor: pointer;
+      transition: top 0.25s ease-in-out;
+      user-select: none;
+      word-break: break-word;
+    }
+
+    .mole.up {
+      top: 0;
+    }
+
+    button {
+      background: #e94560;
+      color: white;
+      border: none;
+      padding: 12px 30px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 25px;
+      text-transform: uppercase;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
+
+    button:hover {
+      background: #ff6b81;
+    }
+
+    button:disabled {
+      background: #555;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Whack-A-Word</h1>
+
+  <div class="dashboard">
+    <div>Time: <span id="timer">60</span>s</div>
+    <div>Score: <span id="score">0</span></div>
+  </div>
+
+  <div class="definition-box" id="definition">Click "Start Game" to Play!</div>
+
+  <div class="grid">
+    <div class="hole"><div class="mole"></div></div>
+    <div class="hole"><div class="mole"></div></div>
+    <div class="hole"><div class="mole"></div></div>
+    <div class="hole"><div class="mole"></div></div>
+    <div class="hole"><div class="mole"></div></div>
+    <div class="hole"><div class="mole"></div></div>
+  </div>
+
+  <button id="start-btn" onclick="startGame()">Start Game</button>
+
+  <script>
+    const vocabulary = [
+      { word: "disqualify", def: "To declare ineligible or unfit for a position or contest" },
+      { word: "revise", def: "To re-examine and make alterations or corrections to" },
+      { word: "aerospace", def: "The branch of technology dealing with aviation and spaceflight" },
+      { word: "surgeon", def: "A medical practitioner qualified to practice surgery" },
+      { word: "candidate", def: "A person who applies or is considered for a position or award" },
+      { word: "applicant", def: "A person who makes a formal application for something" },
+      { word: "launch", def: "To set in motion, send off, or initiate an activity or object" }
+    ];
+
+    const moles = document.querySelectorAll('.mole');
+    const scoreDisplay = document.getElementById('score');
+    const timerDisplay = document.getElementById('timer');
+    const definitionDisplay = document.getElementById('definition');
+    const startBtn = document.getElementById('start-btn');
+
+    let score = 0;
+    let timeLeft = 60;
+    let gameInterval;
+    let timerInterval;
+    let currentTarget = null;
+
+    function getRandomItem(arr) {
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+
+    function setNextTarget() {
+      currentTarget = getRandomItem(vocabulary);
+      definitionDisplay.textContent = `DEFINITION: "${currentTarget.def}"`;
+    }
+
+    function popMole() {
+      if (timeLeft <= 0) return;
+
+      // Find holes that are currently hidden
+      let availableHoles = [];
+      moles.forEach((mole, index) => {
+        if (!mole.classList.contains('up')) {
+          availableHoles.push(index);
+        }
+      });
+
+      if (availableHoles.length === 0) return;
+
+      const randomHoleIdx = getRandomItem(availableHoles);
+      const mole = moles[randomHoleIdx];
+
+      // Weight choice: 65% chance to spawn the correct word target so it appears most frequently
+      let wordToDisplay;
+      if (Math.random() < 0.65) {
+        wordToDisplay = currentTarget.word;
+      } else {
+        const otherWords = vocabulary.filter(v => v.word !== currentTarget.word);
+        wordToDisplay = getRandomItem(otherWords).word;
+      }
+
+      mole.textContent = wordToDisplay;
+      mole.dataset.word = wordToDisplay;
+      mole.classList.add('up');
+
+      // Hide mole automatically after 1.2 seconds
+      setTimeout(() => {
+        mole.classList.remove('up');
+      }, 1200);
+    }
+
+    function handleMoleClick(e) {
+      const clickedMole = e.target;
+      if (!clickedMole.classList.contains('up')) return;
+
+      if (clickedMole.dataset.word === currentTarget.word) {
+        score += 10;
+        scoreDisplay.textContent = score;
+        clickedMole.classList.remove('up');
+        setNextTarget(); // Load a new word target on correct hit
+      } else {
+        score = Math.max(0, score - 5); // Deduct points for hitting the wrong word
+        scoreDisplay.textContent = score;
+        clickedMole.classList.remove('up');
+      }
+    }
+
+    moles.forEach(mole => mole.addEventListener('click', handleMoleClick));
+
+    function startGame() {
+      score = 0;
+      timeLeft = 60;
+      scoreDisplay.textContent = score;
+      timerDisplay.textContent = timeLeft;
+      startBtn.disabled = true;
+
+      setNextTarget();
+
+      // Spawn moles every 750ms
+      gameInterval = setInterval(popMole, 750);
+
+      // 60-second timer
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        timerDisplay.textContent = timeLeft;
+
+        if (timeLeft <= 0) {
+          clearInterval(gameInterval);
+          clearInterval(timerInterval);
+          moles.forEach(mole => mole.classList.remove('up'));
+          definitionDisplay.textContent = `GAME OVER! Final Score: ${score}`;
+          startBtn.disabled = false;
+        }
+      }, 1000);
+    }
+  </script>
+</body>
+</html>

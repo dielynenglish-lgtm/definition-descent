@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marble Popper -單字祖瑪射擊遊戲</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            color: #00ffcc;
+            margin-bottom: 5px;
+        }
+        #game-container {
+            position: relative;
+            background-color: #1e1e1e;
+            border: 3px solid #00ffcc;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.3);
+        }
+        canvas {
+            display: block;
+        }
+        #ui-container {
+            margin-top: 15px;
+            display: flex;
+            gap: 20px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .score-box {
+            background: #2a2a2a;
+            padding: 8px 15px;
+            border-radius: 5px;
+            border: 1px solid #555;
+        }
+        #word-hint {
+            color: #ffcc00;
+        }
+        #controls-info {
+            margin-top: 15px;
+            color: #aaa;
+            font-size: 14px;
+            text-align: center;
+            max-width: 600px;
+            line-height: 1.5;
+        }
+        #restart-btn {
+            margin-top: 15px;
+            background-color: #00ffcc;
+            color: #121212;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: 0.2s;
+            display: none;
+        }
+        #restart-btn:hover {
+            background-color: #00b38f;
+            box-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🔮 Marble Popper: Match-3 Definitions</h1>
+    <div id="word-hint">目標單字定義載入中...</div>
+
+    <div id="ui-container">
+        <div class="score-box">分數: <span id="score">0</span></div>
+        <div class="score-box" id="target-display">目前發射單字: <span id="current-bullet-text">-</span></div>
+    </div>
+
+    <div id="game-container" style="margin-top: 15px;">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+    </div>
+
+    <button id="restart-btn" onclick="resetGame()">重新開始遊戲</button>
+
+    <div id="controls-info">
+        <strong>🎮 玩法說明：</strong><br>
+        1. 畫面上方會顯示一個<b>目標單字定義（中文意思）</b>。<br>
+        2. 一串帶有英文單字的彩球會沿著軌道滑向終點黑洞。<br>
+        3. 移動滑鼠來瞄準，<b>點擊滑鼠左鍵</b>發射中間發射台的單字彩球。<br>
+        4. 當發射的單字球撞擊軌道上<b>符合該定義的正確單字球</b>時，即可將其消除並得分！<br>
+        5. 若彩球抵達軌道終點，則遊戲結束。
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const wordHintEl = document.getElementById('word-hint');
+        const currentBulletTextEl = document.getElementById('current-bullet-text');
+        const restartBtn = document.getElementById('restart-btn');
+
+        // 題目庫：包含您提示與圖片中的核心單字
+        const vocabList = [
+            { word: "absorb", def: "吸收（液體、知識等）" },
+            { word: "otherwise", def: "否則；以其他方式" },
+            { word: "nutrient", def: "營養物、養分" },
+            { word: "generate", def: "產生（能量、電、想法）" },
+            { word: "exceed", def: "超過、超出（數量或限制）" },
+            { word: "scent", def: "香味、氣味" },
+            { word: "harsh", def: "嚴厲的、惡劣的、刺耳的" },
+            { word: "prompt", def: "促使、引起；敏捷的" },
+            { word: "physics", def: "物理學" },
+            { word: "behavior", def: "行為、舉止" }
+        ];
+
+        // 軌道設計 (貝茲曲線與線段插值)
+        const trackPoints = [];
+        function generateTrack() {
+            // 定義幾個關鍵控制點，形成一個漂亮的S型蜿蜒軌道
+            const p0 = { x: 50, y: 100 };
+            const p1 = { x: 750, y: 80 };
+            const p2 = { x: 700, y: 500 };
+            const p3 = { x: 100, y: 520 };
+            const p4 = { x: 150, y: 300 };
+            const p5 = { x: 400, y: 300 }; // 終點黑洞靠近發射台旁
+
+            // 採樣插值點 (物理防重疊與路徑平滑)
+            function sampleBezier(t, a, b, c, d) {
+                const mt = 1 - t;
+                return {
+                    x: mt*mt*mt*a.x + 3*mt*mt*t*b.x + 3*mt*t*t*c.x + t*t*t*d.x,
+                    y: mt*mt*mt*a.y + 3*mt*mt*t*b.y + 3*mt*t*t*c.y + t*t*t*d.y
+                };
+            }
+            
+            for(let i=0; i<=300; i++) {
+                let t = i / 300;
+                if (t <= 0.5) {
+                    trackPoints.push(sampleBezier(t*2, p0, p1, p2, p3));
+                } else {
+                    trackPoints.push(sampleBezier((t-0.5)*2, p3, p4, p4, p5));
+                }
+            }
+        }
+        generateTrack();
+
+        const holePoint = trackPoints[trackPoints.length - 1];
+        const launcherPos = { x: 400, y: 300 };
+        const ballRadius = 26;
+
+        let marbles = [];
+        let bullet = null;
+        let score = 0;
+        let currentTargetPair = null;
+        let gameOver = false;
+        let mousePos = { x: 400, y: 0 };
+        let spawnTimer = 0;
+        let spawnedCount = 0;
+        const maxSpawn = 25;
+
+        // 隨機顏色設定
+        const colors = ["#ff4a4a", "#4a90e2", "#50e3c2", "#b8e986", "#f5a623", "#bd10e0"];
+        function getWordColor(word) {
+            let hash = 0;
+            for (let i = 0; i < word.length; i++) {
+                hash = word.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            return colors[Math.abs(hash) % colors.length];
+        }
+
+        function init() {
+            marbles = [];
+            bullet = null;
+            score = 0;
+            gameOver = false;
+            spawnedCount = 0;
+            spawnTimer = 0;
+            scoreEl.innerText = score;
+            restartBtn.style.display = "none";
+            pickNewTarget();
+            createNewBullet();
+            
+            // 初始先生成幾顆球
+            for(let i=0; i<6; i++) {
+                spawnMarble();
+            }
+        }
+
+        function pickNewTarget() {
+            // 隨機選一個作為目前需要玩家去配對連線消除的定義目標
+            currentTargetPair = vocabList[Math.floor(Math.random() * vocabList.length)];
+            wordHintEl.innerHTML = `🎯 請找出對應此定義的單字球：<strong style="font-size:22px; color:#ffcc00;">${currentTargetPair.def}</strong>`;
+        }
+
+        function createNewBullet() {
+            // 發射台準備的子彈隨機從單字庫挑選
+            const randomVocab = vocabList[Math.floor(Math.random() * vocabList.length)];
+            bullet = {
+                x: launcherPos.x,
+                y: launcherPos.y,
+                word: randomVocab.word,
+                vx: 0,
+                vy: 0,
+                isMoving: false
+            };
+            currentBulletTextEl.innerText = bullet.word;
+            currentBulletTextEl.style.color = getWordColor(bullet.word);
+        }
+
+        function spawnMarble() {
+            const randomVocab = vocabList[Math.floor(Math.random() * vocabList.length)];
+            marbles.unshift({
+                trackIndex: 0,
+                word: randomVocab.word,
+                color: getWordColor(randomVocab.word)
+            });
+            spawnedCount++;
+        }
+
+        // 滑鼠事件
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            mousePos.x = e.clientX - rect.left;
+            mousePos.y = e.clientY - rect.top;
+        });
+
+        canvas.addEventListener('click', () => {
+            if (gameOver || !bullet || bullet.isMoving) return;
+
+            // 計算發射向量
+            const dx = mousePos.x - launcherPos.x;
+            const dy = mousePos.y - launcherPos.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            if (dist > 0) {
+                const speed = 12;
+                bullet.vx = (dx / dist) * speed;
+                bullet.vy = (dy / dist) * speed;
+                bullet.isMoving = true;
+            }
+        });
+
+        function resetGame() {
+            init();
+        }
+
+        // 核心邏輯更新
+        function update() {
+            if (gameOver) return;
+
+            // 1. 移動軌道上的彩球 (帶有推進與碰撞防止)
+            let speedModifier = 0.4;
+            
+            // 檢測生成定時器
+            spawnTimer++;
+            if (spawnTimer > 70 && spawnedCount < maxSpawn) {
+                spawnTimer = 0;
+                // 檢查起點是否有空間
+                if (marbles.length === 0 || marbles[0].trackIndex * (trackPoints.length / 300) > ballRadius * 2) {
+                    spawnMarble();
+                }
+            }
+
+            // 由後往前更新彩球位置，處理擠壓前推
+            for (let i = marbles.length - 1; i >= 0; i--) {
+                if (i === marbles.length - 1) {
+                    marbles[i].trackIndex += speedModifier;
+                } else {
+                    // 如果快撞到前方的球，就要跟著前方的速度或停下推擠
+                    let nextBall = marbles[i+1];
+                    if (marbles[i].trackIndex + 8 >= nextBall.trackIndex) {
+                        marbles[i].trackIndex = nextBall.trackIndex - 8; // 緊貼著
+                    } else {
+                        marbles[i].trackIndex += speedModifier;
+                    }
+                }
+
+                // 檢查是否掉入黑洞終點
+                if (marbles[i].trackIndex >= trackPoints.length - 1) {
+                    gameOver = true;
+                    restartBtn.style.display = "inline-block";
+                }
+            }
+
+            // 2. 更新發射子彈位置與碰撞判定
+            if (bullet && bullet.isMoving) {
+                bullet.x += bullet.vx;
+                bullet.y += bullet.vy;
+
+                // 檢查是否飛出邊界
+                if (bullet.x < 0 || bullet.x > canvas.width || bullet.y < 0 || bullet.y > canvas.height) {
+                    createNewBullet();
+                } else {
+                    // 檢查與軌道上任何一顆球的碰撞 (Collision Check)
+                    for (let i = 0; i < marbles.length; i++) {
+                        let mPos = trackPoints[Math.floor(marbles[i].trackIndex)];
+                        if (!mPos) continue;
+
+                        let dx = bullet.x - mPos.x;
+                        let dy = bullet.y - mPos.y;
+                        let dist = Math.sqrt(dx * dx + dy * dy);
+
+                        if (dist < ballRadius * 1.5) {
+                            // 撞擊成功！檢查單字是否與當前題目定義相符
+                            if (bullet.word === currentTargetPair.word && marbles[i].word === currentTargetPair.word) {
+                                // 答對了！消除此球與周邊相同單字球 (Match-3 clusters)
+                                marbles.splice(i, 1);
+                                score += 100;
+                                scoreEl.innerText = score;
+                                pickNewTarget();
+                            } else {
+                                // 答錯或撞錯球，懲罰：扣分並在該位置插入這顆干擾球
+                                score = Math.max(0, score - 20);
+                                scoreEl.innerText = score;
+                                
+                                // 把子彈球插入到軌道序列中
+                                marbles.splice(i, 0, {
+                                    trackIndex: Math.max(0, marbles[i].trackIndex - 8),
+                                    word: bullet.word,
+                                    color: getWordColor(bullet.word)
+                                });
+                            }
+                            createNewBullet();
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        // 渲染畫面
+        function draw() {
+            // 清空畫布
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 1. 繪製蜿蜒的導軌線 track line
+            ctx.beginPath();
+            ctx.strokeStyle = '#333333';
+            ctx.lineWidth = 40;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            if(trackPoints.length > 0) {
+                ctx.moveTo(trackPoints[0].x, trackPoints[0].y);
+                for(let p of trackPoints) {
+                    ctx.lineTo(p.x, p.y);
+                }
+            }
+            ctx.stroke();
+
+            // 內軌道裝飾線
+            ctx.beginPath();
+            ctx.strokeStyle = '#555555';
+            ctx.lineWidth = 4;
+            if(trackPoints.length > 0) {
+                ctx.moveTo(trackPoints[0].x, trackPoints[0].y);
+                for(let p of trackPoints) {
+                    ctx.lineTo(p.x, p.y);
+                }
+            }
+            ctx.stroke();
+
+            // 2. 繪製終點黑洞 endpoint drain
+            ctx.beginPath();
+            ctx.arc(holePoint.x, holePoint.y, 30, 0, Math.PI * 2);
+            ctx.fillStyle = '#000000';
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#ff0055';
+            ctx.fill();
+            ctx.shadowBlur = 0; // 還原阻尼效應
+            ctx.strokeStyle = '#ff0055';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // 3. 繪製軌道上的單字彩球
+            for (let m of marbles) {
+                let idx = Math.floor(m.trackIndex);
+                if (idx >= trackPoints.length) idx = trackPoints.length - 1;
+                let pos = trackPoints[idx];
+                if (!pos) continue;
+
+                // 畫球體
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, ballRadius - 4, 0, Math.PI * 2);
+                ctx.fillStyle = m.color;
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // 寫上英文單字文字
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 12px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                // 加個黑色文字外框更清晰
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 3;
+                ctx.strokeText(m.word, pos.x, pos.y);
+                ctx.fillText(m.word, pos.x, pos.y);
+            }
+
+            // 4. 繪製中央靜態發射台 (Static marble launcher)
+            ctx.beginPath();
+            ctx.arc(launcherPos.x, launcherPos.y, 35, 0, Math.PI * 2);
+            ctx.fillStyle = '#222222';
+            ctx.strokeStyle = '#00ffcc';
+            ctx.lineWidth = 3;
+            ctx.fill();
+            ctx.stroke();
+
+            // 繪製發射指向虛線箭頭
+            const dx = mousePos.x - launcherPos.x;
+            const dy = mousePos.y - launcherPos.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > 0) {
+                ctx.beginPath();
+                ctx.setLineDash([5, 8]);
+                ctx.moveTo(launcherPos.x, launcherPos.y);
+                ctx.lineTo(launcherPos.x + (dx/dist)*80, launcherPos.y + (dy/dist)*80);
+                ctx.strokeStyle = 'rgba(0, 255, 204, 0.6)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.setLineDash([]); // 恢復實線
+            }
+
+            // 5. 繪製正在飛行的子彈球
+            if (bullet) {
+                ctx.beginPath();
+                ctx.arc(bullet.x, bullet.y, ballRadius - 4, 0, Math.PI * 2);
+                ctx.fillStyle = getWordColor(bullet.word);
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 12px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 3;
+                ctx.strokeText(bullet.word, bullet.x, bullet.y);
+                ctx.fillText(bullet.word, bullet.x, bullet.y);
+            }
+
+            // 6. 遊戲結束畫面遮罩
+            if (gameOver) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.fillStyle = '#ff0055';
+                ctx.font = 'bold 40px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('GAME OVER (彩球抵達終點)', canvas.width / 2, canvas.height / 2 - 20);
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '24px Arial';
+                ctx.fillText(`最終得分: ${score}`, canvas.width / 2, canvas.height / 2 + 30);
+            }
+        }
+
+        // 遊戲主要迴圈
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // 開機初始化
+        init();
+        gameLoop();
+    </script>
+</body>
+</html>
