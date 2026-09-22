@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vocab Tetris - Drop & Unlock</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    body {
+      background: #0d0e15;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 10px;
+      color: #00f3ff;
+      text-shadow: 0 0 10px #00f3ff, 0 0 20px #00f3ff;
+      letter-spacing: 2px;
+    }
+    #game-container {
+      display: flex;
+      gap: 20px;
+      background: #161925;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 25px rgba(0, 243, 255, 0.2), inset 0 0 15px rgba(255, 255, 255, 0.05);
+      border: 1px solid #00f3ff44;
+    }
+    .panel {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      width: 240px;
+    }
+    .definition-box {
+      background: #202436;
+      border: 2px solid #ff0055;
+      box-shadow: 0 0 10px #ff005588;
+      border-radius: 8px;
+      padding: 15px;
+      text-align: center;
+    }
+    .definition-box h3 {
+      font-size: 0.85rem;
+      color: #ff0055;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .definition-box p {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #ffffff;
+      min-height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .stats-box {
+      background: #202436;
+      border-radius: 8px;
+      padding: 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      border: 1px solid #333a56;
+    }
+    .stat-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 1.1rem;
+    }
+    .stat-value {
+      font-weight: bold;
+      color: #00f3ff;
+      font-size: 1.3rem;
+    }
+    .controls-hint {
+      background: #11131f;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 0.8rem;
+      color: #a0a5c0;
+      line-height: 1.4;
+    }
+    .controls-hint span {
+      color: #ffe600;
+      font-weight: bold;
+    }
+    canvas {
+      background: #090a10;
+      border: 3px solid #00f3ff;
+      box-shadow: 0 0 15px rgba(0, 243, 255, 0.3);
+      border-radius: 4px;
+    }
+    .btn {
+      background: linear-gradient(45deg, #00f3ff, #ff0055);
+      border: none;
+      color: white;
+      padding: 12px;
+      font-size: 1rem;
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(0, 243, 255, 0.4);
+      transition: transform 0.1s, filter 0.2s;
+    }
+    .btn:hover {
+      filter: brightness(1.2);
+      transform: scale(1.02);
+    }
+    #game-over-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(13, 14, 21, 0.9);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 15px;
+      z-index: 10;
+      border-radius: 12px;
+    }
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>VOCAB TETRIS</h1>
+
+  <div id="game-container" style="position: relative;">
+    
+    <!-- Game Over Screen -->
+    <div id="game-over-overlay" class="hidden">
+      <h2 id="game-over-title" style="color: #ff0055; font-size: 2rem; text-shadow: 0 0 10px #ff0055;">GAME OVER</h2>
+      <p id="final-score" style="font-size: 1.2rem;">Final Score: 0</p>
+      <button class="btn" onclick="resetGame()">Play Again</button>
+    </div>
+
+    <!-- Canvas (10x20 Grid: 300px x 600px) -->
+    <canvas id="tetris" width="300" height="600"></canvas>
+
+    <!-- Side Panel -->
+    <div class="panel">
+      <!-- Target Definition Display -->
+      <div class="definition-box">
+        <h3>Target Definition</h3>
+        <p id="definition-text">Press Start to Begin!</p>
+      </div>
+
+      <!-- Controls Info -->
+      <div class="controls-hint">
+        <p><strong>🔒 Locked Piece Controls:</strong></p>
+        <p>Press <span>[Y]</span> if word matches definition.</p>
+        <p>Press <span>[N]</span> if word does NOT match.</p>
+        <br>
+        <p><strong>🔓 Unlocked Piece Controls:</strong></p>
+        <p><span>[←/→]</span> Move Left / Right</p>
+        <p><span>[↑]</span> Rotate Block</p>
+        <p><span>[↓]</span> Soft Drop | <span>[Space]</span> Hard Drop</p>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-box">
+        <div class="stat-item">
+          <span>Time:</span>
+          <span id="timer" class="stat-value">60s</span>
+        </div>
+        <div class="stat-item">
+          <span>Score:</span>
+          <span id="score" class="stat-value">0</span>
+        </div>
+        <div class="stat-item">
+          <span>Lines:</span>
+          <span id="lines" class="stat-value">0</span>
+        </div>
+      </div>
+
+      <button id="start-btn" class="btn" onclick="startGame()">Start Game</button>
+    </div>
+
+  </div>
+
+  <script>
+    // 10 Vocabulary Words & Definitions
+    const vocabList = [
+      { word: "beloved", def: "Dearly loved; deeply cherished" },
+      { word: "highlight", def: "An outstanding or enjoyable part" },
+      { word: "performer", def: "A person who entertains an audience" },
+      { word: "compelling", def: "Evoking interest in a powerful way" },
+      { word: "luxury", def: "A state of great comfort or elegant living" },
+      { word: "elaborately", def: "In a detailed and carefully arranged manner" },
+      { word: "surroundings", def: "The things or conditions around a place" },
+      { word: "vibrant", def: "Full of energy, excitement, and life" },
+      { word: "tranquil", def: "Free from disturbance; calm and peaceful" },
+      { word: "majestic", def: "Having or showing impressive beauty" }
+    ];
+
+    const COLS = 10;
+    const ROWS = 20;
+    const BLOCK_SIZE = 30;
+
+    const canvas = document.getElementById("tetris");
+    const ctx = canvas.getContext("2d");
+
+    // Tetromino Shapes (I, L, J, O, T, S, Z)
+    const SHAPES = [
+      [[1, 1, 1, 1]], // I
+      [[1, 0, 0], [1, 1, 1]], // J
+      [[0, 0, 1], [1, 1, 1]], // L
+      [[1, 1], [1, 1]], // O
+      [[0, 1, 0], [1, 1, 1]], // T
+      [[0, 1, 1], [1, 0, 0]], // S
+      [[1, 1, 0], [0, 1, 1]]  // Z
+    ];
+
+    const COLORS = [
+      "#00f3ff", "#0055ff", "#ffaa00", 
+      "#ffe600", "#a000ff", "#00ff66", "#ff0055"
+    ];
+
+    let grid = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+    let gridColors = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+
+    let score = 0;
+    let linesCleared = 0;
+    let timeLeft = 60;
+    let timerInterval = null;
+    let gameLoopId = null;
+    let isGameOver = false;
+    let isPlaying = false;
+
+    let activePiece = null;
+    let currentTargetDef = "";
+
+    class Piece {
+      constructor() {
+        const typeId = Math.floor(Math.random() * SHAPES.length);
+        this.shape = SHAPES[typeId];
+        this.color = COLORS[typeId];
+        this.x = Math.floor((COLS - this.shape[0].length) / 2);
+        this.y = 0;
+
+        // Vocab Mechanism Properties
+        this.isLocked = true; // Spawns locked
+        
+        // Decide if block displays correct word or random incorrect word
+        const isMatch = Math.random() < 0.5;
+        this.targetDefObj = vocabList[Math.floor(Math.random() * vocabList.length)];
+        
+        if (isMatch) {
+          this.word = this.targetDefObj.word;
+          this.isCorrectMatch = true;
+        } else {
+          let otherWords = vocabList.filter(v => v.word !== this.targetDefObj.word);
+          this.word = otherWords[Math.floor(Math.random() * otherWords.length)].word;
+          this.isCorrectMatch = false;
+        }
+
+        currentTargetDef = this.targetDefObj.def;
+        document.getElementById("definition-text").innerText = currentTargetDef;
+      }
+    }
+
+    let dropCounter = 0;
+    let dropInterval = 1000; // Standard speed
+    let lastTime = 0;
+
+    function startGame() {
+      if (isPlaying) return;
+      resetGame();
+      isPlaying = true;
+      document.getElementById("start-btn").style.display = "none";
+      spawnPiece();
+
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        document.getElementById("timer").innerText = timeLeft + "s";
+        if (timeLeft <= 0) {
+          endGame("TIME'S UP!");
+        }
+      }, 1000);
+
+      lastTime = performance.now();
+      gameLoopId = requestAnimationFrame(update);
+    }
+
+    function resetGame() {
+      grid = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+      gridColors = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+      score = 0;
+      linesCleared = 0;
+      timeLeft = 60;
+      isGameOver = false;
+      isPlaying = false;
+      dropInterval = 1000;
+
+      document.getElementById("score").innerText = "0";
+      document.getElementById("lines").innerText = "0";
+      document.getElementById("timer").innerText = "60s";
+      document.getElementById("game-over-overlay").classList.add("hidden");
+      document.getElementById("start-btn").style.display = "block";
+
+      clearInterval(timerInterval);
+      cancelAnimationFrame(gameLoopId);
+      draw();
+    }
+
+    function spawnPiece() {
+      activePiece = new Piece();
+      dropInterval = 1000; // Reset normal fall speed
+
+      // Check for Game Over condition on spawn
+      if (checkCollision(activePiece.x, activePiece.y, activePiece.shape)) {
+        endGame("STACK TOO HIGH!");
+      }
+    }
+
+    function update(time = 0) {
+      if (isGameOver) return;
+
+      const deltaTime = time - lastTime;
+      lastTime = time;
+      dropCounter += deltaTime;
+
+      if (dropCounter > dropInterval) {
+        moveDown();
+        dropCounter = 0;
+      }
+
+      draw();
+      gameLoopId = requestAnimationFrame(update);
+    }
+
+    function moveDown() {
+      if (!checkCollision(activePiece.x, activePiece.y + 1, activePiece.shape)) {
+        activePiece.y++;
+      } else {
+        lockPiece();
+      }
+    }
+
+    function checkCollision(x, y, shape) {
+      for (let r = 0; r < shape.length; r++) {
+        for (let c = 0; c < shape[r].length; c++) {
+          if (shape[r][c]) {
+            let newX = x + c;
+            let newY = y + r;
+            if (newX < 0 || newX >= COLS || newY >= ROWS) return true;
+            if (newY >= 0 && grid[newY][newX]) return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    function lockPiece() {
+      for (let r = 0; r < activePiece.shape.length; r++) {
+        for (let c = 0; c < activePiece.shape[r].length; c++) {
+          if (activePiece.shape[r][c]) {
+            let gridY = activePiece.y + r;
+            let gridX = activePiece.x + c;
+            if (gridY >= 0) {
+              grid[gridY][gridX] = 1;
+              gridColors[gridY][gridX] = activePiece.isLocked ? "#555" : activePiece.color;
+            }
+          }
+        }
+      }
+
+      clearLines();
+      spawnPiece();
+    }
+
+    function clearLines() {
+      let lines = 0;
+      for (let r = ROWS - 1; r >= 0; r--) {
+        if (grid[r].every(cell => cell === 1)) {
+          grid.splice(r, 1);
+          gridColors.splice(r, 1);
+          grid.unshift(Array(COLS).fill(0));
+          gridColors.unshift(Array(COLS).fill(null));
+          lines++;
+          r++; // Check same row again after shift
+        }
+      }
+
+      if (lines > 0) {
+        linesCleared += lines;
+        // Standard Tetris Scoring System
+        const linePoints = [0, 100, 300, 500, 800];
+        score += linePoints[lines] || (lines * 200);
+
+        document.getElementById("score").innerText = score;
+        document.getElementById("lines").innerText = linesCleared;
+      }
+    }
+
+    function handleVocabAnswer(userPressedY) {
+      if (!activePiece || !activePiece.isLocked) return;
+
+      const isCorrect = (userPressedY && activePiece.isCorrectMatch) || (!userPressedY && !activePiece.isCorrectMatch);
+
+      if (isCorrect) {
+        // Unlock Block!
+        activePiece.isLocked = false;
+        score += 50; // Bonus score for correct guess
+        document.getElementById("score").innerText = score;
+      } else {
+        // Double Speed Drop & Lock
+        dropInterval = 120;
+      }
+    }
+
+    function rotatePiece() {
+      if (activePiece.isLocked) return; // Locked blocks cannot rotate
+
+      const rotated = activePiece.shape[0].map((_, i) =>
+        activePiece.shape.map(row => row[i]).reverse()
+      );
+
+      if (!checkCollision(activePiece.x, activePiece.y, rotated)) {
+        activePiece.shape = rotated;
+      }
+    }
+
+    // Input Handling
+    document.addEventListener("keydown", (e) => {
+      if (!isPlaying || isGameOver) return;
+
+      const key = e.key.toUpperCase();
+
+      // Vocab Matching Keys
+      if (key === "Y") handleVocabAnswer(true);
+      if (key === "N") handleVocabAnswer(false);
+
+      // Movement Keys (Only active when unlocked)
+      if (!activePiece.isLocked) {
+        if (e.key === "ArrowLeft") {
+          if (!checkCollision(activePiece.x - 1, activePiece.y, activePiece.shape)) {
+            activePiece.x--;
+          }
+        } else if (e.key === "ArrowRight") {
+          if (!checkCollision(activePiece.x + 1, activePiece.y, activePiece.shape)) {
+            activePiece.x++;
+          }
+        } else if (e.key === "ArrowUp") {
+          rotatePiece();
+        } else if (e.key === "ArrowDown") {
+          moveDown();
+        } else if (e.key === " ") { // Hard drop
+          while (!checkCollision(activePiece.x, activePiece.y + 1, activePiece.shape)) {
+            activePiece.y++;
+          }
+          lockPiece();
+        }
+      }
+    });
+
+    function draw() {
+      // Clear canvas
+      ctx.fillStyle = "#090a10";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw Grid Lines
+      ctx.strokeStyle = "#1a1d2d";
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          ctx.strokeRect(c * BLOCK_SIZE, r * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+        }
+      }
+
+      // Draw Placed Grid Blocks
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if (grid[r][c]) {
+            drawBlock(c, r, gridColors[r][c], false);
+          }
+        }
+      }
+
+      // Draw Active Block
+      if (activePiece) {
+        for (let r = 0; r < activePiece.shape.length; r++) {
+          for (let c = 0; c < activePiece.shape[r].length; c++) {
+            if (activePiece.shape[r][c]) {
+              drawBlock(
+                activePiece.x + c, 
+                activePiece.y + r, 
+                activePiece.color, 
+                activePiece.isLocked
+              );
+            }
+          }
+        }
+
+        // Draw Vocabulary Text on active block
+        ctx.fillStyle = activePiece.isLocked ? "#ffe600" : "#ffffff";
+        ctx.font = "bold 13px sans-serif";
+        ctx.textAlign = "center";
+        const centerX = (activePiece.x + activePiece.shape[0].length / 2) * BLOCK_SIZE;
+        const centerY = (activePiece.y + activePiece.shape.length / 2) * BLOCK_SIZE + 4;
+        ctx.fillText(activePiece.word, centerX, centerY);
+      }
+    }
+
+    function drawBlock(x, y, color, isTranslucent) {
+      ctx.fillStyle = color;
+      ctx.globalAlpha = isTranslucent ? 0.35 : 1.0;
+      ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE - 1, BLOCK_SIZE - 1);
+      
+      // Neon glow highlight
+      ctx.strokeStyle = isTranslucent ? "#ffffff" : "#ffffff88";
+      ctx.strokeRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE - 1, BLOCK_SIZE - 1);
+      ctx.globalAlpha = 1.0;
+    }
+
+    function endGame(reason) {
+      isGameOver = true;
+      isPlaying = false;
+      clearInterval(timerInterval);
+      cancelAnimationFrame(gameLoopId);
+
+      document.getElementById("game-over-title").innerText = reason;
+      document.getElementById("final-score").innerText = `Final Score: ${score} | Lines: ${linesCleared}`;
+      document.getElementById("game-over-overlay").classList.remove("hidden");
+    }
+
+    // Initial Render
+    draw();
+  </script>
+</body>
+</html>
