@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Defend the Castle: Spellcaster Typing Ramp</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a1a2e;
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        #game-container {
+            position: relative;
+            width: 1000px;
+            height: 600px;
+            background: linear-gradient(to bottom, #16213e, #0f3460);
+            border: 4px solid #e94560;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(233, 69, 96, 0.3);
+        }
+
+        /* Battlefield & Background */
+        #ground {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 120px;
+            background-color: #272744;
+            border-top: 4px solid #4f3b78;
+        }
+
+        /* Castle Elements */
+        #castle {
+            position: absolute;
+            right: 0;
+            bottom: 120px;
+            width: 140px;
+            height: 320px;
+            background-color: #4a4e69;
+            border-left: 6px solid #22223b;
+            box-shadow: -5px 0 15px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .crenellation {
+            position: absolute;
+            top: -20px;
+            left: 0;
+            width: 100%;
+            height: 20px;
+            background: repeating-linear-gradient(
+                90deg,
+                #4a4e69,
+                #4a4e69 20px,
+                transparent 20px,
+                transparent 40px
+            );
+        }
+
+        /* Top Vocabulary & Definition Display */
+        #vocab-box {
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 480px;
+            padding: 12px 20px;
+            background: rgba(15, 52, 96, 0.95);
+            border: 3px solid #00f5d4;
+            border-radius: 10px;
+            color: #f8f9fa;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(0, 245, 212, 0.3);
+            z-index: 10;
+        }
+
+        #target-word-display {
+            font-size: 28px;
+            font-weight: bold;
+            color: #00f5d4;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 4px;
+            text-shadow: 0 0 8px rgba(0, 245, 212, 0.6);
+        }
+
+        #definition-text {
+            font-size: 17px;
+            font-style: italic;
+            color: #e2e8f0;
+            line-height: 1.3;
+        }
+
+        /* HUD Headers */
+        #hud {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 10;
+        }
+
+        .hud-panel {
+            background: rgba(22, 33, 62, 0.85);
+            padding: 8px 14px;
+            border-radius: 8px;
+            border: 1px solid #4f3b78;
+        }
+
+        #health-bar-container {
+            width: 150px;
+            height: 16px;
+            background-color: #22223b;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 4px;
+            border: 1px solid #9a8c98;
+        }
+
+        #health-bar {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, #e94560, #ff6b6b);
+            transition: width 0.3s ease;
+        }
+
+        /* Bottom Typing Input Container */
+        #type-bar-container {
+            position: absolute;
+            bottom: 25px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
+            display: flex;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 10px 20px;
+            border-radius: 10px;
+            border: 2px solid #e94560;
+        }
+
+        #type-input {
+            width: 280px;
+            background: #111;
+            border: 2px solid #00f5d4;
+            color: #fff;
+            font-size: 20px;
+            font-weight: bold;
+            border-radius: 6px;
+            padding: 6px 12px;
+            outline: none;
+            text-align: center;
+        }
+
+        /* Play Area & Enemies */
+        #spawn-area {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 860px;
+            height: 100%;
+        }
+
+        .monster {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            background-color: #ff0055;
+            border: 3px solid #ff5400;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 0 15px rgba(255, 0, 85, 0.6);
+            z-index: 5;
+        }
+
+        .monster-icon {
+            font-size: 38px;
+            pointer-events: none;
+        }
+
+        /* Floating Combat Text FX */
+        .floating-text {
+            position: absolute;
+            font-weight: bold;
+            font-size: 24px;
+            pointer-events: none;
+            animation: floatUp 1.2s ease-out forwards;
+            z-index: 20;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        }
+
+        @keyframes floatUp {
+            0% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+            50% {
+                transform: translateY(-30px) scale(1.2);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(-60px) scale(0.8);
+            }
+        }
+
+        /* Game Over / Victory Overlay */
+        #game-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        #game-overlay h1 {
+            font-size: 48px;
+            color: #e94560;
+            margin-bottom: 10px;
+        }
+
+        #game-overlay p {
+            font-size: 18px;
+            margin-bottom: 25px;
+            color: #cccccc;
+        }
+
+        #start-btn {
+            padding: 12px 30px;
+            font-size: 18px;
+            background-color: #e94560;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+
+        #start-btn:hover {
+            background-color: #ff6b6b;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="hud">
+        <div class="hud-panel">
+            <div style="font-size: 12px;">Castle Health</div>
+            <div id="health-bar-container">
+                <div id="health-bar"></div>
+            </div>
+        </div>
+        <div class="hud-panel">
+            <div style="font-size: 12px;">Wave</div>
+            <div id="wave-display" style="font-size: 18px; font-weight: bold; color: #00f5d4;">1 / 3</div>
+        </div>
+    </div>
+
+    <!-- Upper Vocabulary Display -->
+    <div id="vocab-box">
+        <div id="target-word-display">READY</div>
+        <div id="definition-text">Click start to begin typing!</div>
+    </div>
+
+    <div id="spawn-area"></div>
+
+    <div id="castle">
+        <div class="crenellation"></div>
+    </div>
+    <div id="ground"></div>
+
+    <!-- Bottom Input Bar -->
+    <div id="type-bar-container">
+        <input type="text" id="type-input" placeholder="Type here..." autocomplete="off">
+    </div>
+
+    <div id="game-overlay">
+        <h1 id="overlay-title">Spellcaster Defense</h1>
+        <p id="overlay-desc">Read the vocabulary word and clear definition at the top of the screen and type it to destroy enemies!</p>
+        <button id="start-btn" onclick="startGame()">Begin Battle</button>
+    </div>
+</div>
+
+<script>
+    const vocabularyList = [
+        { word: "conduct", definition: "To organize, lead, or carry out a specific task or activity." },
+        { word: "commander", definition: "A person in authority who holds official control or leadership." },
+        { word: "research", definition: "The systematic investigation and study of materials to establish facts." },
+        { word: "immune", definition: "Protected, resistant, or safe from a particular disease or effect." },
+        { word: "colleague", definition: "A person with whom one works in a profession or business." },
+        { word: "stance", definition: "A mental attitude, position, or physical posture taken regarding something." },
+        { word: "defend", definition: "To protect from harm, attack, or danger." },
+        { word: "magical", definition: "Having powers derived from or relating to supernatural forces." },
+        { word: "spellcaster", definition: "A practitioner who uses power to cast incantations." },
+        { word: "barrier", definition: "A structure or obstacle that prevents movement or access." }
+    ];
+
+    let castleHealth = 100;
+    let currentWave = 1;
+    const maxWaves = 3;
+    let enemiesActive = [];
+    let gameInterval = null;
+    let spawnInterval = null;
+    let isGameRunning = false;
+    let currentVocabIndex = 0;
+
+    const spawnArea = document.getElementById('spawn-area');
+    const healthBar = document.getElementById('health-bar');
+    const waveDisplay = document.getElementById('wave-display');
+    const targetWordDisplay = document.getElementById('target-word-display');
+    const definitionText = document.getElementById('definition-text');
+    const typeInput = document.getElementById('type-input');
+    const overlay = document.getElementById('game-overlay');
+
+    function startGame() {
+        castleHealth = 100;
+        currentWave = 1;
+        enemiesActive = [];
+        spawnArea.innerHTML = '';
+        updateHUD();
+        overlay.style.display = 'none';
+        isGameRunning = true;
+
+        typeInput.value = '';
+        typeInput.focus();
+
+        setNewTargetWord();
+        startWave();
+
+        if (gameInterval) clearInterval(gameInterval);
+        gameInterval = setInterval(gameLoop, 50);
+    }
+
+    function setNewTargetWord() {
+        // Pick a word from the vocabulary list
+        currentVocabIndex = Math.floor(Math.random() * vocabularyList.length);
+        const currentObj = vocabularyList[currentVocabIndex];
+
+        // Display word and definition at the upper part of screen
+        targetWordDisplay.textContent = currentObj.word.toUpperCase();
+        definitionText.textContent = `"${currentObj.definition}"`;
+    }
+
+    function startWave() {
+        let spawnedCount = 0;
+        const totalToSpawn = currentWave * 4 + 2;
+
+        if (spawnInterval) clearInterval(spawnInterval);
+
+        // Slow spawn rate (5 seconds between spawns)
+        spawnInterval = setInterval(() => {
+            if (!isGameRunning) return;
+            if (spawnedCount < totalToSpawn) {
+                spawnEnemy();
+                spawnedCount++;
+            } else {
+                clearInterval(spawnInterval);
+            }
+        }, 5000 / currentWave);
+    }
+
+    function spawnEnemy() {
+        const enemyElem = document.createElement('div');
+        enemyElem.className = 'monster';
+
+        const yPos = Math.floor(Math.random() * 240) + 160;
+        enemyElem.style.left = '0px';
+        enemyElem.style.top = `${yPos}px`;
+
+        enemyElem.innerHTML = `<span class="monster-icon">👾</span>`;
+
+        // Slow enemy speed
+        const monsterData = {
+            element: enemyElem,
+            x: 0,
+            y: yPos,
+            speed: 0.25 + (currentWave * 0.1)
+        };
+
+        spawnArea.appendChild(enemyElem);
+        enemiesActive.push(monsterData);
+    }
+
+    typeInput.addEventListener('input', () => {
+        if (!isGameRunning) return;
+
+        const typed = typeInput.value.trim().toLowerCase();
+        const activeWord = vocabularyList[currentVocabIndex].word.toLowerCase();
+
+        if (typed === activeWord) {
+            typeInput.value = '';
+
+            // Destroy the front-most monster if present
+            if (enemiesActive.length > 0) {
+                const leadingMonster = enemiesActive.reduce((prev, curr) => (prev.x > curr.x) ? prev : curr);
+                createFloatingText("Correct!", leadingMonster.x, leadingMonster.y, "#00f5d4");
+                destroyEnemy(leadingMonster);
+            } else {
+                createFloatingText("Spell Cast!", 400, 300, "#ffbe0b");
+            }
+
+            // Immediately change the word and definition upon correct answer
+            setNewTargetWord();
+            checkWaveProgress();
+        }
+    });
+
+    function destroyEnemy(monster) {
+        monster.element.remove();
+        enemiesActive = enemiesActive.filter(m => m !== monster);
+    }
+
+    function createFloatingText(text, x, y, color) {
+        const ft = document.createElement('div');
+        ft.className = 'floating-text';
+        ft.textContent = text;
+        ft.style.left = `${x}px`;
+        ft.style.top = `${y - 20}px`;
+        ft.style.color = color;
+        spawnArea.appendChild(ft);
+
+        setTimeout(() => ft.remove(), 1200);
+    }
+
+    function gameLoop() {
+        if (!isGameRunning) return;
+
+        const castleX = 840;
+
+        for (let i = enemiesActive.length - 1; i >= 0; i--) {
+            const m = enemiesActive[i];
+            m.x += m.speed;
+            m.element.style.left = `${m.x}px`;
+
+            if (m.x >= castleX) {
+                damageCastle(15);
+                createFloatingText("Castle Hit!", m.x - 40, m.y, "#e94560");
+                destroyEnemy(m);
+                checkWaveProgress();
+            }
+        }
+    }
+
+    function damageCastle(amount) {
+        castleHealth = Math.max(0, castleHealth - amount);
+        updateHUD();
+
+        if (castleHealth <= 0) {
+            endGame(false);
+        }
+    }
+
+    function checkWaveProgress() {
+        if (enemiesActive.length === 0 && isGameRunning) {
+            if (currentWave < maxWaves) {
+                currentWave++;
+                updateHUD();
+                startWave();
+            } else {
+                endGame(true);
+            }
+        }
+    }
+
+    function updateHUD() {
+        healthBar.style.width = `${castleHealth}%`;
+        waveDisplay.textContent = `${currentWave} / ${maxWaves}`;
+    }
+
+    function endGame(victory) {
+        isGameRunning = false;
+        clearInterval(gameInterval);
+        clearInterval(spawnInterval);
+
+        document.getElementById('overlay-title').textContent = victory ? "Victory!" : "Defeated!";
+        document.getElementById('overlay-desc').textContent = victory 
+            ? "You successfully defended the castle walls with your vocabulary spells!" 
+            : "The monsters breached your defenses. Study up and try again!";
+
+        document.getElementById('start-btn').textContent = "Play Again";
+        overlay.style.display = 'flex';
+    }
+
+    // Keep input focused when clicking inside the game
+    document.getElementById('game-container').addEventListener('click', () => {
+        if (isGameRunning) typeInput.focus();
+    });
+</script>
+
+</body>
+</html>
