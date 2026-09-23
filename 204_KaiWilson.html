@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Flashcard Memory Matrix</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body {
+            background-color: #1a1a2e;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            margin-bottom: 5px;
+            color: #4e54c8;
+            text-shadow: 0 0 10px rgba(78, 84, 200, 0.5);
+            font-size: 2.2rem;
+        }
+        p.subtitle {
+            margin-top: 0;
+            color: #8d99ae;
+            font-size: 1rem;
+            margin-bottom: 20px;
+        }
+        .stats-bar {
+            display: flex;
+            gap: 25px;
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+            background: #16213e;
+            padding: 12px 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            border: 1px solid #0f3460;
+        }
+        .stats-bar span {
+            color: #e94560;
+            font-weight: bold;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            width: 100%;
+            max-width: 650px;
+            aspect-ratio: 1;
+        }
+        .card {
+            background: #0f3460;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px;
+            text-align: center;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.2s, background-color 0.3s, border-color 0.3s;
+            border: 2px solid #1f4068;
+            word-wrap: break-word;
+            hyphens: auto;
+        }
+        .card:hover {
+            border-color: #e94560;
+            transform: translateY(-2px);
+        }
+        .card.flipped {
+            background: #e94560;
+            color: #ffffff;
+            border-color: #ff6b81;
+        }
+        .card.matched {
+            background: #00b4d8;
+            color: #ffffff;
+            cursor: default;
+            border-color: #90e0ef;
+            opacity: 0.85;
+            transform: none;
+        }
+        
+        /* Modal Popup */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            z-index: 10;
+        }
+        .modal-content {
+            background: #16213e;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            border: 2px solid #e94560;
+            max-width: 420px;
+            width: 90%;
+            box-shadow: 0 0 20px rgba(233, 69, 96, 0.4);
+        }
+        .modal-content h2 {
+            margin-top: 0;
+            font-size: 2rem;
+        }
+        .modal-content p {
+            font-size: 1.1rem;
+            line-height: 1.5;
+            color: #edf2f4;
+        }
+        .rating {
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #ffd166;
+            margin-top: 10px;
+        }
+        .btn {
+            margin-top: 20px;
+            padding: 12px 25px;
+            background: #e94560;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        .btn:hover {
+            background: #ff6b81;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Memory Matrix</h1>
+    <p class="subtitle">Match the Vocabulary Words with their Correct Definitions!</p>
+
+    <div class="stats-bar">
+        <div>Timer: <span id="timer">90</span>s</div>
+        <div>Moves: <span id="moves">0</span></div>
+        <div>Matches: <span id="matches">0</span>/8</div>
+    </div>
+
+    <div class="grid" id="grid"></div>
+
+    <!-- Victory / Defeat Screen -->
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <h2 id="modal-title">Game Over</h2>
+            <p id="modal-stats"></p>
+            <p class="rating" id="modal-rating"></p>
+            <button class="btn" onclick="initGame()">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        // Your vocabulary words + matching definitions (8 pairs total for 16 cards)
+        const vocabData = [
+            { word: "imaginative", def: "Having or showing creativity or inventiveness" },
+            { word: "artistic", def: "Having or revealing natural creative skill" },
+            { word: "atmosphere", def: "The pervading tone or mood of a place or situation" },
+            { word: "gallery", def: "A room or building for the display or sale of works of art" },
+            { word: "architecture", def: "The art or practice of designing and constructing buildings" },
+            { word: "professional", def: "Relating to or belonging to a specified qualified occupation" },
+            { word: "exhibition", def: "A public display of works of art or items of interest" },
+            { word: "aesthetic", def: "Concerned with beauty or the appreciation of beauty" }
+        ];
+
+        let flippedCards = [];
+        let matchedCount = 0;
+        let moves = 0;
+        let timeLeft = 90;
+        let timerInterval = null;
+        let isProcessing = false;
+
+        function initGame() {
+            // Reset state
+            document.getElementById('modal').style.display = 'none';
+            matchedCount = 0;
+            moves = 0;
+            timeLeft = 90;
+            isProcessing = false;
+            flippedCards = [];
+
+            document.getElementById('matches').textContent = matchedCount;
+            document.getElementById('moves').textContent = moves;
+            document.getElementById('timer').textContent = timeLeft;
+
+            // Prepare 16 cards (8 words + 8 definitions)
+            let deck = [];
+            vocabData.forEach((item, index) => {
+                deck.push({ text: item.word, matchId: index, type: 'word' });
+                deck.push({ text: item.def, matchId: index, type: 'def' });
+            });
+
+            // Shuffle deck using Fisher-Yates algorithm
+            for (let i = deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [deck[i], deck[j]] = [deck[j], deck[i]];
+            }
+
+            // Generate HTML Grid Cards
+            const gridContainer = document.getElementById('grid');
+            gridContainer.innerHTML = '';
+
+            deck.forEach((cardData, idx) => {
+                const cardEl = document.createElement('div');
+                cardEl.classList.add('card');
+                cardEl.dataset.index = idx;
+                cardEl.dataset.matchId = cardData.matchId;
+
+                cardEl.addEventListener('click', () => handleCardClick(cardEl, cardData));
+                gridContainer.appendChild(cardEl);
+            });
+
+            // Start Countdown Timer
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                document.getElementById('timer').textContent = timeLeft;
+                if (timeLeft <= 0) {
+                    endGame(false);
+                }
+            }, 1000);
+        }
+
+        function handleCardClick(cardEl, cardData) {
+            // Prevent clicking flipped, matched, or during pair inspection delay
+            if (isProcessing || cardEl.classList.contains('flipped') || cardEl.classList.contains('matched')) {
+                return;
+            }
+
+            // Flip Card
+            cardEl.classList.add('flipped');
+            cardEl.textContent = cardData.text;
+            flippedCards.push({ element: cardEl, data: cardData });
+
+            // Check if two cards are flipped
+            if (flippedCards.length === 2) {
+                moves++;
+                document.getElementById('moves').textContent = moves;
+                checkMatch();
+            }
+        }
+
+        function checkMatch() {
+            isProcessing = true;
+            const [card1, card2] = flippedCards;
+
+            if (card1.data.matchId === card2.data.matchId) {
+                // Correct Match
+                card1.element.classList.remove('flipped');
+                card2.element.classList.remove('flipped');
+                card1.element.classList.add('matched');
+                card2.element.classList.add('matched');
+
+                matchedCount++;
+                document.getElementById('matches').textContent = matchedCount;
+                flippedCards = [];
+                isProcessing = false;
+
+                if (matchedCount === 8) {
+                    endGame(true);
+                }
+            } else {
+                // Incorrect Match - Wait 1 second before hiding cards back
+                setTimeout(() => {
+                    card1.element.classList.remove('flipped');
+                    card2.element.classList.remove('flipped');
+                    card1.element.textContent = '';
+                    card2.element.textContent = '';
+                    flippedCards = [];
+                    isProcessing = false;
+                }, 1000);
+            }
+        }
+
+        function endGame(isWin) {
+            clearInterval(timerInterval);
+            const modal = document.getElementById('modal');
+            const title = document.getElementById('modal-title');
+            const stats = document.getElementById('modal-stats');
+            const rating = document.getElementById('modal-rating');
+
+            if (isWin) {
+                title.textContent = "🏆 Victory!";
+                title.style.color = "#00b4d8";
+                stats.textContent = `You uncovered all matches in ${90 - timeLeft} seconds taking ${moves} moves!`;
+
+                // Calculate Efficiency Rating based on move efficiency
+                let stars = "★★★ (Master)";
+                if (moves > 14) stars = "★★☆ (Proficient)";
+                if (moves > 20) stars = "★☆☆ (Novice)";
+                rating.textContent = `Efficiency Rating: ${stars}`;
+            } else {
+                title.textContent = "⏰ Time's Up!";
+                title.style.color = "#e94560";
+                stats.textContent = `You found ${matchedCount} out of 8 matches.`;
+                rating.textContent = "Keep practicing to speed up your recognition!";
+            }
+
+            modal.style.display = 'flex';
+        }
+
+        // Initialize game on load
+        initGame();
+    </script>
+</body>
+</html>

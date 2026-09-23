@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Link Railway</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .switch-btn {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .train-animate {
+            transition: all 2.5s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-between font-sans">
+
+    <!-- Header -->
+    <header class="p-6 bg-slate-800 border-b border-slate-700 text-center shadow-lg">
+        <h1 class="text-3xl font-extrabold text-amber-400 tracking-wide">🚂 Word Link Railway</h1>
+        <p class="text-slate-400 text-sm mt-1">Grade 11 Vocabulary Train Track Builder</p>
+    </header>
+
+    <!-- Main Game Container -->
+    <main class="max-w-4xl w-full mx-auto p-4 flex-grow flex flex-col justify-center">
+        
+        <!-- Scoreboard & Progress -->
+        <div class="flex justify-between items-center bg-slate-800 p-4 rounded-xl border border-slate-700 mb-6 shadow font-semibold">
+            <div id="progress" class="text-amber-300">Payload: <span id="current-index">1</span> / <span id="total-words">7</span></div>
+            <div id="score" class="text-emerald-400">Score: <span id="score-val">0</span> pts</div>
+        </div>
+
+        <!-- Definition Payload Display -->
+        <div class="bg-gradient-to-r from-amber-600 to-amber-700 p-6 rounded-2xl shadow-xl mb-8 text-center text-slate-900 border-2 border-amber-400">
+            <span class="text-xs font-bold uppercase tracking-widest text-amber-200">Current Train Payload (Definition)</span>
+            <p id="definition-text" class="text-xl md:text-2xl font-bold mt-2 text-white leading-relaxed">Loading definition...</p>
+        </div>
+
+        <!-- Railway Track Interface -->
+        <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-2xl relative overflow-hidden">
+            
+            <!-- Train Track Visualization -->
+            <div class="flex flex-col md:flex-row items-center justify-between gap-6 my-4 relative">
+                
+                <!-- Start Station (Engine) -->
+                <div class="flex flex-col items-center z-10">
+                    <div id="train" class="text-5xl mb-2 transition-transform duration-500">🚂</div>
+                    <span class="text-xs font-mono bg-slate-700 px-3 py-1 rounded-full text-slate-300 border border-slate-600">Depot</span>
+                </div>
+
+                <!-- Switches / Track Controls -->
+                <div class="flex flex-col md:flex-row gap-4 items-center justify-center flex-grow z-10 w-full md:w-auto">
+                    <div class="text-center w-full md:w-auto">
+                        <span class="text-xs text-slate-400 block mb-1">Switch 1</span>
+                        <button id="switch-1" onclick="toggleSwitch(1)" class="switch-btn w-full md:w-28 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg shadow border-b-4 border-indigo-800 active:border-b-0">
+                            Path A
+                        </button>
+                    </div>
+                    
+                    <div class="text-slate-500 hidden md:block text-2xl">➔</div>
+
+                    <div class="text-center w-full md:w-auto">
+                        <span class="text-xs text-slate-400 block mb-1">Switch 2</span>
+                        <button id="switch-2" onclick="toggleSwitch(2)" class="switch-btn w-full md:w-28 py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-lg shadow border-b-4 border-purple-800 active:border-b-0">
+                            Track 1
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Target Stations (Vocabulary Words) -->
+                <div id="stations-container" class="grid grid-cols-1 gap-3 w-full md:w-64 z-10">
+                    <!-- Dynamic station choices will render here -->
+                </div>
+            </div>
+
+            <!-- Action Controls -->
+            <div class="mt-8 pt-4 border-t border-slate-700 flex justify-center">
+                <button id="dispatch-btn" onclick="dispatchTrain()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-lg px-8 py-3 rounded-xl shadow-lg border-b-4 border-emerald-700 active:border-b-0 transition-all flex items-center gap-2">
+                    <span>DISPATCH TRAIN</span> ➔
+                </button>
+            </div>
+        </div>
+
+        <!-- Feedback Message Box -->
+        <div id="feedback" class="mt-6 p-4 rounded-xl text-center font-bold text-lg hidden"></div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="p-4 text-center text-xs text-slate-500 border-t border-slate-800">
+        Word Link Railway • Grade 11 Vocabulary Game
+    </footer>
+
+    <!-- Game Logic JavaScript -->
+    <script>
+        // 1. Vocabulary Dataset (Grade 11 Words)
+        const vocabData = [
+            { word: "version", definition: "A particular form of something differing in certain respects from an earlier form." },
+            { word: "vast", definition: "Of very great extent or quantity; immense." },
+            { word: "undertake", definition: "Commit oneself to and begin (a enterprise or responsibility); take on." },
+            { word: "extraordinary", definition: "Very unusual or remarkable; far beyond what is ordinary." },
+            { word: "landscape", definition: "All the visible features of an area of countryside or land." },
+            { word: "dusty", definition: "Covered with, full of, or resembling fine, dry powder." },
+            { word: "diverse", definition: "Showing a great deal of variety; very different." }
+        ];
+
+        // 2. Game State Variables
+        let currentIndex = 0;
+        let score = 0;
+        let switch1State = 'A'; // 'A' or 'B'
+        let switch2State = '1'; // '1' or '2'
+        let currentOptions = [];
+        let isDispatching = false;
+
+        // 3. Game Initialization
+        function initGame() {
+            currentIndex = 0;
+            score = 0;
+            document.getElementById('total-words').textContent = vocabData.length;
+            loadRound();
+        }
+
+        // 4. Load Round Data
+        function loadRound() {
+            isDispatching = false;
+            document.getElementById('dispatch-btn').disabled = false;
+            document.getElementById('feedback').classList.add('hidden');
+            document.getElementById('current-index').textContent = currentIndex + 1;
+            document.getElementById('score-val').textContent = score;
+
+            // Set Definition Payload
+            const currentItem = vocabData[currentIndex];
+            document.getElementById('definition-text').textContent = `"${currentItem.definition}"`;
+
+            // Prepare Choice Options (1 Correct + 3 Distractors)
+            let distractors = vocabData
+                .filter(item => item.word !== currentItem.word)
+                .map(item => item.word);
+            
+            // Shuffle and select 3 distractors
+            distractors = distractors.sort(() => 0.5 - Math.random()).slice(0, 3);
+            
+            // Combine and shuffle final 4 options
+            currentOptions = [currentItem.word, ...distractors].sort(() => 0.5 - Math.random());
+
+            // Reset Switch States
+            switch1State = 'A';
+            switch2State = '1';
+            updateSwitchUI();
+            renderStations();
+        }
+
+        // 5. Render Stations
+        function renderStations() {
+            const container = document.getElementById('stations-container');
+            container.innerHTML = '';
+
+            const paths = ['A-1', 'A-2', 'B-1', 'B-2'];
+
+            paths.forEach((path, idx) => {
+                const word = currentOptions[idx];
+                const activePath = `${switch1State}-${switch2State}`;
+                const isActive = path === activePath;
+
+                const stationDiv = document.createElement('div');
+                stationDiv.className = `p-3 rounded-lg border text-sm font-bold flex justify-between items-center transition-all ${
+                    isActive 
+                        ? 'bg-amber-500/20 border-amber-400 text-amber-300 shadow-md scale-105' 
+                        : 'bg-slate-700/50 border-slate-600 text-slate-400 opacity-60'
+                }`;
+                stationDiv.innerHTML = `
+                    <span class="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">${path}</span>
+                    <span class="capitalize text-base">${word}</span>
+                `;
+                container.appendChild(stationDiv);
+            });
+        }
+
+        // 6. Switch Toggling Logic
+        function toggleSwitch(switchNum) {
+            if (isDispatching) return;
+
+            if (switchNum === 1) {
+                switch1State = switch1State === 'A' ? 'B' : 'A';
+            } else if (switchNum === 2) {
+                switch2State = switch2State === '1' ? '2' : '1';
+            }
+            updateSwitchUI();
+            renderStations();
+        }
+
+        function updateSwitchUI() {
+            const s1Btn = document.getElementById('switch-1');
+            const s2Btn = document.getElementById('switch-2');
+
+            s1Btn.textContent = `Path ${switch1State}`;
+            s2Btn.textContent = `Track ${switch2State}`;
+        }
+
+        // 7. Dispatch Train & Evaluation Logic
+        function dispatchTrain() {
+            if (isDispatching) return;
+            isDispatching = true;
+            document.getElementById('dispatch-btn').disabled = true;
+
+            // Map current switch positions to selected station index
+            const pathMap = { 'A-1': 0, 'A-2': 1, 'B-1': 2, 'B-2': 3 };
+            const selectedIndex = pathMap[`${switch1State}-${switch2State}`];
+            const selectedWord = currentOptions[selectedIndex];
+            const correctWord = vocabData[currentIndex].word;
+
+            const feedback = document.getElementById('feedback');
+            feedback.classList.remove('hidden');
+
+            if (selectedWord === correctWord) {
+                score += 100;
+                document.getElementById('score-val').textContent = score;
+                feedback.className = "mt-6 p-4 rounded-xl text-center font-bold text-lg bg-emerald-500/20 border border-emerald-500 text-emerald-300";
+                feedback.textContent = `🎯 Correct Station! The payload matches "${selectedWord.toUpperCase()}".`;
+            } else {
+                feedback.className = "mt-6 p-4 rounded-xl text-center font-bold text-lg bg-rose-500/20 border border-rose-500 text-rose-300";
+                feedback.textContent = `💥 Wrong Station! Train arrived at "${selectedWord}", but the correct station was "${correctWord.toUpperCase()}".`;
+            }
+
+            // Advance Game State
+            setTimeout(() => {
+                currentIndex++;
+                if (currentIndex < vocabData.length) {
+                    loadRound();
+                } else {
+                    showFinalScore();
+                }
+            }, 2500);
+        }
+
+        // 8. End Game Display
+        function showFinalScore() {
+            const main = document.querySelector('main');
+            main.innerHTML = `
+                <div class="bg-slate-800 p-8 rounded-2xl border border-slate-700 text-center shadow-2xl">
+                    <h2 class="text-3xl font-black text-amber-400 mb-2">🎉 Route Completed!</h2>
+                    <p class="text-slate-300 text-lg mb-6">You successfully navigated all vocabulary stations.</p>
+                    
+                    <div class="bg-slate-900 p-6 rounded-xl border border-slate-700 max-w-sm mx-auto mb-6">
+                        <span class="text-xs uppercase tracking-widest text-slate-400">Final Score</span>
+                        <div class="text-4xl font-extrabold text-emerald-400 mt-2">${score} / ${vocabData.length * 100} pts</div>
+                    </div>
+
+                    <button onclick="window.location.reload()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-8 py-3 rounded-xl transition">
+                        Play Again 🔄
+                    </button>
+                </div>
+            `;
+        }
+
+        // Start the game on load
+        window.onload = initGame;
+    </script>
+</body>
+</html>

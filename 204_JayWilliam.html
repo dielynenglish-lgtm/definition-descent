@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Def-Defender: Space Vocabulary Arcade</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background-color: #0b0c10;
+      color: #66fcf1;
+      font-family: 'Courier New', Courier, monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+    #game-container {
+      position: relative;
+      width: 700px;
+      height: 550px;
+      background: radial-gradient(circle at center, #1f2833 0%, #0b0c10 100%);
+      border: 4px solid #45a29e;
+      box-shadow: 0 0 20px #45a29e;
+      overflow: hidden;
+      border-radius: 10px;
+    }
+    canvas {
+      display: block;
+      background: transparent;
+    }
+    #ui-panel {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 90px;
+      background: rgba(11, 12, 16, 0.9);
+      border-top: 2px solid #45a29e;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 5px 15px;
+      text-align: center;
+    }
+    #target-definition {
+      font-size: 16px;
+      color: #fff;
+      font-weight: bold;
+      margin-top: 5px;
+    }
+    #stats {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      color: #c5c6c7;
+    }
+    .game-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(11, 12, 16, 0.85);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+    button {
+      margin-top: 15px;
+      padding: 10px 25px;
+      font-size: 18px;
+      font-weight: bold;
+      color: #0b0c10;
+      background-color: #66fcf1;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      box-shadow: 0 0 10px #66fcf1;
+    }
+    button:hover {
+      background-color: #45a29e;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="game-container">
+    <canvas id="gameCanvas" width="700" height="460"></canvas>
+    
+    <div id="ui-panel">
+      <div id="stats">
+        <div>SCORE: <span id="score">0</span></div>
+        <div>SHIELD ENERGY: <span id="shield">100</span>%</div>
+      </div>
+      <div id="target-definition">Target Definition Loading...</div>
+    </div>
+
+    <div id="start-screen" class="game-overlay">
+      <h1 style="color: #66fcf1; margin-bottom: 10px;">DEF-DEFENDER</h1>
+      <p style="color: #c5c6c7; text-align: center; max-width: 80%;">
+        Use ⬅️ ➡️ Arrow keys or A/D to move.<br>
+        Press <b>SPACEBAR</b> to shoot.<br><br>
+        Destroy the alien carrying the word that matches the target definition!
+      </p>
+      <button onclick="startGame()">DEFEND NOW</button>
+    </div>
+
+    <div id="game-over-screen" class="game-overlay" style="display: none;">
+      <h1 style="color: #ff4d4d; margin-bottom: 10px;">DEFENSES FAILED</h1>
+      <p id="final-score" style="color: #c5c6c7;"></p>
+      <button onclick="startGame()">TRY AGAIN</button>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const vocabData = [
+      { word: "reservation", def: "An arrangement to secure a seat, table, or room in advance." },
+      { word: "preference", def: "A greater liking for one alternative over another." },
+      { word: "secure", def: "To fix or fasten firmly so that it cannot be lost or moved." },
+      { word: "session", def: "A period devoted to a particular activity." },
+      { word: "massage", def: "Rubbing and kneading of muscles and joints to relieve tension." },
+      { word: "promptly", def: "With little or no delay; immediately." },
+      { word: "opening", def: "An available position, vacancy, or gap." }
+    ];
+
+    let player, bullets, aliens, currentTarget, score, shield, gameLoopId;
+    let keys = {};
+
+    window.addEventListener('keydown', e => keys[e.code] = true);
+    window.addEventListener('keyup', e => keys[e.code] = false);
+
+    function startGame() {
+      document.getElementById('start-screen').style.display = 'none';
+      document.getElementById('game-over-screen').style.display = 'none';
+      
+      score = 0;
+      shield = 100;
+      bullets = [];
+      aliens = [];
+      
+      player = {
+        x: canvas.width / 2 - 20,
+        y: canvas.height - 35,
+        width: 40,
+        height: 25,
+        speed: 6
+      };
+
+      updateStats();
+      setNewTarget();
+      spawnWave();
+
+      if (gameLoopId) cancelAnimationFrame(gameLoopId);
+      gameLoop();
+    }
+
+    function setNewTarget() {
+      currentTarget = vocabData[Math.floor(Math.random() * vocabData.length)];
+      document.getElementById('target-definition').innerText = `TARGET DEF: "${currentTarget.def}"`;
+    }
+
+    function spawnWave() {
+      aliens = [];
+      let shuffled = [...vocabData].sort(() => 0.5 - Math.random());
+      
+      // Ensure the target word is present in the wave
+      if (!shuffled.slice(0, 4).includes(currentTarget)) {
+        shuffled[0] = currentTarget;
+        shuffled.sort(() => 0.5 - Math.random());
+      }
+
+      let activeWords = shuffled.slice(0, 4);
+      let spacing = canvas.width / activeWords.length;
+
+      activeWords.forEach((item, index) => {
+        aliens.push({
+          x: index * spacing + spacing / 2 - 40,
+          y: -40 - Math.random() * 50,
+          width: 80,
+          height: 30,
+          speed: 0.6 + Math.random() * 0.4,
+          word: item.word
+        });
+      });
+    }
+
+    function updateStats() {
+      document.getElementById('score').innerText = score;
+      document.getElementById('shield').innerText = shield;
+    }
+
+    let canShoot = true;
+
+    function update() {
+      // Movement
+      if ((keys['ArrowLeft'] || keys['KeyA']) && player.x > 0) player.x -= player.speed;
+      if ((keys['ArrowRight'] || keys['KeyD']) && player.x + player.width < canvas.width) player.x += player.speed;
+      
+      // Shooting
+      if (keys['Space'] && canShoot) {
+        bullets.push({ x: player.x + player.width / 2 - 3, y: player.y, width: 6, height: 12, speed: 8 });
+        canShoot = false;
+        setTimeout(() => canShoot = true, 250);
+      }
+
+      // Update Bullets
+      for (let i = bullets.length - 1; i >= 0; i--) {
+        bullets[i].y -= bullets[i].speed;
+        if (bullets[i].y < 0) bullets.splice(i, 1);
+      }
+
+      // Update Aliens
+      for (let i = aliens.length - 1; i >= 0; i--) {
+        let a = aliens[i];
+        a.y += a.speed;
+
+        // Check reach bottom
+        if (a.y + a.height >= canvas.height) {
+          if (a.word === currentTarget.word) {
+            shield -= 25;
+            updateStats();
+            if (shield <= 0) gameOver();
+            setNewTarget();
+            spawnWave();
+            return;
+          } else {
+            aliens.splice(i, 1);
+          }
+        }
+
+        // Bullet collisions
+        for (let j = bullets.length - 1; j >= 0; j--) {
+          let b = bullets[j];
+          if (b.x < a.x + a.width && b.x + b.width > a.x && b.y < a.y + a.height && b.y + b.height > a.y) {
+            bullets.splice(j, 1);
+            if (a.word === currentTarget.word) {
+              score += 100;
+              updateStats();
+              setNewTarget();
+              spawnWave();
+              return;
+            } else {
+              shield -= 15;
+              updateStats();
+              aliens.splice(i, 1);
+              if (shield <= 0) gameOver();
+              break;
+            }
+          }
+        }
+      }
+
+      if (aliens.length === 0) {
+        spawnWave();
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw Player Ship
+      ctx.fillStyle = '#66fcf1';
+      ctx.beginPath();
+      ctx.moveTo(player.x + player.width / 2, player.y);
+      ctx.lineTo(player.x + player.width, player.y + player.height);
+      ctx.lineTo(player.x, player.y + player.height);
+      ctx.closePath();
+      ctx.fill();
+
+      // Draw Bullets
+      ctx.fillStyle = '#ff0055';
+      bullets.forEach(b => ctx.fillRect(b.x, b.y, b.width, b.height));
+
+      // Draw Aliens
+      aliens.forEach(a => {
+        ctx.fillStyle = '#1f2833';
+        ctx.strokeStyle = '#45a29e';
+        ctx.lineWidth = 2;
+        ctx.fillRect(a.x, a.y, a.width, a.height);
+        ctx.strokeRect(a.x, a.y, a.width, a.height);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '12px Courier New';
+        ctx.textAlign = 'center';
+        ctx.fillText(a.word, a.x + a.width / 2, a.y + 20);
+      });
+    }
+
+    function gameLoop() {
+      update();
+      draw();
+      if (shield > 0) {
+        gameLoopId = requestAnimationFrame(gameLoop);
+      }
+    }
+
+    function gameOver() {
+      document.getElementById('final-score').innerText = `Final Score: ${score}`;
+      document.getElementById('game-over-screen').style.display = 'flex';
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Tower Defense - 11th Grade Vocabulary</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #1a1a2e;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        h1 {
+            margin-bottom: 15px;
+            color: #00fff5;
+            text-shadow: 0 0 10px rgba(0, 255, 245, 0.5);
+        }
+
+        #game-container {
+            display: flex;
+            width: 1000px;
+            height: 500px;
+            background-color: #16213e;
+            border: 3px solid #0f3460;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+            position: relative;
+        }
+
+        #game-canvas {
+            background-color: #0f3460;
+            width: 700px;
+            height: 500px;
+        }
+
+        #sidebar {
+            width: 300px;
+            height: 500px;
+            background-color: #1a1a2e;
+            border-left: 2px solid #0f3460;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+        }
+
+        .hud-item {
+            margin-bottom: 15px;
+        }
+
+        .hud-title {
+            font-size: 14px;
+            color: #e94560;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        .hud-value {
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        #health-bar-container {
+            width: 100%;
+            height: 20px;
+            background-color: #333;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid #555;
+        }
+
+        #health-bar {
+            width: 100%;
+            height: 100%;
+            background-color: #4ecc2d;
+            transition: width 0.3s ease;
+        }
+
+        .turret-status {
+            background: #0f3460;
+            padding: 8px;
+            margin-top: 5px;
+            border-radius: 5px;
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* Puzzle Modal */
+        #puzzle-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(22, 33, 62, 0.95);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            box-sizing: border-box;
+            z-index: 10;
+        }
+
+        #puzzle-overlay.active {
+            display: flex;
+        }
+
+        .puzzle-title {
+            color: #00fff5;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .definition-box {
+            background-color: #0f3460;
+            border: 1px solid #00fff5;
+            padding: 12px;
+            border-radius: 5px;
+            font-size: 14px;
+            margin-bottom: 15px;
+            text-align: center;
+            line-height: 1.4;
+        }
+
+        .option-btn {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            background-color: #e94560;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+
+        .option-btn:hover {
+            background-color: #ff6b81;
+        }
+
+        #game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+        }
+
+        #game-over-screen h2 {
+            font-size: 40px;
+            color: #e94560;
+            margin-bottom: 20px;
+        }
+
+        #restart-btn {
+            padding: 12px 25px;
+            font-size: 18px;
+            background: #00fff5;
+            color: #1a1a2e;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Word Tower Defense</h1>
+
+    <div id="game-container">
+        <canvas id="game-canvas" width="700" height="500"></canvas>
+        
+        <div id="sidebar">
+            <div>
+                <div class="hud-item">
+                    <div class="hud-title">Base Health</div>
+                    <div id="health-bar-container">
+                        <div id="health-bar"></div>
+                    </div>
+                </div>
+
+                <div class="hud-item">
+                    <div class="hud-title">Active Wave</div>
+                    <div id="wave-display" class="hud-value">1</div>
+                </div>
+
+                <div class="hud-item">
+                    <div class="hud-title">Turret Status</div>
+                    <div class="turret-status"><span>Turret 1:</span> <span id="ammo-0">10/10</span></div>
+                    <div class="turret-status"><span>Turret 2:</span> <span id="ammo-1">10/10</span></div>
+                    <div class="turret-status"><span>Turret 3:</span> <span id="ammo-2">10/10</span></div>
+                </div>
+            </div>
+
+            <!-- Vocabulary Reload Panel -->
+            <div id="puzzle-overlay">
+                <div class="puzzle-title">AMMO EMPTY! RELOAD PUZZLE</div>
+                <div id="definition-text" class="definition-box">Definition loads here...</div>
+                <div id="options-container" style="width: 100%;">
+                    <!-- Dynamic Buttons -->
+                </div>
+            </div>
+        </div>
+
+        <div id="game-over-screen">
+            <h2 id="game-over-title">GAME OVER</h2>
+            <button id="restart-btn" onclick="resetGame()">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Vocabulary List
+        const vocabList = [
+            { word: 'disqualify', def: 'To declare someone ineligible or unfit for a position or activity.' },
+            { word: 'revise', def: 'To re-examine and make alterations, corrections, or improvements to a text or plan.' },
+            { word: 'aerospace', def: 'The branch of technology and industry concerned with aviation and spaceflight.' },
+            { word: 'surgeon', def: 'A medical practitioner qualified to practice surgery.' },
+            { word: 'candidate', def: 'A person who applies for or is nominated for a position or office.' },
+            { word: 'applicant', def: 'A person who makes a formal application for something, such as a job.' },
+            { word: 'launch', def: 'To set an object in motion, start a process, or introduce a new product.' }
+        ];
+
+        // Path Definition
+        const path = [
+            {x: 0, y: 250},
+            {x: 200, y: 250},
+            {x: 200, y: 100},
+            {x: 500, y: 100},
+            {x: 500, y: 400},
+            {x: 700, y: 400}
+        ];
+
+        // Game State Variables
+        let health = 100;
+        let wave = 1;
+        let enemies = [];
+        let bullets = [];
+        let spawnCounter = 0;
+        let enemiesInWave = 10;
+        let enemiesSpawned = 0;
+        let activePuzzle = false;
+        let currentPuzzleTarget = null;
+
+        // Turret Definitions
+        const turrets = [
+            { x: 100, y: 180, ammo: 10, maxAmmo: 10, range: 120, cooldown: 0, locked: false, lockTimer: 0 },
+            { x: 350, y: 200, ammo: 10, maxAmmo: 10, range: 120, cooldown: 0, locked: false, lockTimer: 0 },
+            { x: 580, y: 280, ammo: 10, maxAmmo: 10, range: 120, cooldown: 0, locked: false, lockTimer: 0 }
+        ];
+
+        // Game Loop
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function update() {
+            if (health <= 0) return;
+
+            // Update Turret Lock Timers
+            turrets.forEach((t, i) => {
+                if (t.locked) {
+                    t.lockTimer -= 1/60;
+                    if (t.lockTimer <= 0) {
+                        t.locked = false;
+                        t.ammo = t.maxAmmo;
+                        updateAmmoUI(i);
+                    }
+                }
+            });
+
+            // Check if any turret needs ammo & trigger puzzle if not active
+            if (!activePuzzle) {
+                let emptyTurretIndex = turrets.findIndex(t => t.ammo === 0 && !t.locked);
+                if (emptyTurretIndex !== -1) {
+                    triggerReloadPuzzle(emptyTurretIndex);
+                }
+            }
+
+            // Spawn Enemies
+            if (enemiesSpawned < enemiesInWave) {
+                spawnCounter++;
+                if (spawnCounter > 90) {
+                    enemies.push({
+                        x: path[0].x,
+                        y: path[0].y,
+                        pathIndex: 0,
+                        speed: 1 + wave * 0.2,
+                        hp: 20 + wave * 5,
+                        maxHp: 20 + wave * 5
+                    });
+                    enemiesSpawned++;
+                    spawnCounter = 0;
+                }
+            } else if (enemies.length === 0) {
+                // Next Wave
+                wave++;
+                document.getElementById('wave-display').innerText = wave;
+                enemiesSpawned = 0;
+                enemiesInWave += 5;
+            }
+
+            // Move Enemies
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                let e = enemies[i];
+                let target = path[e.pathIndex + 1];
+
+                if (target) {
+                    let dx = target.x - e.x;
+                    let dy = target.y - e.y;
+                    let dist = Math.hypot(dx, dy);
+
+                    if (dist < e.speed) {
+                        e.pathIndex++;
+                    } else {
+                        e.x += (dx / dist) * e.speed;
+                        e.y += (dy / dist) * e.speed;
+                    }
+                } else {
+                    // Reached Base
+                    health -= 10;
+                    updateHealthUI();
+                    enemies.splice(i, 1);
+                    if (health <= 0) endGame();
+                }
+            }
+
+            // Turret Shooting Logic
+            turrets.forEach((t, index) => {
+                if (t.ammo > 0 && !t.locked) {
+                    t.cooldown--;
+                    if (t.cooldown <= 0) {
+                        // Find Enemy
+                        let target = enemies.find(e => Math.hypot(e.x - t.x, e.y - t.y) < t.range);
+                        if (target) {
+                            bullets.push({ x: t.x, y: t.y, target: target, speed: 5, damage: 10 });
+                            t.ammo--;
+                            t.cooldown = 30; // fire rate
+                            updateAmmoUI(index);
+                        }
+                    }
+                }
+            });
+
+            // Move Bullets
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                let b = bullets[i];
+                let dx = b.target.x - b.x;
+                let dy = b.target.y - b.y;
+                let dist = Math.hypot(dx, dy);
+
+                if (dist < b.speed) {
+                    b.target.hp -= b.damage;
+                    bullets.splice(i, 1);
+                } else {
+                    b.x += (dx / dist) * b.speed;
+                    b.y += (dy / dist) * b.speed;
+                }
+            }
+
+            // Remove Dead Enemies
+            enemies = enemies.filter(e => e.hp > 0);
+        }
+
+        function draw() {
+            // Clear Canvas
+            ctx.fillStyle = '#0f3460';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Path
+            ctx.strokeStyle = '#1a1a2e';
+            ctx.lineWidth = 40;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            ctx.moveTo(path[0].x, path[0].y);
+            for (let i = 1; i < path.length; i++) ctx.lineTo(path[i].x, path[i].y);
+            ctx.stroke();
+
+            // Draw Base
+            ctx.fillStyle = '#e94560';
+            ctx.fillRect(670, 350, 30, 100);
+
+            // Draw Turrets
+            turrets.forEach(t => {
+                // Range indicator
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.arc(t.x, t.y, t.range, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Turret Body
+                ctx.fillStyle = t.locked ? '#555' : (t.ammo === 0 ? '#ff9f43' : '#00fff5');
+                ctx.beginPath();
+                ctx.arc(t.x, t.y, 15, 0, Math.PI * 2);
+                ctx.fill();
+
+                if (t.locked) {
+                    ctx.fillStyle = '#fff';
+                    ctx.font = '12px sans-serif';
+                    ctx.fillText(Math.ceil(t.lockTimer) + 's', t.x - 6, t.y + 4);
+                }
+            });
+
+            // Draw Enemies
+            enemies.forEach(e => {
+                ctx.fillStyle = '#ff4757';
+                ctx.beginPath();
+                ctx.arc(e.x, e.y, 10, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Health Bar
+                ctx.fillStyle = 'red';
+                ctx.fillRect(e.x - 10, e.y - 15, 20, 3);
+                ctx.fillStyle = 'green';
+                ctx.fillRect(e.x - 10, e.y - 15, (e.hp / e.maxHp) * 20, 3);
+            });
+
+            // Draw Bullets
+            ctx.fillStyle = '#f1c40f';
+            bullets.forEach(b => {
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, 4, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        function updateAmmoUI(index) {
+            let label = document.getElementById(`ammo-${index}`);
+            if (turrets[index].locked) {
+                label.innerText = "LOCKED";
+                label.style.color = "#e94560";
+            } else {
+                label.innerText = `${turrets[index].ammo}/${turrets[index].maxAmmo}`;
+                label.style.color = turrets[index].ammo === 0 ? "#ff9f43" : "#fff";
+            }
+        }
+
+        function updateHealthUI() {
+            let bar = document.getElementById('health-bar');
+            bar.style.width = Math.max(0, health) + '%';
+            if (health < 30) bar.style.backgroundColor = '#e94560';
+        }
+
+        // Vocabulary Reload Mechanic
+        function triggerReloadPuzzle(turretIndex) {
+            activePuzzle = true;
+            currentPuzzleTarget = turretIndex;
+
+            let overlay = document.getElementById('puzzle-overlay');
+            let defBox = document.getElementById('definition-text');
+            let optionsContainer = document.getElementById('options-container');
+
+            // Pick random target word
+            let correctItem = vocabList[Math.floor(Math.random() * vocabList.length)];
+            
+            // Pick 2 wrong choices
+            let options = [correctItem];
+            while (options.length < 3) {
+                let randomItem = vocabList[Math.floor(Math.random() * vocabList.length)];
+                if (!options.includes(randomItem)) options.push(randomItem);
+            }
+
+            // Shuffle Options
+            options.sort(() => Math.random() - 0.5);
+
+            // Populate Puzzle
+            defBox.innerText = `"${correctItem.def}"`;
+            optionsContainer.innerHTML = '';
+
+            options.forEach(opt => {
+                let btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.innerText = opt.word;
+                btn.onclick = () => handleAnswer(opt.word === correctItem.word);
+                optionsContainer.appendChild(btn);
+            });
+
+            overlay.classList.add('active');
+        }
+
+        function handleAnswer(isCorrect) {
+            let overlay = document.getElementById('puzzle-overlay');
+            overlay.classList.remove('active');
+            activePuzzle = false;
+
+            if (isCorrect) {
+                // Instantly reload ALL turrets
+                turrets.forEach((t, i) => {
+                    if (!t.locked) {
+                        t.ammo = t.maxAmmo;
+                        updateAmmoUI(i);
+                    }
+                });
+            } else {
+                // Lock current turret for 5 seconds
+                let t = turrets[currentPuzzleTarget];
+                t.locked = true;
+                t.lockTimer = 5;
+                updateAmmoUI(currentPuzzleTarget);
+            }
+        }
+
+        function endGame() {
+            document.getElementById('game-over-screen').style.display = 'flex';
+        }
+
+        function resetGame() {
+            health = 100;
+            wave = 1;
+            enemies = [];
+            bullets = [];
+            enemiesSpawned = 0;
+            activePuzzle = false;
+            turrets.forEach((t, i) => {
+                t.ammo = t.maxAmmo;
+                t.locked = false;
+                updateAmmoUI(i);
+            });
+            updateHealthUI();
+            document.getElementById('wave-display').innerText = wave;
+            document.getElementById('game-over-screen').style.display = 'none';
+        }
+
+        // Start Game
+        gameLoop();
+    </script>
+</body>
+</html>

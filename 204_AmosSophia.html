@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Money Ladder Vocabulary Show</title>
+  <style>
+    :root {
+      --bg-dark: #050b18;
+      --bg-card: #0a1931;
+      --gold: #ffd700;
+      --gold-dark: #b8860b;
+      --text-light: #f0f4f8;
+      --accent-blue: #183059;
+      --correct: #28a745;
+      --wrong: #dc3545;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background: radial-gradient(circle, #0f2b5c 0%, var(--bg-dark) 100%);
+      color: var(--text-light);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .game-container {
+      width: 100%;
+      max-width: 900px;
+      background: rgba(10, 25, 49, 0.95);
+      border: 3px solid var(--gold);
+      border-radius: 15px;
+      box-shadow: 0 0 30px rgba(255, 215, 0, 0.3);
+      padding: 25px;
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 768px) {
+      .game-container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    header {
+      grid-column: 1 / -1;
+      text-align: center;
+      border-bottom: 2px solid var(--gold);
+      padding-bottom: 10px;
+      margin-bottom: 10px;
+    }
+
+    h1 {
+      color: var(--gold);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+      font-size: 2rem;
+    }
+
+    .main-stage {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--accent-blue);
+      padding: 10px 15px;
+      border-radius: 8px;
+      border: 1px solid var(--gold);
+      margin-bottom: 15px;
+    }
+
+    .timer {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: var(--gold);
+    }
+
+    .question-box {
+      background: var(--accent-blue);
+      border: 2px solid var(--gold);
+      border-radius: 10px;
+      padding: 20px;
+      min-height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-size: 1.2rem;
+      margin-bottom: 20px;
+    }
+
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .opt-btn {
+      background: linear-gradient(180deg, #183059 0%, #0a1931 100%);
+      border: 2px solid var(--gold);
+      color: white;
+      padding: 15px;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: left;
+    }
+
+    .opt-btn:hover {
+      background: var(--gold);
+      color: var(--bg-dark);
+      font-weight: bold;
+    }
+
+    .ladder-container {
+      background: var(--accent-blue);
+      border: 2px solid var(--gold);
+      border-radius: 10px;
+      padding: 15px;
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 8px;
+    }
+
+    .ladder-step {
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 5px;
+      display: flex;
+      justify-content: space-between;
+      font-weight: bold;
+      color: #888;
+    }
+
+    .ladder-step.active {
+      background: var(--gold);
+      color: var(--bg-dark);
+      box-shadow: 0 0 10px var(--gold);
+    }
+
+    .ladder-step.passed {
+      color: var(--gold);
+    }
+
+    .overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+    }
+
+    .modal {
+      background: var(--bg-card);
+      border: 3px solid var(--gold);
+      padding: 30px;
+      border-radius: 15px;
+      text-align: center;
+      max-width: 400px;
+      width: 90%;
+    }
+
+    .modal h2 {
+      color: var(--gold);
+      margin-bottom: 15px;
+    }
+
+    .modal p {
+      margin-bottom: 20px;
+      font-size: 1.1rem;
+    }
+
+    .btn-action {
+      background: linear-gradient(180deg, #ffd700 0%, #b8860b 100%);
+      color: var(--bg-dark);
+      border: none;
+      padding: 12px 25px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      border-radius: 25px;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }
+
+    .btn-action:hover {
+      transform: scale(1.05);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="game-container">
+    <header>
+      <h1>Money Ladder</h1>
+    </header>
+
+    <div class="main-stage">
+      <div class="status-bar">
+        <span>Question <span id="q-num">1</span>/7</span>
+        <div class="timer">⏱️ <span id="time-left">60</span>s</div>
+      </div>
+
+      <div class="question-box" id="question-text">
+        Question text will appear here...
+      </div>
+
+      <div class="options-grid" id="options-container">
+        <!-- Options generated dynamically -->
+      </div>
+    </div>
+
+    <div class="ladder-container" id="ladder">
+      <!-- Money ladder generated dynamically -->
+    </div>
+  </div>
+
+  <!-- Game Over / Win Modal -->
+  <div class="overlay hidden" id="modal-overlay">
+    <div class="modal">
+      <h2 id="modal-title">GAME OVER</h2>
+      <p id="modal-msg">You lost!</p>
+      <button class="btn-action" onclick="resetGame()">Play Again</button>
+    </div>
+  </div>
+
+  <script>
+    const vocabularyData = [
+      {
+        word: "unidentified",
+        def: "Not recognized or known; lacking clear identification.",
+        options: ["Not recognized or known", "Clearly visible and obvious", "Extremely dangerous", "Scientifically proven"]
+      },
+      {
+        word: "phenomenon",
+        def: "A remarkable development, circumstance, or observed event.",
+        options: ["A remarkable development or event", "A mathematical formula", "An intentional mistake", "A type of deep-sea animal"]
+      },
+      {
+        word: "radar",
+        def: "A system for detecting the presence, direction, distance, and speed of objects using radio waves.",
+        options: ["A system detecting objects via radio waves", "An underwater sound transmitter", "A device measuring humidity", "A optical light microscope"]
+      },
+      {
+        word: "sensor",
+        def: "A device which detects or measures a physical property and records or responds to it.",
+        options: ["A device detecting physical properties", "A tool used for heavy lifting", "A decorative metallic shield", "A mechanical speed controller"]
+      },
+      {
+        word: "personnel",
+        def: "People employed in an organization, undertaking, or military service.",
+        options: ["People employed in an organization", "Personal belongings or assets", "Private legal documents", "Specialized training courses"]
+      },
+      {
+        word: "strengthen",
+        def: "Make or become stronger or more effective.",
+        options: ["Make or become stronger", "To weaken or dissolve", "To hide away carefully", "To divide into smaller parts"]
+      },
+      {
+        word: "mysterious",
+        def: "Difficult or impossible to understand, explain, or identify.",
+        options: ["Difficult to understand or explain", "Completely transparent and clear", "Well-documented and simple", "Noisy and full of energy"]
+      }
+    ];
+
+    const prizeValues = [
+      "$1,000",
+      "$5,000",
+      "$10,000",
+      "$25,000",
+      "$50,000",
+      "$100,000",
+      "$1,000,000"
+    ];
+
+    let currentQuestions = [];
+    let currentStep = 0;
+    let timerInterval = null;
+    let timeLeft = 60;
+
+    // Audio Context setup for SFX
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function playBeep(freq, duration) {
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
+      osc.stop(audioCtx.currentTime + duration);
+    }
+
+    function shuffleArray(array) {
+      const arr = [...array];
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function initLadder() {
+      const ladderEl = document.getElementById("ladder");
+      ladderEl.innerHTML = "";
+      prizeValues.forEach((val, idx) => {
+        const step = document.createElement("div");
+        step.className = "ladder-step";
+        step.id = `step-${idx}`;
+        step.innerHTML = `<span>${idx + 1}</span> <span>${val}</span>`;
+        ladderEl.appendChild(step);
+      });
+    }
+
+    function updateLadder() {
+      prizeValues.forEach((_, idx) => {
+        const step = document.getElementById(`step-${idx}`);
+        step.classList.remove("active", "passed");
+        if (idx === currentStep) {
+          step.classList.add("active");
+        } else if (idx < currentStep) {
+          step.classList.add("passed");
+        }
+      });
+    }
+
+    function startTimer() {
+      clearInterval(timerInterval);
+      timeLeft = 60;
+      document.getElementById("time-left").textContent = timeLeft;
+      
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        document.getElementById("time-left").textContent = timeLeft;
+        
+        if (timeLeft <= 5 && timeLeft > 0) {
+          playBeep(440, 0.1);
+        }
+
+        if (timeLeft <= 0) {
+          clearInterval(timerInterval);
+          gameOver(false, "Time ran out!");
+        }
+      }, 1000);
+    }
+
+    function loadQuestion() {
+      startTimer();
+      updateLadder();
+
+      const qData = currentQuestions[currentStep];
+      document.getElementById("q-num").textContent = currentStep + 1;
+      document.getElementById("question-text").innerHTML = `Select the correct definition for:<br><br><strong style="color:var(--gold); font-size:1.5rem;">${qData.word.toUpperCase()}</strong>`;
+
+      const optionsGrid = document.getElementById("options-container");
+      optionsGrid.innerHTML = "";
+
+      const shuffledOptions = shuffleArray(qData.options);
+
+      shuffledOptions.forEach(opt => {
+        const btn = document.createElement("button");
+        btn.className = "opt-btn";
+        btn.textContent = opt;
+        btn.onclick = () => checkAnswer(opt, qData.def);
+        optionsGrid.appendChild(btn);
+      });
+    }
+
+    function checkAnswer(selected, correct) {
+      clearInterval(timerInterval);
+      const isCorrect = selected === currentQuestions[currentStep].options[0]; // First item in array definition is correct choice
+
+      if (isCorrect) {
+        playBeep(880, 0.2);
+        currentStep++;
+        if (currentStep >= currentQuestions.length) {
+          gameOver(true, "Congratulations! You won $1,000,000!");
+        } else {
+          loadQuestion();
+        }
+      } else {
+        playBeep(220, 0.4);
+        gameOver(false, `Wrong answer! You lost at ${prizeValues[currentStep]}.`);
+      }
+    }
+
+    function gameOver(isWin, message) {
+      clearInterval(timerInterval);
+      const modal = document.getElementById("modal-overlay");
+      document.getElementById("modal-title").textContent = isWin ? "GRAND PRIZE WINNER!" : "GAME OVER";
+      document.getElementById("modal-msg").textContent = message;
+      modal.classList.remove("hidden");
+    }
+
+    function resetGame() {
+      document.getElementById("modal-overlay").classList.add("hidden");
+      currentQuestions = shuffleArray(vocabularyData);
+      currentStep = 0;
+      initLadder();
+      loadQuestion();
+    }
+
+    // Start Game on Load
+    window.onload = () => {
+      resetGame();
+    };
+  </script>
+</body>
+</html>

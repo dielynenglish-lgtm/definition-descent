@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word-Chain Miner</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #2c3e50;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            touch-action: none; /* 防止手機/平板點擊時畫面滑動 */
+        }
+        h1 {
+            margin: 10px 0;
+            font-size: 24px;
+            color: #f1c40f;
+        }
+        #game-container {
+            position: relative;
+        }
+        canvas {
+            background: linear-gradient(#8e44ad, #d35400, #2c3e50);
+            border: 4px solid #34495e;
+            border-radius: 8px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+            cursor: pointer; /* 提示玩家可以點擊 */
+        }
+        #ui-layer {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 18px;
+            font-weight: bold;
+            pointer-events: none;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        }
+        #target-def {
+            position: absolute;
+            top: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 2px solid #f1c40f;
+            text-align: center;
+            font-size: 18px;
+            max-width: 80%;
+            pointer-events: none;
+        }
+        #game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            display: none;
+            border: 2px solid #fff;
+        }
+        button {
+            margin-top: 15px;
+            padding: 10px 20px;
+            font-size: 18px;
+            background: #f1c40f;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover { background: #f39c12; }
+    </style>
+</head>
+<body>
+
+    <h1>Word-Chain Miner</h1>
+    
+    <div id="game-container">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="ui-layer">
+            <span id="score-display">Score: 0</span>
+            <span id="time-display">Time: 60s</span>
+        </div>
+        <div id="target-def">Loading...</div>
+        <div id="game-over">
+            <h2 id="final-message">Time's Up!</h2>
+            <p id="final-score">Final Score: 0</p>
+            <button onclick="location.reload()">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // 你的 6 個單字與定義
+        const vocabList = [
+            { word: "deserve", def: "To earn something because of your actions" },
+            { word: "generation", def: "All the people born and living at about the same time" },
+            { word: "ultimately", def: "Finally, in the end" },
+            { word: "combination", def: "A mixture of different things put together" },
+            { word: "variation", def: "A change or difference in condition or amount" },
+            { word: "pastarecipe", def: "Instructions for cooking a noodle dish" }
+        ];
+
+        let nuggets = [];
+        let score = 0;
+        let timeLeft = 60;
+        let gameActive = true;
+        let currentTarget = null;
+        let timerInterval;
+
+        // 爪子物理設定
+        const originX = 400;
+        const originY = 40;
+        let angle = 0;
+        let ropeLength = 40;
+        let clawState = 'swinging'; // 狀態：'swinging'(搖擺), 'dropping'(下放), 'reeling'(拉回)
+        let swingSpeed = 0.03;
+        let maxAngle = Math.PI / 2.5;
+        let dropSpeed = 8;
+        let reelSpeed = 6;
+        let isCorrectGrab = false;
+        let grabbedNugget = null;
+
+        function initGame() {
+            // 設定 6 個金塊的位置
+            const positions = [
+                {x: 150, y: 300}, {x: 400, y: 230}, {x: 650, y: 320},
+                {x: 250, y: 430}, {x: 550, y: 460}, {x: 400, y: 530}
+            ];
+            
+            nuggets = vocabList.map((item, index) => {
+                return {
+                    word: item.word,
+                    def: item.def,
+                    originalX: positions[index].x,
+                    originalY: positions[index].y,
+                    x: positions[index].x,
+                    y: positions[index].y,
+                    radius: 50, // 稍微加大讓單字放得下
+                    active: true
+                };
+            });
+            pickNewTarget();
+            
+            // 倒數計時器
+            timerInterval = setInterval(() => {
+                if(gameActive) {
+                    timeLeft--;
+                    document.getElementById('time-display').innerText = `Time: ${timeLeft}s`;
+                    if(timeLeft <= 0) endGame(false);
+                }
+            }, 1000);
+            
+            requestAnimationFrame(gameLoop);
+        }
+
+        function pickNewTarget() {
+            const activeNuggets = nuggets.filter(n => n.active);
+            if(activeNuggets.length === 0) {
+                endGame(true); // 遊戲通關！
+                return;
+            }
+            // 隨機選一個還沒被抓走的單字作為目標
+            currentTarget = activeNuggets[Math.floor(Math.random() * activeNuggets.length)];
+            document.getElementById('target-def').innerText = `Find the word for:\n"${currentTarget.def}"`;
+        }
+
+        // 觸發爪子的函數 (支援鍵盤與滑鼠)
+        function triggerClaw() {
+            if (clawState === 'swinging' && gameActive) {
+                clawState = 'dropping';
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowDown' || e.key === ' ') {
+                triggerClaw();
+            }
+        });
+        canvas.addEventListener('mousedown', triggerClaw);
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault(); 
+            triggerClaw();
+        });
+
+        function gameLoop() {
+            if(!gameActive) return;
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function update() {
+            const now = Date.now();
+            
+            if (clawState === 'swinging') {
+                // 鐘擺運動
+                angle = Math.sin(now * swingSpeed / 20) * maxAngle;
+            } 
+            else if (clawState === 'dropping') {
+                ropeLength += dropSpeed;
+                
+                // 計算爪子前端的位置
+                const tipX = originX + Math.sin(angle) * ropeLength;
+                const tipY = originY + Math.cos(angle) * ropeLength;
+
+                // 如果出界，自動拉回
+                if (tipX < 0 || tipX > canvas.width || tipY > canvas.height) {
+                    clawState = 'reeling';
+                    isCorrectGrab = false;
+                    grabbedNugget = null;
+                }
+
+                // 檢查是否碰到金塊
+                for (let nugget of nuggets) {
+                    if (nugget.active) {
+                        const dist = Math.hypot(tipX - nugget.x, tipY - nugget.y);
+                        if (dist < nugget.radius) {
+                            grabbedNugget = nugget;
+                            nugget.active = false; // 從地上拔起
+                            isCorrectGrab = (nugget.word === currentTarget.word);
+                            clawState = 'reeling';
+                            break;
+                        }
+                    }
+                }
+            } 
+            else if (clawState === 'reeling') {
+                // 根據是否抓對來決定拉回速度 (抓錯速度變慢 3 倍)
+                let currentReelSpeed = grabbedNugget ? (isCorrectGrab ? reelSpeed : reelSpeed / 3) : reelSpeed;
+                ropeLength -= currentReelSpeed;
+                
+                // 讓被抓到的金塊跟著爪子移動
+                if (grabbedNugget) {
+                    grabbedNugget.x = originX + Math.sin(angle) * ropeLength;
+                    grabbedNugget.y = originY + Math.cos(angle) * ropeLength;
+                }
+
+                // 完全拉回原點時
+                if (ropeLength <= 40) {
+                    ropeLength = 40;
+                    clawState = 'swinging';
+                    
+                    if (grabbedNugget) {
+                        if (isCorrectGrab) {
+                            // 根據金塊的「原始深度」給予分數加成
+                            let depthPoints = Math.floor(grabbedNugget.originalY / 10);
+                            score += (100 + depthPoints);
+                            pickNewTarget();
+                        } else {
+                            // 抓錯懲罰：扣分並把金塊放回原位
+                            score -= 50;
+                            grabbedNugget.active = true;
+                            grabbedNugget.x = grabbedNugget.originalX;
+                            grabbedNugget.y = grabbedNugget.originalY;
+                        }
+                        grabbedNugget = null;
+                        document.getElementById('score-display').innerText = `Score: ${score}`;
+                    }
+                }
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 畫出金塊
+            nuggets.forEach(nugget => {
+                if(nugget.active || nugget === grabbedNugget) {
+                    ctx.beginPath();
+                    ctx.arc(nugget.x, nugget.y, nugget.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = '#f1c40f'; // 金色
+                    ctx.fill();
+                    ctx.lineWidth = 3;
+                    ctx.strokeStyle = '#d35400';
+                    ctx.stroke();
+
+                    // 畫出單字
+                    ctx.fillStyle = '#2c3e50';
+                    ctx.font = 'bold 12px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(nugget.word, nugget.x, nugget.y);
+                }
+            });
+
+            // 畫出頂部的機械基座
+            ctx.beginPath();
+            ctx.arc(originX, originY, 20, 0, Math.PI * 2);
+            ctx.fillStyle = '#7f8c8d';
+            ctx.fill();
+            
+            // 畫出繩子
+            const tipX = originX + Math.sin(angle) * ropeLength;
+            const tipY = originY + Math.cos(angle) * ropeLength;
+            ctx.beginPath();
+            ctx.moveTo(originX, originY);
+            ctx.lineTo(tipX, tipY);
+            ctx.strokeStyle = '#ecf0f1';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // 畫出爪子
+            ctx.save();
+            ctx.translate(tipX, tipY);
+            ctx.rotate(-angle); 
+            ctx.beginPath();
+            ctx.moveTo(-15, 20);
+            ctx.lineTo(0, 0);
+            ctx.lineTo(15, 20);
+            ctx.strokeStyle = '#e74c3c';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+            ctx.restore();
+            
+            // 如果正在拉回，畫出頂部的齒輪旋轉動畫
+            if (clawState === 'reeling') {
+                ctx.save();
+                ctx.translate(originX, originY);
+                ctx.rotate(Date.now() / 100);
+                ctx.beginPath();
+                ctx.moveTo(-10, 0);
+                ctx.lineTo(10, 0);
+                ctx.strokeStyle = '#2c3e50';
+                ctx.lineWidth = 4;
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+
+        function endGame(won = false) {
+            gameActive = false;
+            clearInterval(timerInterval);
+            const gameOverScreen = document.getElementById('game-over');
+            const message = document.getElementById('final-message');
+            const finalScore = document.getElementById('final-score');
+            
+            gameOverScreen.style.display = 'block';
+            message.innerText = won ? "You Cleared the Mine! (過關！)" : "Time's Up! (時間到！)";
+            finalScore.innerText = `Final Score: ${score}`;
+        }
+
+        // 啟動遊戲
+        initGame();
+    </script>
+</body>
+</html>

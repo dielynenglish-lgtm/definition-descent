@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Breakout Word-Wall Builder - Grade 6 Vocabulary</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background: #0f172a;
+      color: #fff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+    h1 {
+      margin-bottom: 8px;
+      font-size: 24px;
+      color: #38bdf8;
+      text-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+    }
+    #scoreboard {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 12px;
+      font-size: 16px;
+      font-weight: bold;
+      background: #1e293b;
+      padding: 8px 24px;
+      border-radius: 20px;
+      border: 1px solid #334155;
+    }
+    #game-container {
+      position: relative;
+    }
+    canvas {
+      background: #020617;
+      border: 3px solid #38bdf8;
+      border-radius: 8px;
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.25);
+      display: block;
+      cursor: none;
+    }
+    /* Modal Popup for Definition Quiz */
+    #quiz-modal {
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(15, 23, 42, 0.92);
+      border-radius: 8px;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      box-sizing: border-box;
+      z-index: 10;
+    }
+    #quiz-modal h2 {
+      color: #facc15;
+      margin-bottom: 10px;
+      font-size: 22px;
+    }
+    #quiz-word {
+      font-size: 28px;
+      color: #38bdf8;
+      margin-bottom: 18px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      font-weight: bold;
+    }
+    .option-btn {
+      background: #1e293b;
+      color: #f8fafc;
+      border: 2px solid #475569;
+      padding: 12px 18px;
+      margin: 6px 0;
+      width: 85%;
+      border-radius: 8px;
+      font-size: 15px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: left;
+    }
+    .option-btn:hover {
+      background: #2563eb;
+      border-color: #60a5fa;
+      transform: translateY(-2px);
+    }
+    #overlay-screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(15, 23, 42, 0.95);
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 20;
+    }
+    #start-btn {
+      background: #22c55e;
+      color: white;
+      border: none;
+      padding: 12px 30px;
+      font-size: 20px;
+      font-weight: bold;
+      border-radius: 25px;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4);
+      transition: transform 0.2s;
+    }
+    #start-btn:hover {
+      transform: scale(1.05);
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🧱 Breakout Word-Wall Builder</h1>
+
+  <div id="scoreboard">
+    <div>分數 (Score): <span id="score-val">0</span></div>
+    <div>擊破數 (Bricks): <span id="bricks-val">0</span></div>
+    <div>生命 (Lives): <span id="lives-val">3</span></div>
+  </div>
+
+  <div id="game-container">
+    <canvas id="gameCanvas" width="800" height="500"></canvas>
+
+    <!-- Start / Game Over Overlay -->
+    <div id="overlay-screen">
+      <h2 id="overlay-title" style="font-size: 28px; color: #38bdf8; margin-bottom: 15px;">準備好挑戰單字打磚塊了嗎？</h2>
+      <p id="overlay-msg" style="margin-bottom: 25px; color: #cbd5e1; text-align:center; max-width: 80%; line-height: 1.6;">
+        使用滑鼠控制底部的擋板擊碎磚塊！<br>
+        每打碎一整排單字磚塊，回答正確英文定義就能解鎖【多球模式 (Multiball)】！
+      </p>
+      <button id="start-btn" onclick="startGame()">開始遊戲 (Start Game)</button>
+    </div>
+
+    <!-- 3-Choice Definition Quiz Modal -->
+    <div id="quiz-modal">
+      <h2>🎉 破解單字層 (Word Layer Shattered)!</h2>
+      <p style="margin-bottom: 10px; color: #94a3b8;">請選擇該單字的正確英文定義：</p>
+      <div id="quiz-word">WORD</div>
+      <button class="option-btn" onclick="checkAnswer(0)"></button>
+      <button class="option-btn" onclick="checkAnswer(1)"></button>
+      <button class="option-btn" onclick="checkAnswer(2)"></button>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    // Vocabulary Dataset (10 Grade 6 Words including your 7 core words)
+    const vocabData = [
+      { word: "BELOVED", definition: "Dearly loved; much loved by someone.", wrong: ["To avoid something quickly.", "Exiting only as an abstract idea."] },
+      { word: "HIGHLIGHT", definition: "An outstanding, enjoyable, or memorable part of something.", wrong: ["A person who performs in front of an audience.", "The natural surroundings of an area."] },
+      { word: "PERFORMER", definition: "A person who entertains an audience through acting, singing, or dancing.", wrong: ["A state of great comfort or elegance.", "A complex mathematical formula."] },
+      { word: "COMPELLING", definition: "Evoking interest, attention, or admiration in a powerfully irresistible way.", wrong: ["In a complex or detailed manner.", "Dearly loved by everyone."] },
+      { word: "LUXURY", definition: "A state of great comfort, extravagance, or expensive living.", wrong: ["The physical environment around a place.", "To highlight an important fact."] },
+      { word: "ELABORATELY", definition: "In a detailed and carefully arranged or decorated manner.", wrong: ["Moving fast to dodge an object.", "A person who performs on stage."] },
+      { word: "SURROUNDINGS", definition: "The things, conditions, or environment around a person or place.", wrong: ["An outstanding highlight of an event.", "A state of high luxury."] },
+      { word: "SPECTACLE", definition: "A visually striking performance or display.", wrong: ["Extremely quiet and hidden.", "A method used to shrink an object."] },
+      { word: "CAPTIVATE", definition: "To attract and hold the interest and attention of someone.", wrong: ["To move around in an orbit.", "To make something very simple."] },
+      { word: "SCENERY", definition: "The natural features of a landscape considered in terms of their appearance.", wrong: ["A mathematical equation.", "A action to avoid a collision."] }
+    ];
+
+    // Game Variables
+    let score = 0;
+    let bricksSmashed = 0;
+    let lives = 3;
+    let isPaused = false;
+    let gameRunning = false;
+    let currentQuizWordIndex = null;
+
+    // Paddle Config
+    let paddleHeight = 12;
+    let paddleWidth = 110;
+    let paddleX = (canvas.width - paddleWidth) / 2;
+
+    // Balls Config
+    let balls = [];
+
+    // Bricks Config
+    const brickRowCount = 8;
+    const brickColumnCount = 8;
+    let brickWidth = 90;
+    let brickHeight = 22;
+    let brickPadding = 6;
+    let brickOffsetTop = 40;
+    let brickOffsetLeft = 18;
+
+    let bricks = [];
+    const colors = ["#ef4444", "#f97316", "#f59e0b", "#10b981", "#06b6d4", "#3b82f6", "#8b5cf6", "#ec4899"];
+
+    function initBricks() {
+      bricks = [];
+      for (let r = 0; r < brickRowCount; r++) {
+        bricks[r] = [];
+        let wordObj = vocabData[r];
+        let word = wordObj.word;
+        for (let c = 0; c < brickColumnCount; c++) {
+          let char = word[c % word.length];
+          bricks[r][c] = { 
+            x: 0, 
+            y: 0, 
+            status: 1,
+            letter: char,
+            showLetterTime: 0
+          };
+        }
+      }
+    }
+
+    document.addEventListener("mousemove", (e) => {
+      const relativeX = e.clientX - canvas.getBoundingClientRect().left;
+      if (relativeX > 0 && relativeX < canvas.width) {
+        paddleX = relativeX - paddleWidth / 2;
+      }
+    });
+
+    function createBall() {
+      return {
+        x: canvas.width / 2,
+        y: canvas.height - 30,
+        dx: (Math.random() > 0.5 ? 1 : -1) * (3 + Math.random() * 2),
+        dy: -4,
+        radius: 7
+      };
+    }
+
+    function startGame() {
+      document.getElementById("overlay-screen").style.display = "none";
+      score = 0;
+      bricksSmashed = 0;
+      lives = 3;
+      paddleWidth = 110;
+      updateScoreboard();
+      
+      initBricks();
+      balls = [createBall()];
+      gameRunning = true;
+      isPaused = false;
+      requestAnimationFrame(draw);
+    }
+
+    function updateScoreboard() {
+      document.getElementById("score-val").innerText = score;
+      document.getElementById("bricks-val").innerText = bricksSmashed;
+      document.getElementById("lives-val").innerText = lives;
+    }
+
+    function collisionDetection() {
+      for (let r = 0; r < brickRowCount; r++) {
+        let rowShatteredBefore = isRowShattered(r);
+
+        for (let c = 0; c < brickColumnCount; c++) {
+          let b = bricks[r][c];
+          if (b.status === 1) {
+            for (let i = 0; i < balls.length; i++) {
+              let ball = balls[i];
+              if (
+                ball.x > b.x &&
+                ball.x < b.x + brickWidth &&
+                ball.y > b.y &&
+                ball.y < b.y + brickHeight
+              ) {
+                ball.dy = -ball.dy;
+                b.status = 0;
+                b.showLetterTime = Date.now() + 800;
+                score += 10;
+                bricksSmashed++;
+                updateScoreboard();
+
+                if (!rowShatteredBefore && isRowShattered(r)) {
+                  triggerQuiz(r);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    function isRowShattered(row) {
+      for (let c = 0; c < brickColumnCount; c++) {
+        if (bricks[row][c].status === 1) return false;
+      }
+      return true;
+    }
+
+    function triggerQuiz(rowIndex) {
+      isPaused = true;
+      currentQuizWordIndex = rowIndex;
+      const vocab = vocabData[rowIndex];
+
+      document.getElementById("quiz-word").innerText = vocab.word;
+      
+      let options = [
+        { text: vocab.definition, correct: true },
+        { text: vocab.wrong[0], correct: false },
+        { text: vocab.wrong[1], correct: false }
+      ];
+      options.sort(() => Math.random() - 0.5);
+
+      const buttons = document.querySelectorAll(".option-btn");
+      buttons.forEach((btn, idx) => {
+        btn.innerText = `${String.fromCharCode(65 + idx)}. ${options[idx].text}`;
+        btn.dataset.correct = options[idx].correct;
+      });
+
+      document.getElementById("quiz-modal").style.display = "flex";
+    }
+
+    function checkAnswer(optionIndex) {
+      const buttons = document.querySelectorAll(".option-btn");
+      const isCorrect = buttons[optionIndex].dataset.correct === "true";
+
+      document.getElementById("quiz-modal").style.display = "none";
+      isPaused = false;
+
+      if (isCorrect) {
+        score += 50;
+        alert("✨ 正確！你獲得了【多球模式】(Multiball Power-Up)！");
+        balls.push({
+          x: paddleX + paddleWidth / 2,
+          y: canvas.height - 30,
+          dx: (Math.random() - 0.5) * 6,
+          dy: -4,
+          radius: 7
+        });
+      } else {
+        alert("❌ 答錯了！懲罰：擋板變短！(Paddle Shrinks)");
+        paddleWidth = Math.max(50, paddleWidth - 20);
+      }
+      updateScoreboard();
+      requestAnimationFrame(draw);
+    }
+
+    function drawPaddle() {
+      ctx.beginPath();
+      ctx.rect(paddleX, canvas.height - paddleHeight - 10, paddleWidth, paddleHeight);
+      ctx.fillStyle = "#38bdf8";
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = "#38bdf8";
+      ctx.fill();
+      ctx.closePath();
+      ctx.shadowBlur = 0;
+    }
+
+    function drawBalls() {
+      balls.forEach((ball) => {
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+        ctx.fillStyle = "#facc15";
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = "#facc15";
+        ctx.fill();
+        ctx.closePath();
+        ctx.shadowBlur = 0;
+      });
+    }
+
+    function drawBricks() {
+      const now = Date.now();
+      for (let r = 0; r < brickRowCount; r++) {
+        for (let c = 0; c < brickColumnCount; c++) {
+          let brickX = c * (brickWidth + brickPadding) + brickOffsetLeft;
+          let brickY = r * (brickHeight + brickPadding) + brickOffsetTop;
+
+          let b = bricks[r][c];
+          b.x = brickX;
+          b.y = brickY;
+
+          if (b.status === 1) {
+            ctx.beginPath();
+            ctx.rect(brickX, brickY, brickWidth, brickHeight);
+            ctx.fillStyle = colors[r % colors.length];
+            ctx.fill();
+            ctx.strokeStyle = "#0f172a";
+            ctx.stroke();
+            ctx.closePath();
+          } else if (now < b.showLetterTime) {
+            ctx.font = "bold 14px sans-serif";
+            ctx.fillStyle = "#f8fafc";
+            ctx.textAlign = "center";
+            ctx.fillText(b.letter, brickX + brickWidth / 2, brickY + 16);
+          }
+        }
+      }
+    }
+
+    function draw() {
+      if (!gameRunning || isPaused) return;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      drawBricks();
+      drawPaddle();
+      drawBalls();
+      collisionDetection();
+
+      for (let i = balls.length - 1; i >= 0; i--) {
+        let ball = balls[i];
+
+        if (ball.x + ball.dx > canvas.width - ball.radius || ball.x + ball.dx < ball.radius) {
+          ball.dx = -ball.dx;
+        }
+        if (ball.y + ball.dy < ball.radius) {
+          ball.dy = -ball.dy;
+        } 
+        else if (ball.y + ball.dy > canvas.height - paddleHeight - 10 - ball.radius) {
+          if (ball.x > paddleX && ball.x < paddleX + paddleWidth) {
+            let hitPoint = (ball.x - (paddleX + paddleWidth / 2)) / (paddleWidth / 2);
+            ball.dx = hitPoint * 5;
+            ball.dy = -Math.abs(ball.dy);
+          } else if (ball.y + ball.dy > canvas.height - ball.radius) {
+            balls.splice(i, 1);
+            continue;
+          }
+        }
+
+        ball.x += ball.dx;
+        ball.y += ball.dy;
+      }
+
+      if (balls.length === 0) {
+        lives--;
+        updateScoreboard();
+        if (lives === 0) {
+          gameOver(false);
+          return;
+        } else {
+          balls.push(createBall());
+        }
+      }
+
+      if (bricksSmashed === brickRowCount * brickColumnCount) {
+        gameOver(true);
+        return;
+      }
+
+      requestAnimationFrame(draw);
+    }
+
+    function gameOver(isWin) {
+      gameRunning = false;
+      const overlay = document.getElementById("overlay-screen");
+      const title = document.getElementById("overlay-title");
+      const msg = document.getElementById("overlay-msg");
+
+      if (isWin) {
+        title.innerText = "🏆 恭喜破關！VICTORY!";
+        title.style.color = "#4ade80";
+        msg.innerText = `太厲害了！你完全摧毀了單字牆，最終得分：${score} 分！`;
+      } else {
+        title.innerText = "💥 遊戲結束 GAME OVER";
+        title.style.color = "#ef4444";
+        msg.innerText = `別灰心，再試一次吧！你的最終得分：${score} 分。`;
+      }
+
+      document.getElementById("start-btn").innerText = "再玩一次 (Play Again)";
+      overlay.style.display = "flex";
+    }
+  </script>
+</body>
+</html>

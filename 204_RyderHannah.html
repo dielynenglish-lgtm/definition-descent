@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bridge Builder - Vocabulary Platformer</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            user-select: none;
+            overflow-x: hidden;
+        }
+
+        .font-tech {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        /* Custom Scrollbar for word dock */
+        ::-webkit-scrollbar {
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(30, 41, 59, 0.5);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3b82f6;
+            border-radius: 9999px;
+        }
+
+        /* Glassmorphism effects */
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .glass-dock {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(16px);
+            border-top: 2px solid rgba(59, 130, 246, 0.3);
+        }
+
+        /* Plank Drag & Drop Styling */
+        .plank {
+            transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+            cursor: grab;
+            touch-action: none;
+        }
+        .plank:active {
+            cursor: grabbing;
+            transform: scale(1.05);
+        }
+        .plank.dragging {
+            opacity: 0.4;
+            transform: scale(0.95);
+        }
+        .plank.selected-tap {
+            ring: 4px solid #f59e0b;
+            transform: translateY(-6px);
+            box-shadow: 0 10px 25px -5px rgba(245, 158, 11, 0.4);
+        }
+
+        /* Drop Zone pulse */
+        .drop-target {
+            transition: all 0.3s ease;
+        }
+        .drop-target.drag-over {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.2);
+            transform: scale(1.02);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+        }
+
+        /* Keyframe Animations */
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 15px rgba(59, 130, 246, 0.4); }
+            50% { box-shadow: 0 0 30px rgba(59, 130, 246, 0.8); }
+        }
+        .glow-pulse {
+            animation: pulseGlow 2s infinite;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+        .shake-effect {
+            animation: shake 0.4s ease-in-out;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between overflow-hidden relative selection:bg-blue-500 selection:text-white">
+
+    <!-- Top Bar Navigation & Stats -->
+    <header class="w-full p-4 md:px-8 z-20 flex justify-between items-center glass-card border-b border-slate-700/50">
+        <div class="flex items-center gap-3">
+            <div class="bg-gradient-to-tr from-blue-600 to-indigo-500 p-2.5 rounded-xl text-white shadow-lg shadow-blue-500/30">
+                <i class="fa-solid fa-cubes-stacked text-xl"></i>
+            </div>
+            <div>
+                <h1 class="text-xl md:text-2xl font-black tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-300 to-amber-300">
+                    BRIDGE BUILDER
+                </h1>
+                <p class="text-xs text-slate-400 font-tech uppercase tracking-wider">Grade 11 Vocab Edition</p>
+            </div>
+        </div>
+
+        <!-- Dashboard Counters -->
+        <div class="flex items-center gap-4 md:gap-8 font-tech">
+            <!-- Progress Counter -->
+            <div class="bg-slate-800/80 px-4 py-2 rounded-xl border border-slate-700 flex items-center gap-3 shadow-inner">
+                <i class="fa-solid fa-bridge text-amber-400 text-lg"></i>
+                <div>
+                    <div class="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Bridge</div>
+                    <div class="text-sm md:text-base font-bold text-slate-100" id="bridgeProgressText">1 / 7</div>
+                </div>
+            </div>
+
+            <!-- Score Badge -->
+            <div class="bg-slate-800/80 px-4 py-2 rounded-xl border border-slate-700 flex items-center gap-3 shadow-inner">
+                <i class="fa-solid fa-star text-yellow-400 text-lg"></i>
+                <div>
+                    <div class="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Score</div>
+                    <div class="text-sm md:text-base font-bold text-amber-400" id="scoreText">0</div>
+                </div>
+            </div>
+
+            <!-- Timer -->
+            <div class="bg-slate-800/80 px-4 py-2 rounded-xl border border-slate-700 flex items-center gap-3 shadow-inner">
+                <i class="fa-solid fa-clock text-cyan-400 text-lg"></i>
+                <div>
+                    <div class="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Time</div>
+                    <div class="text-sm md:text-base font-bold text-cyan-300" id="timerText">00:00</div>
+                </div>
+            </div>
+
+            <!-- Mute Audio Button -->
+            <button id="audioToggleBtn" onclick="toggleAudio()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2.5 rounded-xl border border-slate-700 transition active:scale-95">
+                <i class="fa-solid fa-volume-high text-lg" id="audioIcon"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Game World Container -->
+    <main class="relative flex-1 w-full flex flex-col justify-center items-center overflow-hidden">
+        
+        <!-- Canvas Layer for Runner Platformer -->
+        <div id="gameViewport" class="relative w-full max-w-6xl h-[380px] md:h-[440px] my-2 rounded-2xl overflow-hidden shadow-2xl border border-slate-800/80 bg-slate-900/50">
+            <canvas id="gameCanvas" class="w-full h-full block"></canvas>
+
+            <!-- Floating Clue / Definition Display Overlay -->
+            <div id="definitionOverlay" class="absolute top-4 left-1/2 -translate-x-1/2 w-[90%] max-w-2xl glass-card rounded-2xl p-4 md:p-5 text-center shadow-2xl transition-all duration-300 z-10 border border-blue-500/30">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 text-xs font-semibold uppercase tracking-wider mb-2">
+                    <i class="fa-solid fa-lightbulb text-amber-400 animate-pulse"></i> Gap Challenge Definition
+                </div>
+                <p id="currentDefinition" class="text-base md:text-xl font-medium text-slate-100 leading-relaxed">
+                    Loading bridge clue...
+                </p>
+                <p id="tapInstructionHint" class="text-xs text-amber-400/80 mt-2 hidden">
+                    💡 <span class="underline">Tap-mode active:</span> Tap a plank below, then tap the gap drop zone to build!
+                </p>
+            </div>
+
+            <!-- Interactive Feedback Popup Banner -->
+            <div id="feedbackBanner" class="absolute bottom-6 left-1/2 -translate-x-1/2 px-6 py-3 rounded-xl font-bold text-sm md:text-base opacity-0 transition-all duration-300 translate-y-4 pointer-events-none z-20 flex items-center gap-3 shadow-xl">
+                <i id="feedbackIcon" class="fa-solid"></i>
+                <span id="feedbackText">Great Job!</span>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Inventory Dock for Bridge Planks -->
+    <footer class="w-full glass-dock p-4 md:p-6 z-20">
+        <div class="max-w-6xl mx-auto">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-xs md:text-sm font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                    <i class="fa-solid fa-layer-group text-blue-400"></i> Available Bridge Planks (Drag or Tap to place)
+                </h3>
+                <span class="text-xs text-slate-500 hidden sm:inline">Drag matching plank into the glowing gap above</span>
+            </div>
+
+            <!-- Scrollable List of Available Planks -->
+            <div id="planksContainer" class="flex flex-wrap sm:flex-nowrap gap-3 md:gap-4 overflow-x-auto pb-2 justify-center items-center min-h-[70px]">
+                <!-- Dynamic planks injected by JS -->
+            </div>
+        </div>
+    </footer>
+
+    <!-- Victory Finish Modal Screen -->
+    <div id="victoryModal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center z-50 opacity-0 pointer-events-none transition-all duration-500">
+        <div class="glass-card max-w-md w-[90%] p-8 rounded-3xl text-center border-2 border-emerald-500/30 shadow-2xl relative overflow-hidden">
+            <!-- Decorative Glow background -->
+            <div class="absolute -top-20 -left-20 w-40 h-40 bg-emerald-500/20 rounded-full blur-3xl"></div>
+            <div class="absolute -bottom-20 -right-20 w-40 h-40 bg-blue-500/20 rounded-full blur-3xl"></div>
+
+            <div class="w-20 h-20 bg-emerald-500/20 border-2 border-emerald-400 rounded-2xl flex items-center justify-center mx-auto mb-4 text-emerald-400 text-4xl shadow-lg shadow-emerald-500/20 animate-bounce">
+                <i class="fa-solid fa-trophy"></i>
+            </div>
+
+            <h2 class="text-3xl font-black text-white tracking-wide mb-1">ARCHITECT MASTER!</h2>
+            <p class="text-slate-400 text-sm mb-6">You successfully built all 7 vocabulary bridges and led the runner across safely!</p>
+
+            <!-- Final Stats Summary -->
+            <div class="grid grid-cols-2 gap-3 mb-6 text-left">
+                <div class="bg-slate-800/80 p-3.5 rounded-xl border border-slate-700">
+                    <span class="text-[11px] text-slate-400 uppercase tracking-wider block font-tech">Final Score</span>
+                    <span id="finalScore" class="text-xl font-bold text-amber-400">0</span>
+                </div>
+                <div class="bg-slate-800/80 p-3.5 rounded-xl border border-slate-700">
+                    <span class="text-[11px] text-slate-400 uppercase tracking-wider block font-tech">Total Time</span>
+                    <span id="finalTime" class="text-xl font-bold text-cyan-300">00:00</span>
+                </div>
+            </div>
+
+            <button onclick="resetGame()" class="w-full py-4 px-6 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-extrabold text-base tracking-wider uppercase transition shadow-lg shadow-emerald-500/30 active:scale-95 cursor-pointer">
+                <i class="fa-solid fa-rotate-right mr-2"></i> Play Again
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. VOCABULARY DATA (Grade 11 Words)
+        // ==========================================
+        const VOCAB_DATA = [
+            {
+                word: "presentation",
+                definition: "A formal display, demonstration, or performance showing information to an audience."
+            },
+            {
+                word: "boost",
+                definition: "To help or encourage something to increase, improve, or succeed."
+            },
+            {
+                word: "accomplish",
+                definition: "To achieve, complete, or fulfill a task successfully."
+            },
+            {
+                word: "purchase",
+                definition: "To acquire or obtain something by paying money for it."
+            },
+            {
+                word: "trigger",
+                definition: "To cause an event, reaction, or situation to happen or exist."
+            },
+            {
+                word: "psychology",
+                definition: "The scientific study of the human mind and its mental functions or behaviors."
+            },
+            {
+                word: "stability",
+                definition: "The state of being steady, secure, balanced, or resistant to sudden change."
+            }
+        ];
+
+        // ==========================================
+        // 2. AUDIO SYNTHESIS (Web Audio API)
+        // ==========================================
+        let audioCtx = null;
+        let isMuted = false;
+
+        function initAudio() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
+            }
+        }
+
+        function playSound(type) {
+            if (isMuted) return;
+            initAudio();
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            if (type === 'placed') {
+                // Happy builder pitch
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.exponentialRampToValueAtTime(600, now + 0.15);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                osc.start(now);
+                osc.stop(now + 0.15);
+            } else if (type === 'error') {
+                // Error low buzz
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(160, now);
+                osc.frequency.setValueAtTime(110, now + 0.1);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            } else if (type === 'run') {
+                // Soft footsteps
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(120, now);
+                gain.gain.setValueAtTime(0.08, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+                osc.start(now);
+                osc.stop(now + 0.05);
+            } else if (type === 'victory') {
+                // Arpeggio fanfare
+                const notes = [400, 500, 600, 800];
+                notes.forEach((freq, idx) => {
+                    const o = audioCtx.createOscillator();
+                    const g = audioCtx.createGain();
+                    o.type = 'sine';
+                    o.frequency.value = freq;
+                    o.connect(g);
+                    g.connect(audioCtx.destination);
+                    const startTime = now + (idx * 0.12);
+                    g.gain.setValueAtTime(0.2, startTime);
+                    g.gain.exponentialRampToValueAtTime(0.001, startTime + 0.3);
+                    o.start(startTime);
+                    o.stop(startTime + 0.3);
+                });
+            }
+        }
+
+        function toggleAudio() {
+            isMuted = !isMuted;
+            const icon = document.getElementById('audioIcon');
+            if (isMuted) {
+                icon.className = "fa-solid fa-volume-xmark text-slate-500";
+            } else {
+                icon.className = "fa-solid fa-volume-high text-slate-300";
+                playSound('placed');
+            }
+        }
+
+        // ==========================================
+        // 3. GAME STATE & VARIABLES
+        // ==========================================
+        let gameQueue = [];
+        let currentBridgeIdx = 0;
+        let score = 0;
+        let timerSeconds = 0;
+        let timerInterval = null;
+        let selectedPlankWord = null; // For tap-selection mode on mobile/touch
+
+        // Canvas & Physics
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let bridgeState = 'WAITING'; // 'WAITING', 'BUILDING', 'RUNNING', 'COMPLETED'
+        let runner = {
+            x: 0,
+            y: 0,
+            width: 32,
+            height: 48,
+            speed: 3.5,
+            frame: 0,
+            animTimer: 0
+        };
+
+        let currentGap = {
+            startX: 0,
+            endX: 0,
+            width: 180
+        };
+
+        let bridgePlankVisual = {
+            progress: 0, // 0 to 1 for placement animation
+            placed: false
+        };
+
+        // Particles
+        let particles = [];
+
+        // Initialize Canvas Resize
+        function resizeCanvas() {
+            const viewport = document.getElementById('gameViewport');
+            canvas.width = viewport.clientWidth;
+            canvas.height = viewport.clientHeight;
+            setupPositions();
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        function setupPositions() {
+            const h = canvas.height;
+            const groundY = h - 90;
+            
+            // Runner initial position
+            runner.y = groundY - runner.height;
+
+            // Gap placement in the middle region
+            currentGap.width = Math.min(canvas.width * 0.28, 200);
+            currentGap.startX = (canvas.width / 2) - (currentGap.width / 2);
+            currentGap.endX = currentGap.startX + currentGap.width;
+
+            if (bridgeState === 'WAITING') {
+                runner.x = currentGap.startX - 80;
+            }
+        }
+
+        // Initialize Game
+        function initGame() {
+            // Shuffle word queue
+            gameQueue = [...VOCAB_DATA].sort(() => Math.random() - 0.5);
+            currentBridgeIdx = 0;
+            score = 0;
+            timerSeconds = 0;
+            
+            document.getElementById('scoreText').textContent = score;
+            document.getElementById('victoryModal').classList.add('opacity-0', 'pointer-events-none');
+
+            // Start Timer
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timerSeconds++;
+                const mins = String(Math.floor(timerSeconds / 60)).padStart(2, '0');
+                const secs = String(timerSeconds % 60).padStart(2, '0');
+                document.getElementById('timerText').textContent = `${mins}:${secs}`;
+            }, 1000);
+
+            resizeCanvas();
+            loadBridgeQuestion();
+            renderPlanksDock();
+
+            // Start Animation Loop
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Load Question for Current Bridge
+        function loadBridgeQuestion() {
+            bridgeState = 'WAITING';
+            bridgePlankVisual.placed = false;
+            bridgePlankVisual.progress = 0;
+
+            const currentObj = gameQueue[currentBridgeIdx];
+            document.getElementById('currentDefinition').textContent = `"${currentObj.definition}"`;
+            document.getElementById('bridgeProgressText').textContent = `${currentBridgeIdx + 1} / ${gameQueue.length}`;
+
+            // Reset runner position to left platform segment
+            runner.x = currentGap.startX - 80;
+            selectedPlankWord = null;
+        }
+
+        // Render Planks in the Bottom Dock
+        function renderPlanksDock() {
+            const container = document.getElementById('planksContainer');
+            container.innerHTML = '';
+
+            // Shuffle available remaining words + distractors
+            const availableWords = gameQueue.map(item => item.word).sort(() => Math.random() - 0.5);
+
+            availableWords.forEach(word => {
+                const btn = document.createElement('div');
+                btn.className = 'plank bg-gradient-to-r from-amber-700 via-amber-600 to-amber-800 text-amber-100 font-bold px-5 py-3 rounded-xl border-2 border-amber-500/60 shadow-lg flex items-center justify-center gap-2 cursor-pointer select-none';
+                btn.setAttribute('draggable', 'true');
+                btn.dataset.word = word;
+                btn.innerHTML = `<i class="fa-solid fa-grip-vertical text-amber-400/60 text-xs"></i> <span>${word}</span>`;
+
+                // Drag Events
+                btn.addEventListener('dragstart', handleDragStart);
+                btn.addEventListener('dragend', handleDragEnd);
+
+                // Tap/Click for mobile support
+                btn.addEventListener('click', () => handlePlankTap(btn, word));
+
+                container.appendChild(btn);
+            });
+        }
+
+        // Drag & Drop Handlers
+        let draggedWord = null;
+
+        function handleDragStart(e) {
+            initAudio();
+            draggedWord = e.currentTarget.dataset.word;
+            e.currentTarget.classList.add('dragging');
+            e.dataTransfer.setData('text/plain', draggedWord);
+        }
+
+        function handleDragEnd(e) {
+            e.currentTarget.classList.remove('dragging');
+        }
+
+        // Handle Tap/Selection for non-drag mobile control
+        function handlePlankTap(element, word) {
+            initAudio();
+            document.querySelectorAll('.plank').forEach(p => p.classList.remove('selected-tap'));
+            
+            if (selectedPlankWord === word) {
+                selectedPlankWord = null;
+                document.getElementById('tapInstructionHint').classList.add('hidden');
+            } else {
+                selectedPlankWord = word;
+                element.classList.add('selected-tap');
+                document.getElementById('tapInstructionHint').classList.remove('hidden');
+            }
+        }
+
+        // Drop zone canvas logic (handles dropped word)
+        function checkWordSubmission(submittedWord) {
+            const currentObj = gameQueue[currentBridgeIdx];
+
+            if (submittedWord === currentObj.word) {
+                // Correct Answer!
+                playSound('placed');
+                score += 150;
+                document.getElementById('scoreText').textContent = score;
+
+                // Animate bridge building
+                bridgeState = 'BUILDING';
+                showFeedback(true, "Correct Bridge Built! +150 PTS");
+                createParticles(currentGap.startX + currentGap.width / 2, canvas.height - 90, '#10b981');
+
+                // Remove used plank element
+                const plankElements = document.querySelectorAll('.plank');
+                plankElements.forEach(p => {
+                    if (p.dataset.word === submittedWord) {
+                        p.style.opacity = '0.3';
+                        p.style.pointerEvents = 'none';
+                    }
+                    p.classList.remove('selected-tap');
+                });
+                selectedPlankWord = null;
+
+            } else {
+                // Incorrect Answer
+                playSound('error');
+                showFeedback(false, "Incorrect plank! Read the definition carefully.");
+                
+                // Shake canvas viewport
+                const viewport = document.getElementById('gameViewport');
+                viewport.classList.add('shake-effect');
+                setTimeout(() => viewport.classList.remove('shake-effect'), 400);
+            }
+        }
+
+        function showFeedback(isSuccess, text) {
+            const banner = document.getElementById('feedbackBanner');
+            const icon = document.getElementById('feedbackIcon');
+            const label = document.getElementById('feedbackText');
+
+            label.textContent = text;
+            if (isSuccess) {
+                banner.className = "absolute bottom-6 left-1/2 -translate-x-1/2 px-6 py-3 rounded-xl font-bold text-sm md:text-base transition-all duration-300 z-20 flex items-center gap-3 shadow-xl bg-emerald-500/90 text-slate-950 border border-emerald-300 opacity-100 translate-y-0";
+                icon.className = "fa-solid fa-circle-check text-lg";
+            } else {
+                banner.className = "absolute bottom-6 left-1/2 -translate-x-1/2 px-6 py-3 rounded-xl font-bold text-sm md:text-base transition-all duration-300 z-20 flex items-center gap-3 shadow-xl bg-rose-500/90 text-white border border-rose-300 opacity-100 translate-y-0";
+                icon.className = "fa-solid fa-circle-xmark text-lg";
+            }
+
+            setTimeout(() => {
+                banner.classList.add('opacity-0', 'translate-y-4');
+                banner.classList.remove('opacity-100', 'translate-y-0');
+            }, 2500);
+        }
+
+        // Particles Effect
+        function createParticles(x, y, color) {
+            for (let i = 0; i < 30; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: (Math.random() - 0.8) * 8,
+                    size: Math.random() * 6 + 2,
+                    color: color,
+                    alpha: 1,
+                    life: 0.03
+                });
+            }
+        }
+
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= p.life;
+                if (p.alpha <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        function drawParticles() {
+            particles.forEach(p => {
+                ctx.save();
+                ctx.globalAlpha = p.alpha;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+        }
+
+        // Canvas Game Loop
+        function gameLoop() {
+            // Clear Frame
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const groundY = canvas.height - 90;
+
+            // 1. Draw Background Details (Grid & Stars)
+            drawBackground();
+
+            // 2. Draw Cliff Platforms & Gap
+            drawPlatforms(groundY);
+
+            // 3. Draw Gap Drop Target indicator
+            drawGapTarget(groundY);
+
+            // 4. Draw Bridge Plank if being built or completed
+            if (bridgeState === 'BUILDING') {
+                bridgePlankVisual.progress += 0.05;
+                if (bridgePlankVisual.progress >= 1) {
+                    bridgePlankVisual.progress = 1;
+                    bridgeState = 'RUNNING';
+                }
+                drawBridgePlank(groundY, bridgePlankVisual.progress);
+            } else if (bridgeState === 'RUNNING' || bridgeState === 'COMPLETED') {
+                drawBridgePlank(groundY, 1);
+            }
+
+            // 5. Update & Draw Runner Character
+            updateRunnerPosition(groundY);
+            drawRunner(groundY);
+
+            // 6. Particle FX
+            updateParticles();
+            drawParticles();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function drawBackground() {
+            // Atmospheric grid lines
+            ctx.strokeStyle = 'rgba(51, 65, 85, 0.3)';
+            ctx.lineWidth = 1;
+            const gridSize = 40;
+            for (let x = 0; x < canvas.width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+        }
+
+        function drawPlatforms(groundY) {
+            // Left Platform
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(0, groundY, currentGap.startX, canvas.height - groundY);
+
+            // Top highlight border
+            ctx.fillStyle = '#3b82f6';
+            ctx.fillRect(0, groundY, currentGap.startX, 6);
+
+            // Right Platform
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(currentGap.endX, groundY, canvas.width - currentGap.endX, canvas.height - groundY);
+
+            // Top highlight border
+            ctx.fillStyle = '#3b82f6';
+            ctx.fillRect(currentGap.endX, groundY, canvas.width - currentGap.endX, 6);
+        }
+
+        function drawGapTarget(groundY) {
+            if (bridgeState === 'WAITING') {
+                // Glowing drop zone border
+                ctx.save();
+                ctx.strokeStyle = '#f59e0b';
+                ctx.setLineDash([8, 6]);
+                ctx.lineWidth = 3;
+                ctx.strokeRect(currentGap.startX + 2, groundY, currentGap.width - 4, 18);
+
+                // Label in gap
+                ctx.fillStyle = '#fbbf24';
+                ctx.font = '600 13px "Space Grotesk"';
+                ctx.textAlign = 'center';
+                ctx.fillText("PLACE WORD PLANK HERE", currentGap.startX + (currentGap.width / 2), groundY + 38);
+                ctx.restore();
+            }
+        }
+
+        function drawBridgePlank(groundY, progress) {
+            const plankHeight = 18;
+            const targetWidth = currentGap.width;
+            const currentW = targetWidth * progress;
+            const startX = currentGap.startX;
+
+            // Wooden/Tech Plank Gradient
+            const grad = ctx.createLinearGradient(startX, groundY, startX + currentW, groundY + plankHeight);
+            grad.addColorStop(0, '#d97706');
+            grad.addColorStop(0.5, '#f59e0b');
+            grad.addColorStop(1, '#b45309');
+
+            ctx.fillStyle = grad;
+            ctx.fillRect(startX, groundY, currentW, plankHeight);
+
+            // Plank border
+            ctx.strokeStyle = '#fef3c7';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(startX, groundY, currentW, plankHeight);
+
+            // Word Label on Bridge
+            if (progress > 0.8) {
+                const currentObj = gameQueue[currentBridgeIdx];
+                ctx.fillStyle = '#0f172a';
+                ctx.font = 'bold 14px "Space Grotesk"';
+                ctx.textAlign = 'center';
+                ctx.fillText(currentObj.word.toUpperCase(), startX + targetWidth / 2, groundY + 14);
+            }
+        }
+
+        function updateRunnerPosition(groundY) {
+            if (bridgeState === 'RUNNING') {
+                runner.x += runner.speed;
+                runner.animTimer++;
+
+                if (runner.animTimer % 12 === 0) {
+                    runner.frame = (runner.frame + 1) % 4;
+                    playSound('run');
+                }
+
+                // If runner crosses bridge to safety on right platform
+                if (runner.x >= currentGap.endX + 60) {
+                    bridgeState = 'COMPLETED';
+                    currentBridgeIdx++;
+
+                    if (currentBridgeIdx >= gameQueue.length) {
+                        // Game Victory!
+                        setTimeout(showVictory, 300);
+                    } else {
+                        // Load next bridge question
+                        setTimeout(loadBridgeQuestion, 400);
+                    }
+                }
+            } else {
+                runner.frame = 0;
+            }
+        }
+
+        function drawRunner(groundY) {
+            ctx.save();
+            ctx.translate(runner.x, runner.y);
+
+            // Draw Cyber Runner Avatar
+            // Head
+            ctx.fillStyle = '#38bdf8';
+            ctx.beginPath();
+            ctx.arc(16, 12, 10, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Visor
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(18, 9, 8, 5);
+
+            // Body
+            ctx.fillStyle = '#0284c7';
+            ctx.fillRect(8, 22, 16, 18);
+
+            // Animated Running Legs
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+
+            if (bridgeState === 'RUNNING') {
+                const legOffset = Math.sin(runner.animTimer * 0.3) * 10;
+                // Left Leg
+                ctx.beginPath();
+                ctx.moveTo(11, 40);
+                ctx.lineTo(11 - legOffset, 48);
+                ctx.stroke();
+
+                // Right Leg
+                ctx.beginPath();
+                ctx.moveTo(21, 40);
+                ctx.lineTo(21 + legOffset, 48);
+                ctx.stroke();
+            } else {
+                // Standing still legs
+                ctx.beginPath();
+                ctx.moveTo(11, 40);
+                ctx.lineTo(11, 48);
+                ctx.moveTo(21, 40);
+                ctx.lineTo(21, 48);
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        // Canvas Drag & Drop Event Listeners
+        const viewport = document.getElementById('gameViewport');
+
+        viewport.addEventListener('dragover', (e) => {
+            e.preventDefault();
+        });
+
+        viewport.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if (draggedWord && bridgeState === 'WAITING') {
+                checkWordSubmission(draggedWord);
+                draggedWord = null;
+            }
+        });
+
+        // Click/Tap on Viewport (for Tap mode)
+        viewport.addEventListener('click', (e) => {
+            if (selectedPlankWord && bridgeState === 'WAITING') {
+                checkWordSubmission(selectedPlankWord);
+            }
+        });
+
+        // Show Victory Screen
+        function showVictory() {
+            clearInterval(timerInterval);
+            playSound('victory');
+
+            document.getElementById('finalScore').textContent = score;
+            const mins = String(Math.floor(timerSeconds / 60)).padStart(2, '0');
+            const secs = String(timerSeconds % 60).padStart(2, '0');
+            document.getElementById('finalTime').textContent = `${mins}:${secs}`;
+
+            const victoryModal = document.getElementById('victoryModal');
+            victoryModal.classList.remove('opacity-0', 'pointer-events-none');
+            
+            // Confetti Burst
+            for (let i = 0; i < 80; i++) {
+                createParticles(
+                    canvas.width / 2, 
+                    canvas.height / 2, 
+                    ['#3b82f6', '#f59e0b', '#10b981', '#ec4899'][Math.floor(Math.random() * 4)]
+                );
+            }
+        }
+
+        function resetGame() {
+            initGame();
+        }
+
+        // Start on page load
+        window.onload = function() {
+            initGame();
+        };
+    </script>
+</body>
+</html>

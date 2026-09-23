@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Space Invaders: Vocab Edition</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+  body { background: #050515; color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; height: 100vh; display: flex; align-items: center; justify-content: center; }
+  #game-container { width: 800px; height: 600px; background: radial-gradient(circle at center, #0b0b2b 0%, #020208 100%); border: 3px solid #00f3ff; border-radius: 12px; box-shadow: 0 0 30px rgba(0, 243, 255, 0.3); position: relative; overflow: hidden; }
+  
+  /* HUD elements */
+  #hud { display: flex; justify-content: space-between; padding: 15px 20px; background: rgba(0, 0, 0, 0.6); border-bottom: 1px solid rgba(0, 243, 255, 0.3); font-weight: bold; font-size: 18px; text-shadow: 0 0 8px #00f3ff; }
+  #mission-briefing { background: rgba(0, 243, 255, 0.15); border: 1px solid #00f3ff; padding: 12px; text-align: center; font-size: 18px; margin: 10px 20px; border-radius: 6px; box-shadow: inset 0 0 10px rgba(0,243,255,0.2); }
+  #briefing-text { color: #ffe600; font-weight: bold; }
+
+  /* Canvas */
+  canvas { display: block; width: 100%; height: 480px; }
+
+  /* Overlay UI */
+  .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(2, 2, 8, 0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; text-align: center; padding: 20px; }
+  h1 { font-size: 38px; color: #00f3ff; text-shadow: 0 0 15px #00f3ff; margin-bottom: 10px; }
+  p { font-size: 16px; margin-bottom: 20px; color: #ccc; max-width: 600px; line-height: 1.5; }
+  button { padding: 12px 30px; font-size: 18px; background: #00f3ff; color: #000; border: none; font-weight: bold; border-radius: 25px; cursor: pointer; box-shadow: 0 0 15px #00f3ff; transition: transform 0.2s, background 0.2s; }
+  button:hover { transform: scale(1.05); background: #00c4d1; }
+  
+  /* Leaderboard UI */
+  #leaderboard { width: 80%; background: rgba(255,255,255,0.05); border-radius: 8px; padding: 15px; margin: 15px 0; border: 1px solid rgba(0,243,255,0.3); }
+  .lb-row { display: flex; justify-content: space-between; padding: 6px 12px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  .lb-row:first-child { color: #ffe600; font-weight: bold; border-bottom: 2px solid #ffe600; }
+  
+  /* Screen shake effect */
+  .shake { animation: shakeAnim 0.3s cubic-bezier(.36,.07,.19,.97) both; }
+  @keyframes shakeAnim {
+    10%, 90% { transform: translate3d(-4px, 0, 0); }
+    20%, 80% { transform: translate3d(6px, 0, 0); }
+    30%, 50%, 70% { transform: translate3d(-8px, 0, 0); }
+    40%, 60% { transform: translate3d(8px, 0, 0); }
+  }
+</style>
+</head>
+<body>
+
+<div id="game-container">
+  <div id="hud">
+    <div>SCORE: <span id="score-val">0</span></div>
+    <div>WARP DRIVE: <span id="timer-val">60</span>s</div>
+  </div>
+  
+  <div id="mission-briefing">
+    MISSION BRIEFING: <span id="briefing-text">Targeting Systems Initializing...</span>
+  </div>
+
+  <canvas id="gameCanvas" width="800" height="420"></canvas>
+
+  <div id="start-screen" class="overlay">
+    <h1>INTERGALACTIC VOCAB-DEFENDER</h1>
+    <p>Defend Earth from alien word-ships! Match the <strong>Mission Briefing definition</strong> to the alien carrying the correct word.<br><br>
+    <strong>Controls:</strong> Use <strong>LEFT / RIGHT ARROWS</strong> or <strong>A / D</strong> to move. Press <strong>SPACEBAR</strong> to shoot.</p>
+    <button id="start-btn">ENGAGE WARP DRIVE</button>
+  </div>
+
+  <div id="end-screen" class="overlay" style="display: none;">
+    <h1 id="end-title">MISSION COMPLETE</h1>
+    <p id="end-desc"></p>
+    <div id="leaderboard">
+      <div class="lb-row"><span>RANK / DEFENDER</span><span>SCORE</span></div>
+      <div class="lb-row"><span>1. Galactic Ace (You)</span><span id="final-score">0</span></div>
+      <div class="lb-row"><span>2. Star Defender Alpha</span><span>450</span></div>
+      <div class="lb-row"><span>3. Cosmic Cadet</span><span>200</span></div>
+    </div>
+    <button id="restart-btn">PLAY AGAIN</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const container = document.getElementById('game-container');
+
+// Vocabulary Database
+const vocabList = [
+  { word: "breakthrough", def: "An important discovery or event that helps solve a problem." },
+  { word: "calculation", def: "The process of using mathematics or logical reasoning." },
+  { word: "envision", def: "To picture or imagine something in the mind as a future possibility." },
+  { word: "striking", def: "Attracting attention by being unusual, extreme, or prominent." },
+  { word: "insight", def: "An accurate and deep understanding of a complex person or thing." }
+];
+
+// Game State Variables
+let score = 0;
+let timeLeft = 60;
+let gameInterval, timerInterval;
+let activeTarget = null;
+let laserStalled = false;
+let stallTimer = 0;
+
+// Player Ship
+const player = {
+  x: canvas.width / 2 - 25,
+  y: canvas.height - 50,
+  width: 50,
+  height: 30,
+  speed: 7,
+  dx: 0
+};
+
+// Game Arrays
+let bullets = [];
+let aliens = [];
+let particles = [];
+
+// Input Listeners
+const keys = {};
+window.addEventListener('keydown', (e) => {
+  keys[e.code] = true;
+  if (e.code === 'Space') fireLaser();
+});
+window.addEventListener('keyup', (e) => keys[e.code] = false);
+
+document.getElementById('start-btn').addEventListener('click', startGame);
+document.getElementById('restart-btn').addEventListener('click', startGame);
+
+function startGame() {
+  score = 0;
+  timeLeft = 60;
+  laserStalled = false;
+  bullets = [];
+  aliens = [];
+  particles = [];
+  
+  document.getElementById('score-val').innerText = score;
+  document.getElementById('timer-val').innerText = timeLeft;
+  document.getElementById('start-screen').style.display = 'none';
+  document.getElementById('end-screen').style.display = 'none';
+
+  spawnAlienFleet();
+  pickNewTarget();
+
+  clearInterval(gameInterval);
+  clearInterval(timerInterval);
+
+  gameInterval = setInterval(update, 1000 / 60);
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    document.getElementById('timer-val').innerText = timeLeft;
+    if (timeLeft <= 0) endGame();
+  }, 1000);
+}
+
+function pickNewTarget() {
+  const currentWords = aliens.map(a => a.word);
+  if (currentWords.length === 0) {
+    spawnAlienFleet();
+    return pickNewTarget();
+  }
+  const randomAlien = aliens[Math.floor(Math.random() * aliens.length)];
+  activeTarget = vocabList.find(v => v.word === randomAlien.word);
+  document.getElementById('briefing-text').innerText = activeTarget.def;
+}
+
+function spawnAlienFleet() {
+  aliens = [];
+  const startX = 60;
+  const gap = 130;
+  
+  vocabList.forEach((item, index) => {
+    aliens.push({
+      x: startX + (index % 5) * gap,
+      y: 50 + Math.floor(index / 5) * 60,
+      width: 100,
+      height: 40,
+      word: item.word,
+      dx: 1.5,
+      direction: 1
+    });
+  });
+}
+
+function fireLaser() {
+  if (laserStalled) return;
+  bullets.push({
+    x: player.x + player.width / 2 - 3,
+    y: player.y,
+    width: 6,
+    height: 15,
+    speed: 9
+  });
+}
+
+function triggerStall() {
+  laserStalled = true;
+  container.classList.add('shake');
+  document.getElementById('briefing-text').innerText = "SYSTEM GLITCH! LASERS STALLED (2s)";
+  document.getElementById('briefing-text').style.color = "#ff3366";
+  
+  setTimeout(() => {
+    container.classList.remove('shake');
+    laserStalled = false;
+    document.getElementById('briefing-text').style.color = "#ffe600";
+    if (activeTarget) document.getElementById('briefing-text').innerText = activeTarget.def;
+  }, 2000);
+}
+
+function createExplosion(x, y) {
+  for (let i = 0; i < 20; i++) {
+    particles.push({
+      x: x,
+      y: y,
+      dx: (Math.random() - 0.5) * 8,
+      dy: (Math.random() - 0.5) * 8,
+      radius: Math.random() * 4 + 2,
+      life: 30,
+      color: `hsl(${Math.random() * 60 + 170}, 100%, 50%)`
+    });
+  }
+}
+
+function update() {
+  // Movement logic
+  if (keys['ArrowLeft'] || keys['KeyA']) player.x = Math.max(0, player.x - player.speed);
+  if (keys['ArrowRight'] || keys['KeyD']) player.x = Math.min(canvas.width - player.width, player.x + player.speed);
+
+  // Bullets update
+  bullets.forEach((b, bIdx) => {
+    b.y -= b.speed;
+    if (b.y < 0) bullets.splice(bIdx, 1);
+  });
+
+  // Aliens update
+  let reachEdge = false;
+  aliens.forEach(a => {
+    // Descent speed increases as time ticks down
+    const speedMultiplier = 1 + (60 - timeLeft) * 0.02;
+    a.x += a.dx * a.direction * speedMultiplier;
+    if (a.x <= 10 || a.x + a.width >= canvas.width - 10) reachEdge = true;
+  });
+
+  if (reachEdge) {
+    aliens.forEach(a => {
+      a.direction *= -1;
+      a.y += 12;
+    });
+  }
+
+  // Bullet-Alien Collision detection
+  bullets.forEach((b, bIdx) => {
+    aliens.forEach((a, aIdx) => {
+      if (b.x < a.x + a.width && b.x + b.width > a.x && b.y < a.y + a.height && b.y + b.height > a.y) {
+        bullets.splice(bIdx, 1);
+        
+        if (a.word === activeTarget.word) {
+          // Correct Hit
+          score += 100;
+          createExplosion(a.x + a.width / 2, a.y + a.height / 2);
+          aliens.splice(aIdx, 1);
+          document.getElementById('score-val').innerText = score;
+          
+          if (aliens.length === 0) {
+            spawnAlienFleet();
+          }
+          pickNewTarget();
+        } else {
+          // Wrong Hit
+          score = Math.max(0, score - 50);
+          document.getElementById('score-val').innerText = score;
+          triggerStall();
+        }
+      }
+    });
+  });
+
+  // Particles update
+  particles.forEach((p, pIdx) => {
+    p.x += p.dx;
+    p.y += p.dy;
+    p.life--;
+    if (p.life <= 0) particles.splice(pIdx, 1);
+  });
+
+  render();
+}
+
+function render() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Draw Player Ship
+  ctx.fillStyle = laserStalled ? '#ff3366' : '#00f3ff';
+  ctx.beginPath();
+  ctx.moveTo(player.x + player.width / 2, player.y);
+  ctx.lineTo(player.x + player.width, player.y + player.height);
+  ctx.lineTo(player.x, player.y + player.height);
+  ctx.closePath();
+  ctx.fill();
+
+  // Draw Lasers
+  ctx.fillStyle = '#ffe600';
+  bullets.forEach(b => ctx.fillRect(b.x, b.y, b.width, b.height));
+
+  // Draw Alien Word-ships
+  aliens.forEach(a => {
+    ctx.fillStyle = '#1e1e4a';
+    ctx.strokeStyle = '#00f3ff';
+    ctx.lineWidth = 2;
+    ctx.fillRect(a.x, a.y, a.width, a.height);
+    ctx.strokeRect(a.x, a.y, a.width, a.height);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '12px "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(a.word, a.x + a.width / 2, a.y + 24);
+  });
+
+  // Draw Explosions
+  particles.forEach(p => {
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+function endGame() {
+  clearInterval(gameInterval);
+  clearInterval(timerInterval);
+  document.getElementById('end-screen').style.display = 'flex';
+  document.getElementById('final-score').innerText = score;
+  
+  const endDesc = document.getElementById('end-desc');
+  if (score >= 400) {
+    document.getElementById('end-title').innerText = "VICTORY BADGE UNLOCKED!";
+    endDesc.innerText = `Outstanding piloting! You scored ${score} points and earned the top spot as the Ultimate Defender for your class!`;
+  } else {
+    document.getElementById('end-title').innerText = "MISSION CONCLUDED";
+    endDesc.innerText = `You scored ${score} points. Practice your vocabulary targets to climb the Galactic Ace leaderboard!`;
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Memory Matrix - Vocabulary Card Flip</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #111827;
+      color: #f3f4f6;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      font-size: 2.2rem;
+      color: #38bdf8;
+      margin-bottom: 8px;
+    }
+
+    p {
+      color: #9ca3af;
+      font-size: 1rem;
+    }
+
+    .stats {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 20px;
+      background: #1f2937;
+      padding: 10px 25px;
+      border-radius: 20px;
+      border: 1px solid #374151;
+      font-weight: 600;
+    }
+
+    .stats span {
+      color: #38bdf8;
+    }
+
+    /* Game Board with Hidden Background Illustration */
+    .game-board-container {
+      position: relative;
+      width: 100%;
+      max-width: 900px;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      border: 3px solid #374151;
+    }
+
+    /* The Hidden Illustration Revealed Upon Matching */
+    .background-illustration {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #1e1b4b, #312e81, #4338ca, #6366f1);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .background-illustration h2 {
+      font-size: 3rem;
+      color: #f43f5e;
+      text-shadow: 0 0 20px rgba(244, 63, 94, 0.6);
+      margin-bottom: 10px;
+    }
+
+    .grid {
+      position: relative;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      padding: 15px;
+      width: 100%;
+    }
+
+    /* Card Styling & Flip Animation */
+    .card {
+      height: 130px;
+      perspective: 1000px;
+      cursor: pointer;
+    }
+
+    .card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      text-align: center;
+      transition: transform 0.6s;
+      transform-style: preserve-3d;
+      border-radius: 12px;
+    }
+
+    .card.flipped .card-inner {
+      transform: rotateY(180deg);
+    }
+
+    .card.matched {
+      visibility: hidden;
+      opacity: 0;
+      transition: visibility 0s 0.5s, opacity 0.5s linear;
+    }
+
+    .card-front, .card-back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+      font-size: 0.95rem;
+      user-select: none;
+    }
+
+    /* Face Down Card */
+    .card-front {
+      background: linear-gradient(145deg, #1f2937, #111827);
+      border: 2px solid #3b82f6;
+      color: #3b82f6;
+      font-size: 2rem;
+      font-weight: bold;
+    }
+
+    /* Face Up Card */
+    .card-back {
+      background: #1f2937;
+      color: #f3f4f6;
+      transform: rotateY(180deg);
+      border: 2px solid #10b981;
+      line-height: 1.3;
+    }
+
+    .card-back.word {
+      font-weight: 700;
+      font-size: 1.2rem;
+      color: #38bdf8;
+      text-transform: capitalize;
+    }
+
+    /* Reset Button */
+    .btn {
+      margin-top: 20px;
+      padding: 12px 28px;
+      font-size: 1rem;
+      font-weight: bold;
+      background: #38bdf8;
+      color: #0f172a;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    .btn:hover {
+      background: #0284c7;
+      color: #fff;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Memory Matrix</h1>
+    <p>Flip cards to match Vocabulary Words with their Definitions!</p>
+  </header>
+
+  <div class="stats">
+    <div>Matches: <span id="matches-count">0</span> / 7</div>
+    <div>Moves: <span id="moves-count">0</span></div>
+  </div>
+
+  <div class="game-board-container">
+    <!-- Hidden Illustration / Artwork beneath grid -->
+    <div class="background-illustration">
+      <h2>🎉 MATRIX CLEARED! 🎉</h2>
+      <p style="font-size: 1.2rem; color: #e0e7ff;">You successfully unveiled the hidden matrix image!</p>
+      <p style="margin-top: 10px; color: #a5b4fc;">Great job mastering Grade 11 vocabulary!</p>
+    </div>
+
+    <!-- Interactive Card Grid -->
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <button class="btn" onclick="initGame()">Restart Game</button>
+
+  <script>
+    // Grade 11 Vocabulary Data
+    const vocabData = [
+      { word: "solo", def: "Done or performed by one person alone." },
+      { word: "flexibility", def: "The quality of bending easily or adapting to new situations." },
+      { word: "compromise", def: "An agreement reached by each side making concessions." },
+      { word: "destination", def: "The place to which someone or something is going." },
+      { word: "split", def: "To divide or cause to divide into parts or groups." },
+      { word: "arise", def: "To emerge, result, or come into notice/existence." },
+      { word: "occasionally", def: "At infrequent intervals; now and then." }
+    ];
+
+    let flippedCards = [];
+    let lockBoard = false;
+    let matchesFound = 0;
+    let moves = 0;
+
+    function initGame() {
+      const grid = document.getElementById('grid');
+      grid.innerHTML = '';
+      flippedCards = [];
+      lockBoard = false;
+      matchesFound = 0;
+      moves = 0;
+
+      document.getElementById('matches-count').textContent = matchesFound;
+      document.getElementById('moves-count').textContent = moves;
+
+      // Create separate cards for words and definitions
+      let deck = [];
+      vocabData.forEach((item, index) => {
+        deck.push({ id: index, type: 'word', text: item.word });
+        deck.push({ id: index, type: 'def', text: item.def });
+      });
+
+      // Shuffle the deck
+      deck.sort(() => Math.random() - 0.5);
+
+      // Render cards on board
+      deck.forEach(data => {
+        const card = document.createElement('div');
+        card.classList.add('card');
+        card.dataset.id = data.id;
+
+        card.innerHTML = `
+          <div class="card-inner">
+            <div class="card-front">?</div>
+            <div class="card-back ${data.type === 'word' ? 'word' : ''}">
+              ${data.text}
+            </div>
+          </div>
+        `;
+
+        card.addEventListener('click', () => flipCard(card));
+        grid.appendChild(card);
+      });
+    }
+
+    function flipCard(card) {
+      if (lockBoard || card.classList.contains('flipped') || card.classList.contains('matched')) return;
+
+      card.classList.add('flipped');
+      flippedCards.push(card);
+
+      if (flippedCards.length === 2) {
+        moves++;
+        document.getElementById('moves-count').textContent = moves;
+        checkMatch();
+      }
+    }
+
+    function checkMatch() {
+      const [card1, card2] = flippedCards;
+      const isMatch = card1.dataset.id === card2.dataset.id;
+
+      if (isMatch) {
+        disableCards(card1, card2);
+      } else {
+        unflipCards(card1, card2);
+      }
+    }
+
+    function disableCards(card1, card2) {
+      lockBoard = true;
+      setTimeout(() => {
+        card1.classList.add('matched');
+        card2.classList.add('matched');
+        flippedCards = [];
+        lockBoard = false;
+        matchesFound++;
+        document.getElementById('matches-count').textContent = matchesFound;
+      }, 600);
+    }
+
+    function unflipCards(card1, card2) {
+      lockBoard = true;
+      setTimeout(() => {
+        card1.classList.remove('flipped');
+        card2.classList.remove('flipped');
+        flippedCards = [];
+        lockBoard = false;
+      }, 1000);
+    }
+
+    // Initialize game on load
+    initGame();
+  </script>
+</body>
+</html>
