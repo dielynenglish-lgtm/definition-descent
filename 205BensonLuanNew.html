@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vampire Survivors: 單字武器進化版</title>
+  <style>
+    :root {
+      --neon-green: #00ff66;
+      --neon-gold: #ffd700;
+      --neon-red: #ff3366;
+      --neon-cyan: #00e5ff;
+      --dark-bg: #0b0d17;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--dark-bg);
+      color: #fff;
+    }
+
+    #game-canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      background: radial-gradient(circle at center, #151828 0%, #05060a 100%);
+    }
+
+    /* Top HUD UI */
+    #hud {
+      position: absolute;
+      top: 15px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90%;
+      max-width: 850px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .exp-bar-container {
+      width: 100%;
+      height: 16px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 2px solid var(--neon-gold);
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+    }
+
+    #exp-bar {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, #ffd700, #ff8800);
+      transition: width 0.2s ease;
+    }
+
+    .hud-stats {
+      display: flex;
+      justify-content: space-between;
+      font-size: 1rem;
+      font-weight: bold;
+      text-shadow: 0 0 6px #000;
+    }
+
+    /* Quiz Level-Up Modal */
+    #quiz-modal {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 90%;
+      max-width: 650px;
+      background: rgba(11, 13, 23, 0.96);
+      border: 3px solid var(--neon-cyan);
+      border-radius: 16px;
+      padding: 25px;
+      z-index: 50;
+      box-shadow: 0 0 35px rgba(0, 229, 255, 0.4);
+      text-align: center;
+    }
+
+    .modal-title {
+      color: var(--neon-gold);
+      font-size: 1.6rem;
+      margin-bottom: 8px;
+      letter-spacing: 2px;
+    }
+
+    .weapon-reward-badge {
+      display: inline-block;
+      background: rgba(0, 255, 102, 0.15);
+      border: 1px solid var(--neon-green);
+      color: var(--neon-green);
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 0.95rem;
+      margin-bottom: 15px;
+      font-weight: bold;
+    }
+
+    .quiz-question {
+      font-size: 1.15rem;
+      color: #e2e8f0;
+      margin-bottom: 20px;
+      line-height: 1.5;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 15px;
+      border-radius: 8px;
+    }
+
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .opt-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--neon-cyan);
+      color: #fff;
+      padding: 14px;
+      font-size: 1.05rem;
+      font-weight: bold;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .opt-btn:hover {
+      background: var(--neon-cyan);
+      color: #000;
+      box-shadow: 0 0 15px var(--neon-cyan);
+      transform: translateY(-2px);
+    }
+
+    /* Screen Overlay */
+    .screen-overlay {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(5, 6, 10, 0.95);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .main-title {
+      font-size: 2.8rem;
+      color: var(--neon-green);
+      text-shadow: 0 0 20px var(--neon-green);
+      margin-bottom: 15px;
+    }
+
+    .sub-title {
+      font-size: 1.1rem;
+      color: #aaa;
+      max-width: 600px;
+      line-height: 1.6;
+      margin-bottom: 30px;
+    }
+
+    .action-btn {
+      background: var(--neon-green);
+      color: #000;
+      border: none;
+      padding: 16px 45px;
+      font-size: 1.25rem;
+      font-weight: bold;
+      border-radius: 30px;
+      cursor: pointer;
+      box-shadow: 0 0 20px rgba(0, 255, 102, 0.4);
+      transition: all 0.2s;
+    }
+
+    .action-btn:hover {
+      transform: scale(1.08);
+      box-shadow: 0 0 30px rgba(0, 255, 102, 0.8);
+    }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <canvas id="game-canvas"></canvas>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="exp-bar-container">
+      <div id="exp-bar"></div>
+    </div>
+    <div class="hud-stats">
+      <span>等級: <span id="lvl-txt" style="color:var(--neon-gold);">1</span></span>
+      <span>武器庫: <span id="weapons-txt" style="color:var(--neon-cyan);">光子射手 Lv.1</span></span>
+      <span>擊殺數: <span id="kills-txt" style="color:var(--neon-red);">0</span></span>
+      <span>生存時間: <span id="time-txt">00:00</span></span>
+    </div>
+  </div>
+
+  <!-- Level Up Quiz Modal -->
+  <div id="quiz-modal" class="hidden">
+    <div class="modal-title">⚡ LEVEL UP! 解鎖武器強化</div>
+    <div id="reward-badge" class="weapon-reward-badge">答對獎勵：解鎖強烈武器</div>
+    <div id="quiz-q" class="quiz-question">Definition loading...</div>
+    <div class="options-grid">
+      <button class="opt-btn" onclick="checkAnswer(0)">[A] Option 1</button>
+      <button class="opt-btn" onclick="checkAnswer(1)">[B] Option 2</button>
+      <button class="opt-btn" onclick="checkAnswer(2)">[C] Option 3</button>
+      <button class="opt-btn" onclick="checkAnswer(3)">[D] Option 4</button>
+    </div>
+  </div>
+
+  <!-- Start Screen -->
+  <div id="start-overlay" class="screen-overlay">
+    <h1 class="main-title">VOCAB SURVIVORS ⚔️</h1>
+    <p class="sub-title">
+      使用 [W][A][S][D] 或 方向鍵 移動。<br>
+      擊敗怪物並收集黃色經驗寶石升級！<br>
+      <b>每次升級答對英文單字題，即可獲得更強大的超武器裝備：</b><br>
+      🔫 光子散射 | 🛡️ 電磁環繞護盾 | 🚀 自動追蹤火箭 | ⚡ 貫穿巨型雷射
+    </p>
+    <button class="action-btn" onclick="startGame()">開始生存挑戰 🚀</button>
+  </div>
+
+  <!-- End Screen -->
+  <div id="end-overlay" class="screen-overlay hidden">
+    <h1 id="end-title" class="main-title" style="color: var(--neon-red);">戰鬥結束</h1>
+    <p id="end-stats" class="sub-title">Stats loading...</p>
+    <button class="action-btn" onclick="startGame()">再試一次 🔄</button>
+  </div>
+
+  <script>
+    const vocabularyData = [
+      { word: "version", definition: "A specific form or variation of something that differs from other forms." },
+      { word: "vast", definition: "Extremely large in area, size, or amount; huge." },
+      { word: "undertake", definition: "To commit oneself to and begin a task, responsibility, or enterprise." },
+      { word: "extraordinary", definition: "Very unusual, special, or remarkable; far beyond ordinary." },
+      { word: "landscape", definition: "All the visible features of an area of land or countryside." },
+      { word: "dusty", definition: "Covered with or full of fine dry particles of dirt or powder." },
+      { word: "diverse", definition: "Showing a great deal of variety; including very different elements." },
+      { word: "accumulate", definition: "To gather or acquire an increasing number or quantity of something over time." },
+      { word: "substantial", definition: "Of considerable importance, size, or worth; significant." },
+      { word: "consequence", definition: "A result or effect of an action or condition." }
+    ];
+
+    const weaponPool = [
+      { name: "光子散射彈", desc: "+1 散射彈道數 & 射速提升" },
+      { name: "電磁環繞護盾", desc: "召喚/增加環繞飛球，阻擋近身敵人" },
+      { name: "自動追蹤火箭", desc: "定期發射鎖定高血量敵人的高爆彈" },
+      { name: "貫穿巨型雷射", desc: "發射直向貫穿所有敵人的強烈光束" }
+    ];
+
+    const canvas = document.getElementById('game-canvas');
+    const ctx = canvas.getContext('2d');
+
+    let isGameRunning = false;
+    let isPaused = false;
+
+    let player, bullets = [], missiles = [], lasers = [], enemies = [], gems = [];
+    let keys = {};
+    let kills = 0, gameTime = 0, timerInterval;
+    let currentQuiz = null;
+    let currentRewardWeapon = null;
+
+    // Weapon Inventory Levels
+    let weaponLevels = {
+      spread: 1,   // 光子散射
+      shield: 0,   // 電磁護盾 (0 代表未解鎖)
+      missile: 0,  // 追蹤火箭
+      laser: 0     // 貫穿雷射
+    };
+
+    let timers = { shoot: 0, missile: 0, laser: 0 };
+    let shieldAngle = 0;
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    window.addEventListener('keydown', e => keys[e.code] = true);
+    window.addEventListener('keyup', e => keys[e.code] = false);
+
+    function startGame() {
+      player = {
+        x: canvas.width / 2,
+        y: canvas.height / 2,
+        radius: 16,
+        hp: 100,
+        maxHp: 100,
+        speed: 3.5,
+        level: 1,
+        exp: 0,
+        expToNext: 5
+      };
+
+      bullets = []; missiles = []; lasers = []; enemies = []; gems = [];
+      kills = 0; gameTime = 0;
+      weaponLevels = { spread: 1, shield: 0, missile: 0, laser: 0 };
+      timers = { shoot: 0, missile: 0, laser: 0 };
+
+      updateHUDUI();
+      document.getElementById('start-overlay').classList.add('hidden');
+      document.getElementById('end-overlay').classList.add('hidden');
+      document.getElementById('quiz-modal').classList.add('hidden');
+
+      clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        if (isGameRunning && !isPaused) {
+          gameTime++;
+          let m = Math.floor(gameTime / 60).toString().padStart(2, '0');
+          let s = (gameTime % 60).toString().padStart(2, '0');
+          document.getElementById('time-txt').innerText = `${m}:${s}`;
+        }
+      }, 1000);
+
+      isGameRunning = true;
+      isPaused = false;
+      requestAnimationFrame(gameLoop);
+    }
+
+    function updateHUDUI() {
+      document.getElementById('lvl-txt').innerText = player.level;
+      document.getElementById('kills-txt').innerText = kills;
+
+      let weaponsList = [];
+      if (weaponLevels.spread > 0) weaponsList.push(`光子 Lv.${weaponLevels.spread}`);
+      if (weaponLevels.shield > 0) weaponsList.push(`護盾 Lv.${weaponLevels.shield}`);
+      if (weaponLevels.missile > 0) weaponsList.push(`火箭 Lv.${weaponLevels.missile}`);
+      if (weaponLevels.laser > 0) weaponsList.push(`雷射 Lv.${weaponLevels.laser}`);
+
+      document.getElementById('weapons-txt').innerText = weaponsList.join(' | ');
+    }
+
+    function spawnEnemy() {
+      if (!isGameRunning || isPaused) return;
+
+      if (enemies.length < 180) {
+        let x, y;
+        if (Math.random() < 0.5) {
+          x = Math.random() < 0.5 ? -20 : canvas.width + 20;
+          y = Math.random() * canvas.height;
+        } else {
+          x = Math.random() * canvas.width;
+          y = Math.random() < 0.5 ? -20 : canvas.height + 20;
+        }
+
+        enemies.push({
+          x: x, y: y,
+          radius: 12 + Math.random() * 4,
+          hp: 12 + Math.floor(gameTime / 8),
+          maxHp: 12 + Math.floor(gameTime / 8),
+          speed: 1.2 + Math.random() * 0.8
+        });
+      }
+    }
+
+    // --- Fire Weapons Systems ---
+    function fireWeapons() {
+      // 1. 光子散射彈
+      timers.shoot++;
+      if (timers.shoot >= Math.max(6, 22 - weaponLevels.spread * 2)) {
+        timers.shoot = 0;
+        let closest = getClosestEnemy();
+        if (closest) {
+          let angle = Math.atan2(closest.y - player.y, closest.x - player.x);
+          let count = weaponLevels.spread;
+          for (let i = 0; i < count; i++) {
+            let spreadAngle = angle + (i - (count - 1) / 2) * 0.18;
+            bullets.push({
+              x: player.x, y: player.y,
+              vx: Math.cos(spreadAngle) * 10,
+              vy: Math.sin(spreadAngle) * 10,
+              radius: 5,
+              damage: 12 + weaponLevels.spread * 2
+            });
+          }
+        }
+      }
+
+      // 2. 自動追蹤火箭
+      if (weaponLevels.missile > 0) {
+        timers.missile++;
+        if (timers.missile >= Math.max(30, 90 - weaponLevels.missile * 10)) {
+          timers.missile = 0;
+          let closest = getClosestEnemy();
+          if (closest) {
+            missiles.push({
+              x: player.x, y: player.y,
+              vx: 0, vy: 0,
+              speed: 6,
+              target: closest,
+              radius: 7,
+              damage: 35 + weaponLevels.missile * 15
+            });
+          }
+        }
+      }
+
+      // 3. 貫穿巨型雷射
+      if (weaponLevels.laser > 0) {
+        timers.laser++;
+        if (timers.laser >= Math.max(60, 180 - weaponLevels.laser * 20)) {
+          timers.laser = 0;
+          let closest = getClosestEnemy();
+          let angle = closest ? Math.atan2(closest.y - player.y, closest.x - player.x) : 0;
+          lasers.push({
+            x: player.x, y: player.y,
+            angle: angle,
+            width: 25 + weaponLevels.laser * 8,
+            duration: 15,
+            damage: 2.5 + weaponLevels.laser * 1.5
+          });
+        }
+      }
+    }
+
+    function getClosestEnemy() {
+      let closest = null;
+      let minDist = Infinity;
+      enemies.forEach(e => {
+        let d = Math.hypot(e.x - player.x, e.y - player.y);
+        if (d < minDist) { minDist = d; closest = e; }
+      });
+      return closest;
+    }
+
+    // --- Level Up Quiz & Reward ---
+    function triggerLevelUpQuiz() {
+      isPaused = true;
+      currentQuiz = vocabularyData[Math.floor(Math.random() * vocabularyData.length)];
+
+      // Choose a weapon reward
+      let availableTypes = ["spread", "shield", "missile", "laser"];
+      let chosenType = availableTypes[Math.floor(Math.random() * availableTypes.length)];
+      currentRewardWeapon = chosenType;
+
+      let rewardText = "";
+      if (chosenType === "spread") rewardText = `強化🔫 光子散射 (Lv.${weaponLevels.spread + 1})`;
+      if (chosenType === "shield") rewardText = `強化🛡️ 電磁護盾 (Lv.${weaponLevels.shield + 1})`;
+      if (chosenType === "missile") rewardText = `強化🚀 追蹤火箭 (Lv.${weaponLevels.missile + 1})`;
+      if (chosenType === "laser") rewardText = `強化⚡ 貫穿雷射 (Lv.${weaponLevels.laser + 1})`;
+
+      document.getElementById('reward-badge').innerText = `答對獲得武器：${rewardText}`;
+      document.getElementById('quiz-q').innerText = `"${currentQuiz.definition}"`;
+
+      let options = [currentQuiz.word];
+      let distractors = vocabularyData.map(v => v.word).filter(w => w !== currentQuiz.word);
+      distractors = [...distractors].sort(() => Math.random() - 0.5).slice(0, 3);
+      options = [...options.concat(distractors)].sort(() => Math.random() - 0.5);
+
+      const btns = document.querySelectorAll('.opt-btn');
+      btns.forEach((btn, idx) => {
+        btn.innerText = `[${String.fromCharCode(65 + idx)}] ${options[idx]}`;
+        btn.dataset.word = options[idx];
+      });
+
+      document.getElementById('quiz-modal').classList.remove('hidden');
+    }
+
+    function checkAnswer(btnIdx) {
+      const btns = document.querySelectorAll('.opt-btn');
+      const selected = btns[btnIdx].dataset.word;
+
+      document.getElementById('quiz-modal').classList.add('hidden');
+
+      if (selected === currentQuiz.word) {
+        // Upgrade weapon
+        weaponLevels[currentRewardWeapon]++;
+        player.hp = Math.min(player.maxHp, player.hp + 30); // Bonus Heal
+        updateHUDUI();
+      } else {
+        // Wrong answer penalty: Horde spawn
+        for (let i = 0; i < 12; i++) spawnEnemy();
+      }
+
+      isPaused = false;
+    }
+
+    function update() {
+      if (!isGameRunning || isPaused) return;
+
+      // Player Movement
+      let dx = 0, dy = 0;
+      if (keys['KeyW'] || keys['ArrowUp']) dy -= 1;
+      if (keys['KeyS'] || keys['ArrowDown']) dy += 1;
+      if (keys['KeyA'] || keys['ArrowLeft']) dx -= 1;
+      if (keys['KeyD'] || keys['ArrowRight']) dx += 1;
+
+      if (dx !== 0 && dy !== 0) { dx *= 0.7071; dy *= 0.7071; }
+
+      player.x = Math.max(player.radius, Math.min(canvas.width - player.radius, player.x + dx * player.speed));
+      player.y = Math.max(player.radius, Math.min(canvas.height - player.radius, player.y + dy * player.speed));
+
+      // Fire Weapons
+      fireWeapons();
+
+      // Shield rotation
+      shieldAngle += 0.04;
+
+      // Spawning enemies
+      if (Math.random() < 0.09) spawnEnemy();
+
+      // Update Bullets
+      for (let i = bullets.length - 1; i >= 0; i--) {
+        let b = bullets[i];
+        b.x += b.vx; b.y += b.vy;
+
+        if (b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) {
+          bullets.splice(i, 1);
+          continue;
+        }
+
+        for (let j = enemies.length - 1; j >= 0; j--) {
+          let e = enemies[j];
+          if (Math.hypot(b.x - e.x, b.y - e.y) < b.radius + e.radius) {
+            e.hp -= b.damage;
+            bullets.splice(i, 1);
+            if (e.hp <= 0) killEnemy(j);
+            break;
+          }
+        }
+      }
+
+      // Update Missiles
+      for (let i = missiles.length - 1; i >= 0; i--) {
+        let m = missiles[i];
+        if (m.target && enemies.includes(m.target)) {
+          let angle = Math.atan2(m.target.y - m.y, m.target.x - m.x);
+          m.vx = Math.cos(angle) * m.speed;
+          m.vy = Math.sin(angle) * m.speed;
+        }
+        m.x += m.vx; m.y += m.vy;
+
+        for (let j = enemies.length - 1; j >= 0; j--) {
+          let e = enemies[j];
+          if (Math.hypot(m.x - e.x, m.y - e.y) < m.radius + e.radius) {
+            // Splash Damage
+            enemies.forEach((nearE, nIdx) => {
+              if (Math.hypot(m.x - nearE.x, m.y - nearE.y) < 70) {
+                nearE.hp -= m.damage;
+              }
+            });
+            missiles.splice(i, 1);
+            // Check deaths
+            for (let k = enemies.length - 1; k >= 0; k--) {
+              if (enemies[k].hp <= 0) killEnemy(k);
+            }
+            break;
+          }
+        }
+      }
+
+      // Update Lasers
+      for (let i = lasers.length - 1; i >= 0; i--) {
+        let l = lasers[i];
+        l.duration--;
+
+        enemies.forEach((e, j) => {
+          // Distance from point (e.x, e.y) to laser beam line
+          let cos = Math.cos(l.angle), sin = Math.sin(l.angle);
+          let px = e.x - l.x, py = e.y - l.y;
+          let distProj = px * cos + py * sin;
+          let perpDist = Math.abs(-px * sin + py * cos);
+
+          if (distProj > 0 && perpDist < l.width / 2 + e.radius) {
+            e.hp -= l.damage;
+            if (e.hp <= 0) killEnemy(j);
+          }
+        });
+
+        if (l.duration <= 0) lasers.splice(i, 1);
+      }
+
+      // Shield vs Enemy collision
+      if (weaponLevels.shield > 0) {
+        let orbCount = weaponLevels.shield + 1;
+        let orbRadius = 70 + weaponLevels.shield * 5;
+        for (let o = 0; o < orbCount; o++) {
+          let a = shieldAngle + (o * Math.PI * 2 / orbCount);
+          let ox = player.x + Math.cos(a) * orbRadius;
+          let oy = player.y + Math.sin(a) * orbRadius;
+
+          enemies.forEach((e, j) => {
+            if (Math.hypot(ox - e.x, oy - e.y) < 10 + e.radius) {
+              e.hp -= 1.5 + weaponLevels.shield * 0.8;
+              if (e.hp <= 0) killEnemy(j);
+            }
+          });
+        }
+      }
+
+      // Enemies vs Player Movement & Collision
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        let e = enemies[i];
+        let angle = Math.atan2(player.y - e.y, player.x - e.x);
+        e.x += Math.cos(angle) * e.speed;
+        e.y += Math.sin(angle) * e.speed;
+
+        if (Math.hypot(player.x - e.x, player.y - e.y) < player.radius + e.radius) {
+          player.hp -= 0.6;
+          if (player.hp <= 0) { endGame(); return; }
+        }
+      }
+
+      // Collect Gems
+      for (let i = gems.length - 1; i >= 0; i--) {
+        let g = gems[i];
+        let dist = Math.hypot(player.x - g.x, player.y - g.y);
+
+        if (dist < 130) {
+          g.x += (player.x - g.x) * 0.15;
+          g.y += (player.y - g.y) * 0.15;
+        }
+
+        if (dist < player.radius + 8) {
+          player.exp += g.exp;
+          gems.splice(i, 1);
+
+          if (player.exp >= player.expToNext) {
+            player.level++;
+            player.exp = 0;
+            player.expToNext = Math.floor(player.expToNext * 1.4);
+            triggerLevelUpQuiz();
+          }
+
+          let pct = (player.exp / player.expToNext) * 100;
+          document.getElementById('exp-bar').style.width = `${pct}%`;
+        }
+      }
+    }
+
+    function killEnemy(idx) {
+      let e = enemies[idx];
+      if (!e) return;
+      kills++;
+      gems.push({ x: e.x, y: e.y, exp: 1 });
+      enemies.splice(idx, 1);
+      document.getElementById('kills-txt').innerText = kills;
+    }
+
+    function render() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Render Gems
+      gems.forEach(g => {
+        ctx.fillStyle = '#ffd700';
+        ctx.beginPath();
+        ctx.arc(g.x, g.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Render Bullets
+      ctx.fillStyle = '#00ff66';
+      bullets.forEach(b => {
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Render Missiles
+      ctx.fillStyle = '#ffaa00';
+      missiles.forEach(m => {
+        ctx.beginPath();
+        ctx.arc(m.x, m.y, m.radius, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Render Lasers
+      lasers.forEach(l => {
+        ctx.save();
+        ctx.translate(l.x, l.y);
+        ctx.rotate(l.angle);
+        ctx.fillStyle = 'rgba(0, 229, 255, 0.75)';
+        ctx.fillRect(0, -l.width / 2, 2000, l.width);
+        ctx.restore();
+      });
+
+      // Render Shield Orbs
+      if (weaponLevels.shield > 0) {
+        let orbCount = weaponLevels.shield + 1;
+        let orbRadius = 70 + weaponLevels.shield * 5;
+        for (let o = 0; o < orbCount; o++) {
+          let a = shieldAngle + (o * Math.PI * 2 / orbCount);
+          let ox = player.x + Math.cos(a) * orbRadius;
+          let oy = player.y + Math.sin(a) * orbRadius;
+
+          ctx.fillStyle = '#00e5ff';
+          ctx.beginPath();
+          ctx.arc(ox, oy, 8, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 10;
+          ctx.shadowColor = '#00e5ff';
+        }
+        ctx.shadowBlur = 0;
+      }
+
+      // Render Enemies
+      enemies.forEach(e => {
+        ctx.fillStyle = '#ff3366';
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Render Player
+      ctx.fillStyle = '#00e5ff';
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Health Ring
+      ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.radius + 6, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.strokeStyle = '#00ff66';
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.radius + 6, -Math.PI / 2, (-Math.PI / 2) + (Math.PI * 2 * Math.max(0, player.hp / player.maxHp)));
+      ctx.stroke();
+    }
+
+    function endGame() {
+      isGameRunning = false;
+      clearInterval(timerInterval);
+
+      const overlay = document.getElementById('end-overlay');
+      const stats = document.getElementById('end-stats');
+
+      stats.innerHTML = `生存時間：<b>${document.getElementById('time-txt').innerText}</b><br>擊殺數量：<b>${kills}</b> 隻怪物<br>達成等級：Level <b>${player.level}</b>`;
+      overlay.classList.remove('hidden');
+    }
+
+    function gameLoop() {
+      update();
+      render();
+      if (isGameRunning) requestAnimationFrame(gameLoop);
+    }
+  </script>
+</body>
+</html>
