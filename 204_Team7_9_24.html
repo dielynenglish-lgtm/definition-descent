@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Split-Screen Vocabulary Battle</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+        }
+
+        body {
+            background-color: #1a1a1a;
+            color: #fff;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #timer-bar {
+            height: 50px;
+            background-color: #111;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            font-size: 24px;
+            font-weight: bold;
+            border-bottom: 2px solid #333;
+        }
+
+        #game-container {
+            display: flex;
+            flex: 1;
+            width: 100%;
+            height: calc(100vh - 50px);
+        }
+
+        .player-side {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            position: relative;
+            transition: background-color 0.2s;
+        }
+
+        #p1-side {
+            background-color: #2b1b1f;
+            border-right: 2px solid #444;
+        }
+
+        #p2-side {
+            background-color: #1b2b1f;
+        }
+
+        .player-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 22px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        #p1-side .player-header { color: #ff6b6b; }
+        #p2-side .player-header { color: #51cf66; }
+
+        .definition-card {
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            min-height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-size: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 15px;
+            flex: 1;
+        }
+
+        .btn {
+            background-color: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: bold;
+            position: relative;
+        }
+
+        .key-hint {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 14px;
+            background-color: rgba(0,0,0,0.5);
+            padding: 2px 8px;
+            border-radius: 4px;
+            color: #aaa;
+        }
+
+        .locked {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        .flash-wrong {
+            background-color: #a61e4d !important;
+        }
+
+        #victory-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.95);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        #victory-screen h1 {
+            font-size: 48px;
+            color: #ffd43b;
+            margin-bottom: 20px;
+        }
+
+        .scores-summary {
+            font-size: 28px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .rematch-btn {
+            padding: 15px 30px;
+            font-size: 22px;
+            font-weight: bold;
+            background-color: #228be6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .rematch-btn:hover {
+            background-color: #1c7ed6;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="timer-bar">
+        <div>TIME: <span id="time-display">60</span>s</div>
+        <div>QUESTION: <span id="q-count">1</span>/7</div>
+    </div>
+
+    <div id="game-container">
+        <!-- Player 1 (Left) -->
+        <div class="player-side" id="p1-side">
+            <div class="player-header">
+                <span>PLAYER 1 (RED)</span>
+                <span>SCORE: <span id="p1-score">0</span></span>
+            </div>
+            <div class="definition-card" id="p1-def">Loading...</div>
+            <div class="grid-container" id="p1-grid">
+                <div class="btn" id="p1-btn-0"><span class="key-hint">Q</span><span class="word"></span></div>
+                <div class="btn" id="p1-btn-1"><span class="key-hint">W</span><span class="word"></span></div>
+                <div class="btn" id="p1-btn-2"><span class="key-hint">A</span><span class="word"></span></div>
+                <div class="btn" id="p1-btn-3"><span class="key-hint">S</span><span class="word"></span></div>
+            </div>
+        </div>
+
+        <!-- Player 2 (Right) -->
+        <div class="player-side" id="p2-side">
+            <div class="player-header">
+                <span>PLAYER 2 (GREEN)</span>
+                <span>SCORE: <span id="p2-score">0</span></span>
+            </div>
+            <div class="definition-card" id="p2-def">Loading...</div>
+            <div class="grid-container" id="p2-grid">
+                <div class="btn" id="p2-btn-0"><span class="key-hint">I</span><span class="word"></span></div>
+                <div class="btn" id="p2-btn-1"><span class="key-hint">O</span><span class="word"></span></div>
+                <div class="btn" id="p2-btn-2"><span class="key-hint">K</span><span class="word"></span></div>
+                <div class="btn" id="p2-btn-3"><span class="key-hint">L</span><span class="word"></span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Victory Screen -->
+    <div id="victory-screen">
+        <h1>MISSION COMPLETE</h1>
+        <div class="scores-summary">
+            <p id="winner-text" style="color: #4dabf7; margin-bottom: 10px;"></p>
+            <p>Player 1 Score: <span id="final-p1">0</span></p>
+            <p>Player 2 Score: <span id="final-p2">0</span></p>
+        </div>
+        <button class="rematch-btn" onclick="initGame()">Rematch</button>
+    </div>
+
+    <script>
+        const vocabulary = [
+            { word: "coincidence", def: "A remarkable concurrence of events or circumstances without apparent causal connection." },
+            { word: "invade", def: "To enter a country or region with an armed force in order to occupy or conquer it." },
+            { word: "overthrow", def: "To remove forcibly from power, especially a government or ruler." },
+            { word: "rigid", def: "Not able to be changed or adapted; stiff and unyielding." },
+            { word: "labor", def: "Hard physical work or exertion; work done for wages." },
+            { word: "peasant", def: "A poor farmer of low social status who owns or rents a small piece of land." },
+            { word: "noble", def: "Belonging to a high social class with a title, or having high moral principles." }
+        ];
+
+        const keyMap = {
+            'q': { player: 1, index: 0 },
+            'w': { player: 1, index: 1 },
+            'a': { player: 1, index: 2 },
+            's': { player: 1, index: 3 },
+            'i': { player: 2, index: 0 },
+            'o': { player: 2, index: 1 },
+            'k': { player: 2, index: 2 },
+            'l': { player: 2, index: 3 }
+        };
+
+        let currentQuestions = [];
+        let currentQIndex = 0;
+        let p1Score = 0;
+        let p2Score = 0;
+        let p1Locked = false;
+        let p2Locked = false;
+        let currentChoices = [];
+        let timer = null;
+        let timeLeft = 60;
+
+        function shuffle(array) {
+            return array.sort(() => Math.random() - 0.5);
+        }
+
+        function initGame() {
+            document.getElementById('victory-screen').style.display = 'none';
+            p1Score = 0;
+            p2Score = 0;
+            currentQIndex = 0;
+            timeLeft = 60;
+            
+            document.getElementById('p1-score').textContent = 0;
+            document.getElementById('p2-score').textContent = 0;
+            document.getElementById('time-display').textContent = timeLeft;
+
+            currentQuestions = shuffle([...vocabulary]);
+
+            if (timer) clearInterval(timer);
+            timer = setInterval(() => {
+                timeLeft--;
+                document.getElementById('time-display').textContent = timeLeft;
+                if (timeLeft <= 0) {
+                    endGame();
+                }
+            }, 1000);
+
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            if (currentQIndex >= currentQuestions.length) {
+                endGame();
+                return;
+            }
+
+            p1Locked = false;
+            p2Locked = false;
+            document.getElementById('p1-side').classList.remove('locked');
+            document.getElementById('p2-side').classList.remove('locked');
+
+            document.getElementById('q-count').textContent = currentQIndex + 1;
+
+            const q = currentQuestions[currentQIndex];
+            document.getElementById('p1-def').textContent = q.def;
+            document.getElementById('p2-def').textContent = q.def;
+
+            let wrongOptions = vocabulary.filter(item => item.word !== q.word);
+            wrongOptions = shuffle(wrongOptions).slice(0, 3);
+            
+            currentChoices = shuffle([q, ...wrongOptions]);
+
+            for (let i = 0; i < 4; i++) {
+                document.querySelector(`#p1-btn-${i} .word`).textContent = currentChoices[i].word;
+                document.querySelector(`#p2-btn-${i} .word`).textContent = currentChoices[i].word;
+            }
+        }
+
+        function handleInput(player, index) {
+            if (player === 1 && p1Locked) return;
+            if (player === 2 && p2Locked) return;
+
+            const selectedWord = currentChoices[index].word;
+            const correctWord = currentQuestions[currentQIndex].word;
+
+            if (selectedWord === correctWord) {
+                if (player === 1) p1Score++;
+                else p2Score++;
+
+                document.getElementById(`p${player}-score`).textContent = player === 1 ? p1Score : p2Score;
+                currentQIndex++;
+                loadQuestion();
+            } else {
+                if (player === 1) {
+                    p1Locked = true;
+                    flashPenalty('p1-side');
+                } else {
+                    p2Locked = true;
+                    flashPenalty('p2-side');
+                }
+
+                if (p1Locked && p2Locked) {
+                    currentQIndex++;
+                    loadQuestion();
+                }
+            }
+        }
+
+        function flashPenalty(sideId) {
+            const side = document.getElementById(sideId);
+            side.classList.add('locked', 'flash-wrong');
+            setTimeout(() => {
+                side.classList.remove('flash-wrong');
+            }, 300);
+        }
+
+        function endGame() {
+            clearInterval(timer);
+            document.getElementById('victory-screen').style.display = 'flex';
+            document.getElementById('final-p1').textContent = p1Score;
+            document.getElementById('final-p2').textContent = p2Score;
+
+            const winnerText = document.getElementById('winner-text');
+            if (p1Score > p2Score) winnerText.textContent = "PLAYER 1 WINS!";
+            else if (p2Score > p1Score) winnerText.textContent = "PLAYER 2 WINS!";
+            else winnerText.textContent = "IT'S A TIE!";
+        }
+
+        window.addEventListener('keydown', (e) => {
+            const key = e.key.toLowerCase();
+            if (keyMap[key]) {
+                handleInput(keyMap[key].player, keyMap[key].index);
+            }
+        });
+
+        initGame();
+    </script>
+</body>
+</html>
