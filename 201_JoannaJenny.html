@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vocabulary Diner</title>
+<style>
+    :root {
+        --diner-red: #d9534f;
+        --diner-cream: #fdf6e3;
+        --diner-blue: #4582ec;
+        --diner-checker: #eee;
+    }
+
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #333;
+        color: #333;
+        margin: 0;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    #game-container {
+        width: 800px;
+        background-color: var(--diner-cream);
+        border: 10px solid var(--diner-red);
+        border-radius: 12px;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    header {
+        background-color: var(--diner-red);
+        color: white;
+        padding: 15px;
+        text-align: center;
+        font-size: 24px;
+        font-weight: bold;
+        letter-spacing: 2px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .stats {
+        font-size: 18px;
+        background: rgba(0,0,0,0.2);
+        padding: 5px 15px;
+        border-radius: 20px;
+    }
+
+    /* Dining Room Floor */
+    #dining-room {
+        height: 320px;
+        background: repeating-conic-gradient(#fff 0% 25%, var(--diner-checker) 0% 50%) 50% / 40px 40px;
+        display: flex;
+        justify-content: space-around;
+        align-items: flex-end;
+        padding-bottom: 20px;
+        position: relative;
+    }
+
+    .customer-seat {
+        width: 220px;
+        height: 280px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-end;
+        position: relative;
+    }
+
+    .bubble {
+        background: white;
+        border: 3px solid #333;
+        border-radius: 15px;
+        padding: 10px;
+        width: 180px;
+        text-align: center;
+        font-size: 13px;
+        font-weight: bold;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        position: absolute;
+        top: 10px;
+        min-height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .bubble::after {
+        content: '';
+        position: absolute;
+        bottom: -10px;
+        left: 50%;
+        transform: translateX(-50%);
+        border-width: 10px 10px 0;
+        border-style: solid;
+        border-color: white transparent;
+        display: block;
+        width: 0;
+    }
+
+    .patience-container {
+        width: 140px;
+        background-color: #ddd;
+        border-radius: 10px;
+        height: 12px;
+        overflow: hidden;
+        position: absolute;
+        top: 105px;
+        border: 1px solid #333;
+    }
+
+    .patience-bar {
+        height: 100%;
+        width: 100%;
+        background-color: #5cb85c;
+        transition: width 0.1s linear, background-color 0.5s;
+    }
+
+    .customer-avatar {
+        font-size: 70px;
+        line-height: 1;
+        margin-bottom: 10px;
+        filter: drop-shadow(0 5px 3px rgba(0,0,0,0.2));
+    }
+
+    /* Service Counter / Tray Area */
+    #tray-area {
+        background-color: #e0e0e0;
+        border-top: 5px solid #bbb;
+        padding: 20px;
+        text-align: center;
+    }
+
+    #tray-area h3 {
+        margin: 0 0 15px 0;
+        color: #555;
+        text-transform: uppercase;
+        font-size: 16px;
+    }
+
+    .dishes-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        justify-content: center;
+    }
+
+    .dish-btn {
+        background-color: white;
+        border: 2px solid var(--diner-blue);
+        border-radius: 8px;
+        padding: 10px 15px;
+        font-size: 16px;
+        font-weight: bold;
+        color: var(--diner-blue);
+        cursor: pointer;
+        transition: all 0.1s ease;
+        box-shadow: 0 3px 0 var(--diner-blue);
+    }
+
+    .dish-btn:hover {
+        background-color: var(--diner-blue);
+        color: white;
+    }
+
+    .dish-btn:active {
+        transform: translateY(3px);
+        box-shadow: none;
+    }
+
+    .dish-btn.selected {
+        background-color: #f0ad4e;
+        border-color: #eea236;
+        color: white;
+        box-shadow: 0 3px 0 #eea236;
+    }
+
+    /* Modal Overlay for Game Over / Win */
+    #modal {
+        display: none;
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.85);
+        color: white;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 10;
+    }
+
+    #modal h2 { font-size: 36px; margin-bottom: 10px; }
+    #modal p { font-size: 18px; margin-bottom: 20px; }
+    #modal button {
+        padding: 10px 25px;
+        font-size: 18px;
+        background: var(--diner-red);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+</style>
+</head>
+<body>
+
+<div id="game-container">
+    <header>
+        <span>🍔 VOCABULARY DINER 🍟</span>
+        <div class="stats">Score: <span id="score">0</span></div>
+    </header>
+
+    <div id="dining-room">
+        <div class="customer-seat" id="seat-0"></div>
+        <div class="customer-seat" id="seat-1"></div>
+        <div class="customer-seat" id="seat-2"></div>
+    </div>
+
+    <div id="tray-area">
+        <h3>Kitchen Tray — Select a Dish, then click a Customer to Serve!</h3>
+        <div class="dishes-grid" id="dishes-container"></div>
+    </div>
+
+    <div id="modal">
+        <h2 id="modal-title">Game Over!</h2>
+        <p id="modal-msg">You lost too many customers!</p>
+        <button onclick="startGame()">Play Again</button>
+    </div>
+</div>
+
+<script>
+    const vocabulary = [
+        { word: "Breakthrough", def: "A sudden, dramatic, and important discovery or development." },
+        { word: "Laboratory", def: "A room or building equipped for scientific experiments." },
+        { word: "Workshop", def: "A room or building in which goods are manufactured or repaired." },
+        { word: "Calculation", def: "A mathematical determination of the size or number of something." },
+        { word: "Envision", def: "To imagine as a future possibility; visualize." },
+        { word: "Striking", def: "Attracting attention or notice because of being unusual or prominent." },
+        { word: "Insight", def: "A feeling of understanding the true nature of a deep problem or situation." }
+    ];
+
+    const customerAvatars = ['🦊', '🐻', '🐼', '🦁', '🐨', '🐯', '🐸'];
+
+    let score = 0;
+    let selectedWord = null;
+    let seats = [null, null, null];
+    let gameInterval = null;
+    let spawnTimeout = null;
+
+    function startGame() {
+        score = 0;
+        selectedWord = null;
+        seats = [null, null, null];
+        document.getElementById('score').textContent = score;
+        document.getElementById('modal').style.display = 'none';
+        
+        renderTray();
+        clearSeatsUI();
+        
+        if (gameInterval) clearInterval(gameInterval);
+        if (spawnTimeout) clearTimeout(spawnTimeout);
+
+        // Game loop tick for patience decay
+        gameInterval = setInterval(gameLoop, 100);
+        
+        // Spawn first customer immediately
+        spawnCustomer();
+    }
+
+    function renderTray() {
+        const container = document.getElementById('dishes-container');
+        container.innerHTML = '';
+        
+        // Shuffle tray buttons so they aren't always in the same order
+        const shuffled = [...vocabulary].sort(() => Math.random() - 0.5);
+
+        shuffled.forEach(item => {
+            const btn = document.createElement('button');
+            btn.className = 'dish-btn';
+            btn.textContent = item.word;
+            btn.onclick = () => selectDish(item.word, btn);
+            container.appendChild(btn);
+        });
+    }
+
+    function selectDish(word, btnElement) {
+        selectedWord = word;
+        document.querySelectorAll('.dish-btn').forEach(b => b.classList.remove('selected'));
+        btnElement.classList.add('selected');
+    }
+
+    function spawnCustomer() {
+        const emptyIndices = seats.map((val, idx) => val === null ? idx : null).filter(val => val !== null);
+        
+        if (emptyIndices.length > 0) {
+            const randomSeat = emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
+            const randomVocab = vocabulary[Math.floor(Math.random() * vocabulary.length)];
+            const randomAvatar = customerAvatars[Math.floor(Math.random() * customerAvatars.length)];
+
+            seats[randomSeat] = {
+                word: randomVocab.word,
+                definition: randomVocab.def,
+                avatar: randomAvatar,
+                patience: 100,
+                maxPatience: 100
+            };
+
+            renderSeat(randomSeat);
+        }
+
+        // Schedule next customer spawn
+        const nextSpawnTime = Math.floor(Math.random() * 2000) + 3000;
+        spawnTimeout = setTimeout(spawnCustomer, nextSpawnTime);
+    }
+
+    function renderSeat(index) {
+        const seatEl = document.getElementById(`seat-${index}`);
+        const data = seats[index];
+
+        if (!data) {
+            seatEl.innerHTML = '';
+            return;
+        }
+
+        seatEl.innerHTML = `
+            <div class="bubble">${data.definition}</div>
+            <div class="patience-container">
+                <div class="patience-bar" id="patience-${index}"></div>
+            </div>
+            <div class="customer-avatar">${data.avatar}</div>
+        `;
+
+        seatEl.onclick = () => serveCustomer(index);
+    }
+
+    function clearSeatsUI() {
+        for (let i = 0; i < 3; i++) {
+            document.getElementById(`seat-${i}`).innerHTML = '';
+        }
+    }
+
+    function gameLoop() {
+        seats.forEach((customer, idx) => {
+            if (customer) {
+                // Decay patience speed
+                customer.patience -= 0.4;
+
+                const bar = document.getElementById(`patience-${idx}`);
+                if (bar) {
+                    bar.style.width = `${Math.max(0, customer.patience)}%`;
+                    
+                    if (customer.patience < 30) {
+                        bar.style.backgroundColor = '#d9534f';
+                    } else if (customer.patience < 60) {
+                        bar.style.backgroundColor = '#f0ad4e';
+                    }
+                }
+
+                if (customer.patience <= 0) {
+                    // Customer left angry
+                    seats[idx] = null;
+                    renderSeat(idx);
+                    deductScore(50);
+                }
+            }
+        });
+    }
+
+    function serveCustomer(seatIndex) {
+        const customer = seats[seatIndex];
+        if (!customer || !selectedWord) return;
+
+        if (selectedWord === customer.word) {
+            // Correct order!
+            score += 100;
+            document.getElementById('score').textContent = score;
+            seats[seatIndex] = null;
+            renderSeat(seatIndex);
+            
+            // Check win condition
+            if (score >= 1000) {
+                endGame(true);
+            }
+        } else {
+            // Wrong order!
+            deductScore(30);
+        }
+
+        // Reset tray selection
+        selectedWord = null;
+        document.querySelectorAll('.dish-btn').forEach(b => b.classList.remove('selected'));
+    }
+
+    function deductScore(points) {
+        score = Math.max(0, score - points);
+        document.getElementById('score').textContent = score;
+    }
+
+    function endGame(isWin) {
+        clearInterval(gameInterval);
+        clearTimeout(spawnTimeout);
+
+        const modal = document.getElementById('modal');
+        const title = document.getElementById('modal-title');
+        const msg = document.getElementById('modal-msg');
+
+        modal.style.display = 'flex';
+        if (isWin) {
+            title.textContent = "Great Job!";
+            msg.textContent = `You mastered the diner and reached a score of ${score}!`;
+        } else {
+            title.textContent = "Game Over";
+            msg.textContent = "Try again to practice your vocabulary!";
+        }
+    }
+
+    // Start on load
+    window.onload = startGame;
+</script>
+
+</body>
+</html>
