@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Vocabulary Tetris - Lock & Unlock</title>
+  <style>
+    :root {
+      --bg-color: #0d0f18;
+      --card-bg: rgba(23, 27, 44, 0.85);
+      --cyan: #00f3ff;
+      --magenta: #ff007f;
+      --yellow: #ffea00;
+      --green: #00ff66;
+      --text: #ffffff;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg-color);
+      color: var(--text);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    .game-container {
+      display: flex;
+      gap: 20px;
+      padding: 20px;
+      background: var(--card-bg);
+      border-radius: 12px;
+      box-shadow: 0 0 25px rgba(0, 243, 255, 0.2), inset 0 0 15px rgba(255, 0, 127, 0.1);
+      border: 1px solid rgba(0, 243, 255, 0.3);
+    }
+
+    .canvas-wrapper {
+      position: relative;
+    }
+
+    canvas {
+      background: #05060a;
+      border: 2px solid var(--cyan);
+      box-shadow: 0 0 15px rgba(0, 243, 255, 0.4);
+      display: block;
+    }
+
+    .sidebar {
+      width: 260px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .panel {
+      background: rgba(10, 12, 20, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 15px;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .panel h2 {
+      margin: 0 0 10px 0;
+      font-size: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--cyan);
+    }
+
+    .stat-value {
+      font-size: 1.8rem;
+      font-weight: bold;
+      color: var(--yellow);
+      text-shadow: 0 0 8px var(--yellow);
+    }
+
+    .vocab-card {
+      border-color: var(--magenta);
+      box-shadow: 0 0 10px rgba(255, 0, 127, 0.2);
+    }
+
+    .vocab-word {
+      font-size: 1.3rem;
+      color: var(--cyan);
+      font-weight: bold;
+      margin-bottom: 8px;
+      text-shadow: 0 0 5px var(--cyan);
+    }
+
+    .vocab-def {
+      font-size: 0.9rem;
+      line-height: 1.3;
+      color: #ccc;
+      min-height: 48px;
+    }
+
+    .controls-hint {
+      font-size: 0.8rem;
+      color: #888;
+      text-align: left;
+      line-height: 1.4;
+    }
+
+    .controls-hint span {
+      color: #fff;
+      font-weight: bold;
+    }
+
+    .btn {
+      background: linear-gradient(45deg, var(--cyan), var(--magenta));
+      border: none;
+      color: white;
+      padding: 10px 20px;
+      font-size: 1rem;
+      font-weight: bold;
+      border-radius: 5px;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+      transition: transform 0.1s;
+    }
+
+    .btn:hover {
+      transform: scale(1.05);
+    }
+
+    /* Modal Overlay for Game Over / Start */
+    .overlay {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(5, 6, 10, 0.85);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+    }
+
+    .overlay h1 {
+      color: var(--magenta);
+      text-shadow: 0 0 10px var(--magenta);
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="game-container">
+  <div class="canvas-wrapper">
+    <canvas id="tetris" width="240" height="480"></canvas>
+    <div id="overlay" class="overlay">
+      <h1 id="overlay-title">NEON VOCAB TETRIS</h1>
+      <button class="btn" id="start-btn" onclick="startGame()">PLAY GAME</button>
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="panel">
+      <h2>Time Remaining</h2>
+      <div id="timer" class="stat-value">60</div>
+    </div>
+
+    <div class="panel">
+      <h2>Score</h2>
+      <div id="score" class="stat-value">0</div>
+    </div>
+
+    <div class="panel vocab-card">
+      <h2>Definition Match</h2>
+      <div id="current-def" class="vocab-def">Press Start to Begin</div>
+      <div style="margin-top: 10px; font-size: 0.85rem; color: #aaa;">
+        Match target block word?<br>
+        Press <span style="color:var(--green); font-weight:bold;">Y</span> (Yes) or <span style="color:var(--magenta); font-weight:bold;">N</span> (No)
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="controls-hint">
+        <b>Controls:</b><br>
+        <span>Y / N</span> : Answer Vocab Prompt<br>
+        <span>A / D or ← / →</span> : Move (Unlocked)<br>
+        <span>W or ↑</span> : Rotate (Unlocked)<br>
+        <span>S or ↓</span> : Soft Drop (Unlocked)
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// --- 10 VOCABULARY WORDS & DEFINITIONS ---
+const VOCAB_LIST = [
+  { word: "BENEVOLENT", def: "Well-meaning, kindly, and charitable in nature." },
+  { word: "EPHEMERAL", def: "Lasting for a very short period of time." },
+  { word: "PRAGMATIC", def: "Dealing with things sensibly and realistically." },
+  { word: "METICULOUS", def: "Showing great attention to detail; very careful." },
+  { word: "RESILIENT", def: "Able to withstand or recover quickly from difficult conditions." },
+  { word: "CANDID", def: "Truthful and straightforward; frank." },
+  { word: "LUCID", def: "Expressed clearly; easy to understand." },
+  { word: "ELUSIVE", def: "Difficult to find, catch, or achieve." },
+  { word: "TENACIOUS", def: "Tending to keep a firm hold of something; persistent." },
+  { word: "UBIQUITOUS", def: "Present, appearing, or found everywhere." }
+];
+
+const COLS = 10;
+const ROWS = 20;
+const BLOCK_SIZE = 24;
+
+const canvas = document.getElementById('tetris');
+const ctx = canvas.getContext('2d');
+
+// Game State Variables
+let grid = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+let score = 0;
+let timeRemaining = 60;
+let timerInterval = null;
+let gameLoopId = null;
+let isGameOver = false;
+
+// Current Active Block & Target Vocab State
+let currentPiece = null;
+let targetDefObj = null;
+let isMatch = false; // Is displayed def equal to piece's word?
+let dropCounter = 0;
+let lastTime = 0;
+
+// Tetromino Shapes: I, L, O, T
+const SHAPES = {
+  'I': [[1,1,1,1]],
+  'L': [[1,0],[1,0],[1,1]],
+  'O': [[1,1],[1,1]],
+  'T': [[0,1,0],[1,1,1]]
+};
+
+const COLOR_MAP = {
+  'I': '#00f3ff',
+  'L': '#ff9900',
+  'O': '#ffea00',
+  'T': '#b000ff'
+};
+
+class Piece {
+  constructor(type, word) {
+    this.type = type;
+    this.matrix = SHAPES[type];
+    this.color = COLOR_MAP[type];
+    this.word = word;
+    this.locked = true; // Spawns locked (semi-transparent, no controls/fast drop)
+    this.x = Math.floor((COLS - this.matrix[0].length) / 2);
+    this.y = 0;
+  }
+}
+
+function getRandomVocab() {
+  return VOCAB_LIST[Math.floor(Math.random() * VOCAB_LIST.length)];
+}
+
+function spawnPiece() {
+  const types = ['I', 'L', 'O', 'T'];
+  const randomType = types[Math.floor(Math.random() * types.length)];
+  const randomVocab = getRandomVocab();
+  
+  currentPiece = new Piece(randomType, randomVocab.word);
+
+  // Determine if prompt definition matches block word (50% chance)
+  if (Math.random() > 0.5) {
+    targetDefObj = randomVocab;
+    isMatch = true;
+  } else {
+    let wrongVocab;
+    do {
+      wrongVocab = getRandomVocab();
+    } while (wrongVocab.word === randomVocab.word);
+    targetDefObj = wrongVocab;
+    isMatch = false;
+  }
+
+  document.getElementById('current-def').innerText = targetDefObj.def;
+
+  // Collision check immediately on spawn (Game Over condition)
+  if (checkCollision(currentPiece, 0, 0)) {
+    endGame("Grid Stacked to Top!");
+  }
+}
+
+function checkCollision(piece, offsetX, offsetY, newMatrix = null) {
+  const matrix = newMatrix || piece.matrix;
+  for (let r = 0; r < matrix.length; r++) {
+    for (let c = 0; c < matrix[r].length; c++) {
+      if (matrix[r][c]) {
+        let newX = piece.x + c + offsetX;
+        let newY = piece.y + r + offsetY;
+        if (newX < 0 || newX >= COLS || newY >= ROWS) return true;
+        if (newY >= 0 && grid[newY][newX] !== 0) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function lockPieceToGrid() {
+  for (let r = 0; r < currentPiece.matrix.length; r++) {
+    for (let c = 0; c < currentPiece.matrix[r].length; c++) {
+      if (currentPiece.matrix[r][c]) {
+        grid[currentPiece.y + r][currentPiece.x + c] = currentPiece.color;
+      }
+    }
+  }
+  clearLines();
+  spawnPiece();
+}
+
+function clearLines() {
+  let linesCleared = 0;
+  for (let r = ROWS - 1; r >= 0; r--) {
+    if (grid[r].every(cell => cell !== 0)) {
+      grid.splice(r, 1);
+      grid.unshift(Array(COLS).fill(0));
+      linesCleared++;
+      r++; // re-check row
+    }
+  }
+  if (linesCleared > 0) {
+    // Standard Tetris scoring multiplier
+    const points = [0, 100, 300, 500, 800];
+    score += points[linesCleared] || 1000;
+    document.getElementById('score').innerText = score;
+  }
+}
+
+function handleAnswer(userAnswer) {
+  if (!currentPiece || !currentPiece.locked) return;
+
+  const isCorrect = (userAnswer === 'Y' && isMatch) || (userAnswer === 'N' && !isMatch);
+
+  if (isCorrect) {
+    currentPiece.locked = false; // Unlock block
+    score += 50; // Bonus points for correct answer
+    document.getElementById('score').innerText = score;
+  } else {
+    // Drop at double speed continuously handled in update()
+    currentPiece.doubleSpeed = true;
+  }
+}
+
+// Controls
+document.addEventListener('keydown', (e) => {
+  if (isGameOver || !currentPiece) return;
+
+  const key = e.key.toUpperCase();
+
+  // Vocab Input
+  if (key === 'Y' || key === 'N') {
+    handleAnswer(key);
+    return;
+  }
+
+  // Tetris Controls (Only work if Unlocked)
+  if (!currentPiece.locked) {
+    if (e.key === 'ArrowLeft' || key === 'A') {
+      if (!checkCollision(currentPiece, -1, 0)) currentPiece.x--;
+    } else if (e.key === 'ArrowRight' || key === 'D') {
+      if (!checkCollision(currentPiece, 1, 0)) currentPiece.x++;
+    } else if (e.key === 'ArrowDown' || key === 'S') {
+      if (!checkCollision(currentPiece, 0, 1)) currentPiece.y++;
+    } else if (e.key === 'ArrowUp' || key === 'W') {
+      rotatePiece();
+    }
+  }
+});
+
+function rotatePiece() {
+  const m = currentPiece.matrix;
+  const rotated = m[0].map((_, i) => m.map(row => row[i]).reverse());
+  if (!checkCollision(currentPiece, 0, 0, rotated)) {
+    currentPiece.matrix = rotated;
+  }
+}
+
+// Game Loop
+function update(time = 0) {
+  if (isGameOver) return;
+
+  const deltaTime = time - lastTime;
+  lastTime = time;
+  dropCounter += deltaTime;
+
+  // Fall speed adjustments
+  let interval = 1000; // Base: 1 block per sec
+  if (currentPiece) {
+    if (currentPiece.locked && currentPiece.doubleSpeed) {
+      interval = 300; // Fast drop on wrong answer
+    }
+  }
+
+  if (dropCounter > interval) {
+    if (currentPiece) {
+      if (!checkCollision(currentPiece, 0, 1)) {
+        currentPiece.y++;
+      } else {
+        lockPieceToGrid();
+      }
+    }
+    dropCounter = 0;
+  }
+
+  draw();
+  gameLoopId = requestAnimationFrame(update);
+}
+
+function draw() {
+  // Clear canvas
+  ctx.fillStyle = '#05060a';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Draw Grid Lines
+  ctx.strokeStyle = '#111522';
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      ctx.strokeRect(c * BLOCK_SIZE, r * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+    }
+  }
+
+  // Draw Locked Settled Blocks
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (grid[r][c] !== 0) {
+        ctx.fillStyle = grid[r][c];
+        ctx.fillRect(c * BLOCK_SIZE, r * BLOCK_SIZE, BLOCK_SIZE - 1, BLOCK_SIZE - 1);
+      }
+    }
+  }
+
+  // Draw Current Active Piece
+  if (currentPiece) {
+    ctx.save();
+    if (currentPiece.locked) {
+      ctx.globalAlpha = 0.45; // Semi-transparent when locked
+    }
+    ctx.fillStyle = currentPiece.color;
+
+    for (let r = 0; r < currentPiece.matrix.length; r++) {
+      for (let c = 0; c < currentPiece.matrix[r].length; c++) {
+        if (currentPiece.matrix[r][c]) {
+          let px = (currentPiece.x + c) * BLOCK_SIZE;
+          let py = (currentPiece.y + r) * BLOCK_SIZE;
+          ctx.fillRect(px, py, BLOCK_SIZE - 1, BLOCK_SIZE - 1);
+        }
+      }
+    }
+
+    // Render Vocabulary Text on the Piece
+    ctx.globalAlpha = 1.0;
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 9px sans-serif';
+    ctx.textAlign = 'center';
+    let textX = (currentPiece.x + currentPiece.matrix[0].length / 2) * BLOCK_SIZE;
+    let textY = (currentPiece.y + currentPiece.matrix.length / 2) * BLOCK_SIZE;
+    ctx.fillText(currentPiece.word, textX, textY);
+    ctx.restore();
+  }
+}
+
+function startGame() {
+  grid = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+  score = 0;
+  timeRemaining = 60;
+  isGameOver = false;
+
+  document.getElementById('score').innerText = score;
+  document.getElementById('timer').innerText = timeRemaining;
+  document.getElementById('overlay').style.display = 'none';
+
+  spawnPiece();
+
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    timeRemaining--;
+    document.getElementById('timer').innerText = timeRemaining;
+    if (timeRemaining <= 0) {
+      endGame("TIME'S UP!");
+    }
+  }, 1000);
+
+  lastTime = performance.now();
+  if (gameLoopId) cancelAnimationFrame(gameLoopId);
+  update();
+}
+
+function endGame(reason) {
+  isGameOver = true;
+  clearInterval(timerInterval);
+  cancelAnimationFrame(gameLoopId);
+
+  document.getElementById('overlay-title').innerText = reason;
+  document.getElementById('start-btn').innerText = 'PLAY AGAIN';
+  document.getElementById('overlay').style.display = 'flex';
+}
+</script>
+</body>
+</html>
