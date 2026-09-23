@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Target Arches - Grade 11 Vocab Game</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #1a2a3a;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 { margin-bottom: 5px; color: #ffcc00; }
+    .score-board { font-size: 1.2rem; margin-bottom: 20px; }
+    .card {
+      background: #2c3e50;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 8px 16px rgba(0,0,0,0.4);
+      width: 100%;
+      max-width: 600px;
+      text-align: center;
+    }
+    .vocab-word {
+      font-size: 2rem;
+      font-weight: bold;
+      color: #00d2ff;
+      letter-spacing: 1px;
+      margin-bottom: 15px;
+    }
+    .target-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 20px;
+    }
+    .target-btn {
+      background: #34495e;
+      color: #fff;
+      border: 2px solid #5d6d7e;
+      padding: 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: all 0.2s ease;
+      text-align: left;
+    }
+    .target-btn:hover {
+      background: #1abc9c;
+      border-color: #16a085;
+      transform: translateX(5px);
+    }
+    #feedback {
+      font-size: 1.2rem;
+      font-weight: bold;
+      margin-top: 15px;
+      height: 30px;
+    }
+    .correct { color: #2ecc71; }
+    .wrong { color: #e74c3c; }
+    button.next-btn {
+      margin-top: 15px;
+      padding: 10px 20px;
+      background: #f1c40f;
+      border: none;
+      color: #2c3e50;
+      font-weight: bold;
+      font-size: 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🎯 TARGET ARCHES</h1>
+  <p>Aim your arrow at the definition that matches the target word!</p>
+
+  <div class="score-board">
+    Score: <span id="score">0</span> / <span id="total">0</span>
+  </div>
+
+  <div class="card" id="game-card">
+    <div class="vocab-word" id="word-display">Target Word</div>
+    <div class="target-container" id="options-container"></div>
+    <div id="feedback"></div>
+    <button class="next-btn" id="next-btn" onclick="nextQuestion()" style="display:none;">Next Target 🏹</button>
+  </div>
+
+  <script>
+    const vocabData = [
+      { word: "Participant", definition: "A person who takes part in something." },
+      { word: "Implication", definition: "A conclusion that can be drawn from something although it is not explicitly stated." },
+      { word: "Motivation", definition: "The reason or reasons one has for acting or behaving in a particular way." },
+      { word: "Polished", definition: "Accomplished, expert, or refined in style or execution." },
+      { word: "Outfit", definition: "A set of clothes worn together, typically for a particular purpose or occasion." },
+      { word: "Reinforce", definition: "Strengthen or support an existing idea, structure, or feeling." }
+    ];
+
+    let currentIndex = 0;
+    let score = 0;
+
+    function shuffle(array) {
+      return array.sort(() => Math.random() - 0.5);
+    }
+
+    function loadQuestion() {
+      document.getElementById('feedback').innerText = '';
+      document.getElementById('next-btn').style.display = 'none';
+      
+      const current = vocabData[currentIndex];
+      document.getElementById('word-display').innerText = current.word;
+
+      let options = [current.definition];
+      while (options.length < 3) {
+        let randDef = vocabData[Math.floor(Math.random() * vocabData.length)].definition;
+        if (!options.includes(randDef)) {
+          options.push(randDef);
+        }
+      }
+      options = shuffle(options);
+
+      const container = document.getElementById('options-container');
+      container.innerHTML = '';
+      options.forEach(def => {
+        const btn = document.createElement('button');
+        btn.className = 'target-btn';
+        btn.innerText = `🏹 ${def}`;
+        btn.onclick = () => checkAnswer(def, current.definition);
+        container.appendChild(btn);
+      });
+    }
+
+    function checkAnswer(selected, correct) {
+      const feedback = document.getElementById('feedback');
+      const buttons = document.querySelectorAll('.target-btn');
+      buttons.forEach(btn => btn.disabled = true);
+
+      if (selected === correct) {
+        score++;
+        feedback.className = 'correct';
+        feedback.innerText = '🎯 Bullseye! Direct hit!';
+      } else {
+        feedback.className = 'wrong';
+        feedback.innerText = '❌ Missed target! Try harder next shot.';
+      }
+
+      document.getElementById('score').innerText = score;
+      document.getElementById('total').innerText = currentIndex + 1;
+      document.getElementById('next-btn').style.display = 'inline-block';
+    }
+
+    function nextQuestion() {
+      currentIndex++;
+      if (currentIndex < vocabData.length) {
+        loadQuestion();
+      } else {
+        document.getElementById('game-card').innerHTML = `
+          <h2>🏹 Round Complete!</h2>
+          <p>Your Final Score: <strong>${score} / ${vocabData.length}</strong></p>
+          <button class="next-btn" onclick="location.reload()">Play Again</button>
+        `;
+      }
+    }
+
+    loadQuestion();
+  </script>
+</body>
+</html>
