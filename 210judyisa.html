@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Link Railway - 高一英文單字大挑戰</title>
+    <style>
+        :root {
+            --bg-color: #1a1e24;
+            --panel-bg: #2a303c;
+            --accent-green: #4caf50;
+            --accent-blue: #2196f3;
+            --text-light: #f5f5f5;
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: var(--text-light);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            margin-top: 0;
+            color: #4fc3f7;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        #game-container {
+            width: 800px;
+            background-color: var(--panel-bg);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.4);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        #train-display {
+            background-color: #37474f;
+            border: 2px solid #546e7a;
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .engine {
+            font-size: 2rem;
+            background: #d32f2f;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 4px 0 #9a0007;
+        }
+
+        .payload-box {
+            flex-grow: 1;
+        }
+
+        .payload-title {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            color: #b0bec5;
+            letter-spacing: 1px;
+        }
+
+        .payload-text {
+            font-size: 1.15rem;
+            font-weight: bold;
+            color: #fff176;
+            margin-top: 5px;
+        }
+
+        #railway-canvas {
+            background-color: #2e7d32;
+            border-radius: 8px;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+            cursor: pointer;
+        }
+
+        #controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn {
+            background-color: var(--accent-green);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #2e7d32;
+            transition: all 0.1s ease;
+        }
+
+        .btn:hover {
+            background-color: #66bb6a;
+        }
+
+        .btn:active {
+            transform: translateY(4px);
+            box-shadow: 0 0 0 #2e7d32;
+        }
+
+        #score-board {
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        #status-msg {
+            font-weight: bold;
+            font-size: 1.1rem;
+            min-height: 1.5em;
+        }
+
+        .correct { color: #81c784; }
+        .wrong { color: #e57373; }
+    </style>
+</head>
+<body>
+
+    <h1>🚂 Word Link Railway</h1>
+
+    <div id="game-container">
+        <div id="train-display">
+            <div class="engine">🚂</div>
+            <div class="payload-box">
+                <div class="payload-title">Train Cargo (Definition Payload)</div>
+                <div id="definition-payload" class="payload-text">Loading...</div>
+            </div>
+        </div>
+
+        <canvas id="railway-canvas" width="760" height="360"></canvas>
+
+        <div id="controls">
+            <div id="score-board">Score: <span id="score">0</span> / 7</div>
+            <div id="status-msg">點擊軌道上的切換鈕 (🔄) 來調整路線！</div>
+            <button id="dispatch-btn" class="btn" onclick="dispatchTrain()">發車！ 🟢</button>
+        </div>
+    </div>
+
+    <script>
+        // 玩家指定的 7 個單字與定義
+        const wordData = [
+            { word: "communication", def: "The exchange of information, ideas, or feelings between people." },
+            { word: "conventional", def: "Following traditional standards, customs, or accepted rules." },
+            { word: "fascinating", def: "Extremely interesting or captivating to learn about." },
+            { word: "generate", def: "To produce, create, or cause something (such as heat or power) to exist." },
+            { word: "scent", def: "A distinctive and pleasant smell or fragrance." },
+            { word: "prompt", def: "To cause or encourage an action or decision; to give a hint." },
+            { word: "nutrient", def: "A substance that provides essential nourishment for growth and life." }
+        ];
+
+        let currentIndex = 0;
+        let score = 0;
+        let switchState = 0; // 0: 上, 1: 中, 2: 下
+        let isMoving = false;
+        let trainX = 50;
+        let trainY = 180;
+        let options = [];
+
+        const canvas = document.getElementById("railway-canvas");
+        const ctx = canvas.getContext("2d");
+
+        function shuffle(array) {
+            return array.sort(() => Math.random() - 0.5);
+        }
+
+        function loadQuestion() {
+            if (currentIndex >= wordData.length) {
+                document.getElementById("definition-payload").innerText = "🎉 恭喜！所有火車都順利送達正確車站！";
+                document.getElementById("dispatch-btn").disabled = true;
+                return;
+            }
+
+            document.getElementById("definition-payload").innerText = `"${wordData[currentIndex].def}"`;
+            document.getElementById("status-msg").innerText = "點擊切換鈕 (🔄) 切換軌道方向！";
+            document.getElementById("status-msg").className = "";
+
+            const currentWord = wordData[currentIndex].word;
+            let distractors = wordData.filter(item => item.word !== currentWord);
+            distractors = shuffle(distractors).slice(0, 2);
+
+            options = shuffle([
+                { word: currentWord, correct: true },
+                { word: distractors[0].word, correct: false },
+                { word: distractors[1].word, correct: false }
+            ]);
+
+            trainX = 50;
+            trainY = 180;
+            isMoving = false;
+            drawScene();
+        }
+
+        function drawTrackLine(x1, y1, x2, y2, color = "#8d6e63", width = 8) {
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            ctx.stroke();
+        }
+
+        function drawScene() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 主軌道
+            drawTrackLine(20, 180, 250, 180);
+
+            const stationYPositions = [70, 180, 290];
+
+            // 未選擇的路線
+            drawTrackLine(250, 180, 550, 70, "#555");
+            drawTrackLine(250, 180, 550, 180, "#555");
+            drawTrackLine(250, 180, 550, 290, "#555");
+
+            // 目前切換啟用的高亮路線
+            drawTrackLine(250, 180, 550, stationYPositions[switchState], "#ffe082", 10);
+
+            // 繪製三個單字車站
+            for (let i = 0; i < 3; i++) {
+                const y = stationYPositions[i];
+                ctx.fillStyle = "#37474f";
+                ctx.fillRect(550, y - 35, 180, 70);
+                ctx.strokeStyle = "#4fc3f7";
+                ctx.lineWidth = 3;
+                ctx.strokeRect(550, y - 35, 180, 70);
+
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "bold 15px Segoe UI";
+                ctx.textAlign = "center";
+                ctx.fillText(`🏢 ${options[i].word}`, 640, y + 6);
+            }
+
+            // 繪製轉軌開關
+            ctx.fillStyle = "#ffb74d";
+            ctx.beginPath();
+            ctx.arc(250, 180, 25, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "#000";
+            ctx.font = "bold 18px Segoe UI";
+            ctx.fillText("🔄", 250, 186);
+
+            // 繪製火車
+            ctx.font = "32px Segoe UI";
+            ctx.fillText("🚂", trainX, trainY + 10);
+        }
+
+        canvas.addEventListener("click", function (e) {
+            if (isMoving) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const clickY = e.clientY - rect.top;
+
+            // 檢查是否點擊轉軌開關圓心
+            const dist = Math.hypot(clickX - 250, clickY - 180);
+            if (dist < 30) {
+                switchState = (switchState + 1) % 3;
+                drawScene();
+            }
+        });
+
+        function dispatchTrain() {
+            if (isMoving || currentIndex >= wordData.length) return;
+            isMoving = true;
+
+            const targetY = [70, 180, 290][switchState];
+            const moveInterval = setInterval(() => {
+                let reachedEnd = false;
+
+                if (trainX < 250) {
+                    trainX += 5;
+                } else if (trainX < 550) {
+                    trainX += 5;
+                    trainY += (targetY - 180) / ((550 - 250) / 5);
+                } else {
+                    reachedEnd = true;
+                }
+
+                drawScene();
+
+                if (reachedEnd) {
+                    clearInterval(moveInterval);
+                    checkAnswer();
+                }
+            }, 20);
+        }
+
+        function checkAnswer() {
+            const statusMsg = document.getElementById("status-msg");
+
+            if (options[switchState].correct) {
+                score++;
+                document.getElementById("score").innerText = score;
+                statusMsg.innerText = "✅ 正確送達車站！太棒了！";
+                statusMsg.className = "correct";
+            } else {
+                statusMsg.innerText = `❌ 進錯車站囉！正確答案是: ${wordData[currentIndex].word}`;
+                statusMsg.className = "wrong";
+            }
+
+            setTimeout(() => {
+                currentIndex++;
+                loadQuestion();
+            }, 2500);
+        }
+
+        // 初始化遊戲
+        loadQuestion();
+    </script>
+</body>
+</html>
