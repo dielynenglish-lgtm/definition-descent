@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flashcard Memory Matrix</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e1e2f;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        h1 {
+            color: #4e9af1;
+            margin-bottom: 5px;
+        }
+
+        .stats-container {
+            display: flex;
+            gap: 20px;
+            font-size: 1.1rem;
+            background: #2d2d44;
+            padding: 10px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(4, 120px);
+            grid-template-rows: repeat(4, 120px);
+            gap: 12px;
+            perspective: 1000px;
+        }
+
+        .card {
+            width: 120px;
+            height: 120px;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.5s;
+            cursor: pointer;
+        }
+
+        .card.flipped {
+            transform: rotateY(180deg);
+        }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px;
+            box-sizing: border-box;
+            text-align: center;
+            font-weight: bold;
+            font-size: 0.9rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+
+        .card-front {
+            background-color: #4e9af1;
+            color: white;
+            font-size: 2rem;
+        }
+
+        .card-back {
+            background-color: #ffffff;
+            color: #1e1e2f;
+            transform: rotateY(180deg);
+            border: 2px solid #4e9af1;
+            word-wrap: break-word;
+        }
+
+        .card.matched .card-back {
+            background-color: #2ee59d;
+            border-color: #2ee59d;
+            color: #ffffff;
+        }
+
+        /* Overlay Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .modal-content {
+            background: #2d2d44;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            max-width: 350px;
+        }
+
+        .btn {
+            background: #4e9af1;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+
+        .btn:hover {
+            background: #357abd;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Vocabulary Memory Matrix</h1>
+
+    <div class="stats-container">
+        <div>⏳ Time: <span id="timer">90</span>s</div>
+        <div>🎯 Moves: <span id="moves">0</span></div>
+        <div>🏆 Matches: <span id="matches">0</span>/8</div>
+    </div>
+
+    <div class="grid" id="grid"></div>
+
+    <!-- Victory / Game Over Screen -->
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <h2 id="modal-title">Congratulations!</h2>
+            <p id="modal-msg"></p>
+            <button class="btn" onclick="restartGame()">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        const vocabulary = [
+            { id: 1, word: "Grip", def: "To hold tightly" },
+            { id: 2, word: "Adjustment", def: "A small change made to improve something" },
+            { id: 3, word: "Strain", def: "Severe or tiring effort" },
+            { id: 4, word: "Flexible", def: "Able to bend easily without breaking" },
+            { id: 5, word: "Loosen", def: "To make less tight" },
+            { id: 6, word: "Slightly", def: "To a small degree; a little bit" },
+            { id: 7, word: "Demonstrate", def: "To show clearly by giving proof or evidence" },
+            { id: 8, word: "Mastery", def: "Comprehensive knowledge or skill in a subject" } // Bonus 8th word
+        ];
+
+        let cardsData = [];
+        let flippedCards = [];
+        let matchedCount = 0;
+        let moves = 0;
+        let timeLeft = 90;
+        let timerId = null;
+        let isBoardLocked = false;
+
+        const grid = document.getElementById("grid");
+        const movesDisplay = document.getElementById("moves");
+        const matchesDisplay = document.getElementById("matches");
+        const timerDisplay = document.getElementById("timer");
+        const modal = document.getElementById("modal");
+
+        function initGame() {
+            // Prepare cards array (8 words + 8 definitions = 16 cards)
+            cardsData = [];
+            vocabulary.forEach(item => {
+                cardsData.push({ id: item.id, text: item.word, type: 'word' });
+                cardsData.push({ id: item.id, text: item.def, type: 'def' });
+            });
+
+            // Shuffle cards
+            cardsData.sort(() => 0.5 - Math.random());
+
+            // Reset state
+            grid.innerHTML = "";
+            flippedCards = [];
+            matchedCount = 0;
+            moves = 0;
+            timeLeft = 90;
+            isBoardLocked = false;
+
+            movesDisplay.textContent = moves;
+            matchesDisplay.textContent = `${matchedCount}`;
+            timerDisplay.textContent = timeLeft;
+            modal.style.display = "none";
+
+            // Render grid
+            cardsData.forEach(data => {
+                const card = document.createElement("div");
+                card.classList.add("card");
+                card.dataset.id = data.id;
+
+                card.innerHTML = `
+                    <div class="card-face card-front">🧠</div>
+                    <div class="card-face card-back">${data.text}</div>
+                `;
+
+                card.addEventListener("click", () => flipCard(card));
+                grid.appendChild(card);
+            });
+
+            // Start timer
+            clearInterval(timerId);
+            timerId = setInterval(updateTimer, 1000);
+        }
+
+        function updateTimer() {
+            timeLeft--;
+            timerDisplay.textContent = timeLeft;
+            if (timeLeft <= 0) {
+                endGame(false);
+            }
+        }
+
+        function flipCard(card) {
+            if (isBoardLocked || card.classList.contains("flipped") || card.classList.contains("matched")) return;
+
+            card.classList.add("flipped");
+            flippedCards.push(card);
+
+            if (flippedCards.length === 2) {
+                moves++;
+                movesDisplay.textContent = moves;
+                checkMatch();
+            }
+        }
+
+        function checkMatch() {
+            const [card1, card2] = flippedCards;
+            const isMatch = card1.dataset.id === card2.dataset.id;
+
+            if (isMatch) {
+                card1.classList.add("matched");
+                card2.classList.add("matched");
+                matchedCount++;
+                matchesDisplay.textContent = `${matchedCount}`;
+                flippedCards = [];
+
+                if (matchedCount === 8) {
+                    endGame(true);
+                }
+            } else {
+                isBoardLocked = true;
+                setTimeout(() => {
+                    card1.classList.remove("flipped");
+                    card2.classList.remove("flipped");
+                    flippedCards = [];
+                    isBoardLocked = false;
+                }, 1000);
+            }
+        }
+
+        function endGame(isWin) {
+            clearInterval(timerId);
+            modal.style.display = "flex";
+            const title = document.getElementById("modal-title");
+            const msg = document.getElementById("modal-msg");
+
+            if (isWin) {
+                title.textContent = "🎉 You Won!";
+                
+                // Calculate efficiency rating based on moves
+                let rating = "S-Rank (Mastery!)";
+                if (moves > 12 && moves <= 18) rating = "A-Rank (Great Job!)";
+                else if (moves > 18) rating = "B-Rank (Good Practice!)";
+
+                msg.innerHTML = `You completed the matrix in <b>${90 - timeLeft}</b> seconds with <b>${moves}</b> moves.<br><br><b>Efficiency Rating:</b> ${rating}`;
+            } else {
+                title.textContent = "⏰ Time's Up!";
+                msg.textContent = "Don't worry, practice makes perfect! Try again to improve your speed.";
+            }
+        }
+
+        function restartGame() {
+            initGame();
+        }
+
+        // Start game on page load
+        initGame();
+    </script>
+</body>
+</html>

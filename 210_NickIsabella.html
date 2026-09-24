@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bridge Builder - Vocabulary Platformer</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #1a1a2e;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        h1 {
+            margin: 10px 0 5px 0;
+            color: #e94560;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        p.subtitle {
+            margin: 0 0 15px 0;
+            color: #8d99ae;
+            font-size: 0.95rem;
+        }
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 400px;
+            background: linear-gradient(to bottom, #0f3460, #16213e);
+            border: 4px solid #0f3460;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+            overflow: hidden;
+        }
+        /* Canvas for Runner & Bridge */
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        /* Floating Definition Prompt */
+        #definition-box {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(22, 33, 62, 0.9);
+            border: 2px solid #e94560;
+            border-radius: 8px;
+            padding: 12px 20px;
+            text-align: center;
+            font-size: 1.1rem;
+            color: #4ecca3;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            z-index: 10;
+            max-width: 80%;
+            pointer-events: none;
+            transition: border-color 0.3s, color 0.3s;
+        }
+        /* Planks Container */
+        #planks-container {
+            position: absolute;
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 12px;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 10px;
+            border-radius: 10px;
+        }
+        .plank {
+            background: #d4a373;
+            color: #2b2d42;
+            font-weight: bold;
+            font-size: 1rem;
+            padding: 10px 18px;
+            border-radius: 6px;
+            border: 2px solid #faedcd;
+            cursor: grab;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transition: transform 0.1s, background-color 0.2s;
+        }
+        .plank:hover {
+            background: #f4a261;
+            transform: translateY(-2px);
+        }
+        .plank:active {
+            cursor: grabbing;
+        }
+        .plank.dragging {
+            opacity: 0.5;
+        }
+        /* UI Overlay */
+        #ui-overlay {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #f1faee;
+            z-index: 10;
+        }
+        /* Game Over / Win Modal */
+        #modal {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 20;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        #modal h2 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        #modal p {
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            color: #a8dadc;
+        }
+        #restart-btn {
+            padding: 12px 30px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            background-color: #e94560;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(233, 69, 96, 0.4);
+            transition: background 0.2s, transform 0.1s;
+        }
+        #restart-btn:hover {
+            background-color: #ff6b6b;
+            transform: scale(1.05);
+        }
+        /* Drop Target visual cue */
+        #drop-zone-hint {
+            position: absolute;
+            top: 220px;
+            left: 360px;
+            width: 160px;
+            height: 30px;
+            border: 2px dashed #4ecca3;
+            border-radius: 4px;
+            z-index: 5;
+            pointer-events: none;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 0.3; }
+            50% { opacity: 0.8; }
+            100% { opacity: 0.3; }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🌉 Bridge Builder (Platformer)</h1>
+    <p class="subtitle">拖曳正確的單字木板填補橋樑空隙，讓跑者安全通過！</p>
+
+    <div id="game-container">
+        <div id="ui-overlay">關卡: <span id="level-num">1</span> / 7</div>
+        <div id="definition-box">載入中...</div>
+        <div id="drop-zone-hint"></div>
+        <canvas id="gameCanvas" width="800" height="400"></canvas>
+        
+        <div id="planks-container">
+            <!-- 拖曳單字木板會由 JS 動態生成 -->
+        </div>
+
+        <div id="modal">
+            <h2 id="modal-title">遊戲結束</h2>
+            <p id="modal-msg">你可以做得更好！</p>
+            <button id="restart-btn" onclick="resetGame()">再試一次</button>
+        </div>
+    </div>
+
+    <script>
+        // 高二單字庫 (Vocabulary Data)
+        const vocabData = [
+            { word: "presentation", def: "n. 簡報；演示 (A speech or talk in which a new idea is shown)" },
+            { word: "boost", def: "v. 促進；提升 (To help or encourage something to increase or improve)" },
+            { word: "accomplish", def: "v. 完成；實現 (To achieve or complete successfully)" },
+            { word: "purchase", def: "v. 購買 (To buy something)" },
+            { word: "trigger", def: "v. 引發；觸發 (To cause an event or situation to happen)" },
+            { word: "psychology", def: "n. 心理學 (The scientific study of the human mind and behavior)" },
+            { word: "stability", def: "n. 穩定；安全性 (The state of being stable and unchangeable)" }
+        ];
+
+        let currentLevel = 0;
+        let isBridgeFixed = false;
+        let isRunnerMoving = false;
+        let gameActive = true;
+        let errorTimeout = null;
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const defBox = document.getElementById('definition-box');
+        const planksContainer = document.getElementById('planks-container');
+        const levelNumDisplay = document.getElementById('level-num');
+        const modal = document.getElementById('modal');
+        const dropZoneHint = document.getElementById('drop-zone-hint');
+
+        // 跑者物件 (Runner)
+        const runner = {
+            x: 50,
+            y: 200,
+            width: 30,
+            height: 50,
+            speed: 3,
+            vy: 0,
+            gravity: 0.5,
+            isGrounded: true
+        };
+
+        // 橋樑參數 (Bridge Config)
+        const bridgeY = 250;
+        const gapStart = 360;
+        const gapWidth = 160;
+
+        function initLevel() {
+            if (currentLevel >= vocabData.length) {
+                showModal("🎉 恭喜破關！", "你成功運用高二單字建造了所有橋樑！");
+                return;
+            }
+
+            isBridgeFixed = false;
+            isRunnerMoving = false;
+            runner.x = 50;
+            runner.y = bridgeY - runner.height;
+            runner.vy = 0;
+            dropZoneHint.style.display = 'block';
+
+            levelNumDisplay.textContent = currentLevel + 1;
+            defBox.style.color = '#4ecca3';
+            defBox.style.borderColor = '#e94560';
+            defBox.textContent = `定義：${vocabData[currentLevel].def}`;
+
+            // 準備選項（當前正確答案 + 2個隨機干擾項）
+            let options = [vocabData[currentLevel].word];
+            let otherWords = vocabData.filter((_, idx) => idx !== currentLevel).map(v => v.word);
+            otherWords.sort(() => 0.5 - Math.random());
+            options.push(otherWords[0], otherWords[1]);
+            options.sort(() => 0.5 - Math.random()); // 打亂順序
+
+            // 清空並渲染木板
+            planksContainer.innerHTML = '';
+            options.forEach(word => {
+                const plank = document.createElement('div');
+                plank.classList.add('plank');
+                plank.textContent = word;
+                plank.setAttribute('draggable', true);
+                
+                plank.addEventListener('dragstart', handleDragStart);
+                plank.addEventListener('dragend', handleDragEnd);
+
+                planksContainer.appendChild(plank);
+            });
+        }
+
+        // 拖曳事件處理 (Drag and Drop)
+        let draggedWord = null;
+
+        function handleDragStart(e) {
+            draggedWord = e.target.textContent;
+            e.target.classList.add('dragging');
+        }
+
+        function handleDragEnd(e) {
+            e.target.classList.remove('dragging');
+        }
+
+        const gameContainer = document.getElementById('game-container');
+        gameContainer.addEventListener('dragover', (e) => e.preventDefault());
+
+        gameContainer.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if (!draggedWord || isBridgeFixed) return;
+
+            // 檢查是否回答正確
+            if (draggedWord === vocabData[currentLevel].word) {
+                isBridgeFixed = true;
+                dropZoneHint.style.display = 'none';
+                startRunner();
+            } else {
+                // 答錯提示：顯示 stupid 警告字樣
+                if (errorTimeout) clearTimeout(errorTimeout);
+                
+                defBox.textContent = "❌ Wrong answer! Don't be stupid! Try again!";
+                defBox.style.borderColor = '#ff4757';
+                defBox.style.color = '#ff4757';
+                
+                errorTimeout = setTimeout(() => {
+                    defBox.textContent = `定義：${vocabData[currentLevel].def}`;
+                    defBox.style.borderColor = '#e94560';
+                    defBox.style.color = '#4ecca3';
+                }, 1500);
+            }
+        });
+
+        function startRunner() {
+            isRunnerMoving = true;
+        }
+
+        function update() {
+            if (!gameActive) return;
+
+            if (isRunnerMoving) {
+                runner.x += runner.speed;
+
+                // 檢查是否到達缺口且橋未修好
+                if (!isBridgeFixed && runner.x + runner.width > gapStart && runner.x < gapStart + gapWidth) {
+                    runner.isGrounded = false;
+                }
+
+                // 重力處理
+                if (!runner.isGrounded) {
+                    runner.vy += runner.gravity;
+                    runner.y += runner.vy;
+                }
+
+                // 掉出畫面（失敗判定）
+                if (runner.y > canvas.height) {
+                    gameActive = false;
+                    showModal("💥 掉落深淵！", "橋樑尚未完全修復，請再試一次。");
+                }
+
+                // 順利通過本關
+                if (runner.x > canvas.width) {
+                    currentLevel++;
+                    initLevel();
+                }
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 畫左側橋面
+            ctx.fillStyle = '#8d99ae';
+            ctx.fillRect(0, bridgeY, gapStart, 20);
+
+            // 畫右側橋面
+            ctx.fillRect(gapStart + gapWidth, bridgeY, canvas.width - (gapStart + gapWidth), 20);
+
+            // 畫修補的木板（若正確）
+            if (isBridgeFixed) {
+                ctx.fillStyle = '#d4a373';
+                ctx.fillRect(gapStart, bridgeY, gapWidth, 20);
+                ctx.fillStyle = '#2b2d42';
+                ctx.font = 'bold 16px sans-serif';
+                ctx.fillText(vocabData[currentLevel].word, gapStart + 35, bridgeY + 15);
+            }
+
+            // 畫跑者
+            ctx.fillStyle = '#ffb703';
+            ctx.fillRect(runner.x, runner.y, runner.width, runner.height);
+            // 跑者眼睛
+            ctx.fillStyle = '#000';
+            ctx.fillRect(runner.x + 20, runner.y + 10, 5, 5);
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function showModal(title, msg) {
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-msg').textContent = msg;
+            modal.style.display = 'flex';
+        }
+
+        function resetGame() {
+            currentLevel = 0;
+            gameActive = true;
+            modal.style.display = 'none';
+            initLevel();
+        }
+
+        // 啟動遊戲
+        initLevel();
+        gameLoop();
+    </script>
+</body>
+</html>

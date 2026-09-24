@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocabulary Money Ladder Game Show</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #030a1c;
+            color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .game-show-container {
+            width: 100%;
+            max-width: 900px;
+            background: radial-gradient(circle, #0a192f 0%, #020c1b 100%);
+            border: 4px solid #ffd700;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        header {
+            text-align: center;
+            border-bottom: 2px solid #ffd700;
+            padding-bottom: 15px;
+        }
+
+        h1 {
+            color: #ffd700;
+            font-size: 2.2rem;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 650px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Trivia Section */
+        .quiz-panel {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            background: rgba(10, 25, 47, 0.8);
+            border: 2px solid #1e3a8a;
+            border-radius: 10px;
+            padding: 20px;
+        }
+
+        .timer-container {
+            font-size: 1.3rem;
+            color: #ffd700;
+            font-weight: bold;
+            text-align: right;
+            margin-bottom: 15px;
+        }
+
+        .question-box {
+            background: #0f172a;
+            border: 2px solid #ffd700;
+            border-radius: 8px;
+            padding: 20px;
+            font-size: 1.2rem;
+            text-align: center;
+            min-height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        @media (max-width: 480px) {
+            .options-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .option-btn {
+            background: #1e293b;
+            border: 2px solid #ffd700;
+            color: #ffffff;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: left;
+        }
+
+        .option-btn:hover {
+            background: #ffd700;
+            color: #030a1c;
+            font-weight: bold;
+            box-shadow: 0 0 10px #ffd700;
+        }
+
+        /* Money Ladder Section */
+        .ladder-panel {
+            background: rgba(10, 25, 47, 0.8);
+            border: 2px solid #1e3a8a;
+            border-radius: 10px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column-reverse;
+            gap: 6px;
+        }
+
+        .ladder-step {
+            background: #1e293b;
+            color: #94a3b8;
+            padding: 8px;
+            text-align: center;
+            border-radius: 4px;
+            font-weight: bold;
+            border: 1px solid #334155;
+            transition: all 0.3s ease;
+        }
+
+        .ladder-step.active {
+            background: #ffd700;
+            color: #030a1c;
+            border-color: #ffffff;
+            box-shadow: 0 0 15px #ffd700;
+            transform: scale(1.05);
+        }
+
+        /* Overlay screens */
+        .overlay {
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+        }
+
+        .action-btn {
+            background: #ffd700;
+            color: #030a1c;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
+            transition: transform 0.2s;
+        }
+
+        .action-btn:hover {
+            transform: scale(1.08);
+            background: #ffffff;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+<div class="game-show-container">
+    <header>
+        <h1>VOCABULARY MONEY LADDER</h1>
+    </header>
+
+    <!-- Start Screen -->
+    <div id="start-screen" class="overlay">
+        <h2>Welcome to the Ultimate Vocabulary Showdown!</h2>
+        <p>Answer questions correctly to climb the Money Ladder! <br>A wrong answer will set you back one step. You have 60 seconds!</p>
+        <button class="action-btn" onclick="startGame()">START GAME</button>
+    </div>
+
+    <!-- Main Game Interface -->
+    <div id="game-screen" class="main-content hidden">
+        <!-- Quiz Area -->
+        <div class="quiz-panel">
+            <div class="timer-container">⏱️ Time Left: <span id="timer">60</span>s</div>
+            <div class="question-box" id="question-text">
+                Question will appear here...
+            </div>
+            <div class="options-grid" id="options-container">
+                <!-- Buttons dynamically loaded here -->
+            </div>
+        </div>
+
+        <!-- Money Ladder -->
+        <div class="ladder-panel" id="ladder">
+            <div class="ladder-step" data-level="1">$1,000</div>
+            <div class="ladder-step" data-level="2">$2,500</div>
+            <div class="ladder-step" data-level="3">$5,000</div>
+            <div class="ladder-step" data-level="4">$10,000</div>
+            <div class="ladder-step" data-level="5">$25,000</div>
+            <div class="ladder-step" data-level="6">$50,000</div>
+            <div class="ladder-step" data-level="7">$100,000</div>
+            <div class="ladder-step" data-level="8">$250,000</div>
+            <div class="ladder-step" data-level="9">$500,000</div>
+            <div class="ladder-step" data-level="10">$1,000,000</div>
+        </div>
+    </div>
+
+    <!-- Game Over / Victory Screen -->
+    <div id="end-screen" class="overlay hidden">
+        <h2 id="end-title">Game Over!</h2>
+        <p id="end-message">You walked away with: $0</p>
+        <button class="action-btn" onclick="startGame()">TRY AGAIN</button>
+    </div>
+</div>
+
+<script>
+    // 10 Vocabulary Words and Definitions
+    const questionBank = [
+        {
+            question: "Which word means 'an official prohibition or rule that forbids something'?",
+            options: ["ban", "welfare", "dignity", "mount"],
+            answer: "ban"
+        },
+        {
+            question: "Which word refers to health, happiness, and good fortune?",
+            options: ["prey", "welfare", "controversy", "rear"],
+            answer: "welfare"
+        },
+        {
+            question: "Which word describes a prolonged public disagreement or debate?",
+            options: ["controversy", "intact", "assemble", "sniff"],
+            answer: "controversy"
+        },
+        {
+            question: "Which word means an animal that is hunted or killed by another for food?",
+            options: ["rear", "prey", "mount", "ban"],
+            answer: "prey"
+        },
+        {
+            question: "Which word means the back part of something, or to raise/bring up?",
+            options: ["assemble", "sniff", "rear", "welfare"],
+            answer: "rear"
+        },
+        {
+            question: "Which word means to draw air in through the nose to smell something?",
+            options: ["sniff", "mount", "prey", "dignity"],
+            answer: "sniff"
+        },
+        {
+            question: "Which word refers to the state or quality of being worthy of honor or respect?",
+            options: ["intact", "dignity", "controversy", "ban"],
+            answer: "dignity"
+        },
+        {
+            question: "Which word means remaining whole, undamaged, or complete?",
+            options: ["intact", "assemble", "rear", "welfare"],
+            answer: "intact"
+        },
+        {
+            question: "Which word means to gather together in one place for a common purpose?",
+            options: ["mount", "assemble", "sniff", "controversy"],
+            answer: "assemble"
+        },
+        {
+            question: "Which word means to climb up on or organize/prepare for something?",
+            options: ["mount", "ban", "prey", "dignity"],
+            answer: "mount"
+        }
+    ];
+
+    let currentLevel = 0;
+    let timeLeft = 60;
+    let timerInterval = null;
+    let shuffledQuestions = [];
+
+    function startGame() {
+        // Reset state
+        currentLevel = 0;
+        timeLeft = 60;
+        clearInterval(timerInterval);
+
+        // Shuffle questions for random order
+        shuffledQuestions = [...questionBank].sort(() => Math.random() - 0.5);
+
+        // UI toggles
+        document.getElementById('start-screen').classList.add('hidden');
+        document.getElementById('end-screen').classList.add('hidden');
+        document.getElementById('game-screen').classList.remove('hidden');
+
+        document.getElementById('timer').textContent = timeLeft;
+        updateLadderUI();
+        loadQuestion();
+
+        // Start 60 second countdown timer
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            document.getElementById('timer').textContent = timeLeft;
+            if (timeLeft <= 0) {
+                endGame(false, "Time's up!");
+            }
+        }, 1000);
+    }
+
+    function loadQuestion() {
+        if (currentLevel >= 10) {
+            endGame(true, "CONGRATULATIONS! You reached the top of the Money Ladder!");
+            return;
+        }
+
+        const currentQ = shuffledQuestions[currentLevel % shuffledQuestions.length];
+        document.getElementById('question-text').textContent = currentQ.question;
+
+        const optionsContainer = document.getElementById('options-container');
+        optionsContainer.innerHTML = '';
+
+        // Shuffle options for variation
+        const shuffledOptions = [...currentQ.options].sort(() => Math.random() - 0.5);
+
+        shuffledOptions.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.className = 'option-btn';
+            btn.textContent = opt;
+            btn.onclick = () => checkAnswer(opt, currentQ.answer);
+            optionsContainer.appendChild(btn);
+        });
+    }
+
+    function checkAnswer(selected, correct) {
+        if (selected === correct) {
+            currentLevel++; // Move up ladder
+        } else {
+            if (currentLevel > 0) {
+                currentLevel--; // Fall down 1 step on wrong answer
+            }
+        }
+
+        updateLadderUI();
+
+        // Reshuffle questions to keep order randomized continuously
+        shuffledQuestions.sort(() => Math.random() - 0.5);
+        loadQuestion();
+    }
+
+    function updateLadderUI() {
+        const steps = document.querySelectorAll('.ladder-step');
+        steps.forEach((step, index) => {
+            if (index === currentLevel - 1) {
+                step.classList.add('active');
+            } else {
+                step.classList.remove('active');
+            }
+        });
+    }
+
+    function endGame(isWin, message) {
+        clearInterval(timerInterval);
+        document.getElementById('game-screen').classList.add('hidden');
+        document.getElementById('end-screen').classList.remove('hidden');
+
+        const endTitle = document.getElementById('end-title');
+        const endMsg = document.getElementById('end-message');
+
+        const moneyAmounts = ["$0", "$1,000", "$2,500", "$5,000", "$10,000", "$25,000", "$50,000", "$100,000", "$250,000", "$500,000", "$1,000,000"];
+        const prize = moneyAmounts[currentLevel];
+
+        if (isWin) {
+            endTitle.textContent = "GRAND PRIZE WINNER!";
+            endTitle.style.color = "#ffd700";
+        } else {
+            endTitle.textContent = "GAME OVER";
+            endTitle.style.color = "#ff4d4d";
+        }
+
+        endMsg.innerHTML = `${message}<br><br><strong>Final Cash Prize: ${prize}</strong>`;
+    }
+</script>
+
+</body>
+</html>

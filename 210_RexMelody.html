@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Hidden Vault - Mystery Game</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body {
+            background-color: #1a1a2e;
+            color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        #game-container {
+            width: 100%;
+            max-width: 800px;
+            background: #16213e;
+            border: 4px solid #0f3460;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            overflow: hidden;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            background: #0f3460;
+            padding: 10px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        #vault-area {
+            position: relative;
+            height: 140px;
+            margin: 10px auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #vault {
+            width: 110px;
+            height: 110px;
+            background: linear-gradient(145deg, #c0c0c0, #707070);
+            border: 6px solid #4a4a4a;
+            border-radius: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2.8rem;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5), 0 5px 15px rgba(0,0,0,0.4);
+            transition: transform 0.2s, background-color 0.3s;
+        }
+        .shake {
+            animation: shake 0.4s;
+            background: linear-gradient(145deg, #ff4d4d, #990000) !important;
+        }
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            30% { transform: translate(-3px, 0px) rotate(1deg); }
+            50% { transform: translate(1px, 2px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            100% { transform: translate(0, 0) rotate(0deg); }
+        }
+        .vault-open {
+            background: linear-gradient(145deg, #ffd700, #ff8c00) !important;
+            transform: scale(1.1);
+        }
+        #clue-tablet {
+            background: #0f3460;
+            border: 2px solid #e94560;
+            border-radius: 8px;
+            padding: 15px;
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+        }
+        #chests-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .chest-btn {
+            background: #e94560;
+            color: #ffffff;
+            border: none;
+            padding: 15px 20px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+        .chest-btn:hover {
+            background: #ff6b81;
+            transform: translateY(-2px);
+        }
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(22, 33, 62, 0.95);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            z-index: 10;
+        }
+        .overlay h1 { font-size: 2.2rem; color: #ffd700; margin-bottom: 10px; }
+        .overlay p { font-size: 1.1rem; max-width: 500px; margin-bottom: 20px; line-height: 1.5; }
+        .overlay button {
+            background: #ffd700;
+            color: #16213e;
+            font-size: 1.2rem;
+            font-weight: bold;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+        }
+        .overlay button:hover { background: #ffea70; }
+        
+        #explanation-box {
+            background: #0f3460;
+            border: 2px solid #ffd700;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: left;
+            max-width: 550px;
+            width: 90%;
+            margin-bottom: 15px;
+        }
+        #explanation-box h2 { color: #ffd700; margin-top: 0; font-size: 1.8rem; }
+        #explanation-box p { margin: 8px 0; font-size: 1rem; color: #e0e0e0; }
+        .highlight { color: #4ecca3; font-weight: bold; }
+
+        /* 答錯嘲笑圖片 Pop-up 樣式 */
+        #laugh-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            pointer-events: none;
+        }
+        #laugh-img {
+            max-width: 260px;
+            max-height: 260px;
+            animation: popLaugh 0.8s ease-in-out forwards;
+            filter: drop-shadow(0 0 15px rgba(255, 0, 0, 0.6));
+        }
+        @keyframes popLaugh {
+            0% { transform: scale(0) rotate(-10deg); opacity: 0; }
+            50% { transform: scale(1.2) rotate(5deg); opacity: 1; }
+            70% { transform: scale(1) rotate(0deg); opacity: 1; }
+            100% { transform: scale(0.9); opacity: 0; }
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div class="header">
+        <div>Score: <span id="score">0</span></div>
+        <div>Time Left: <span id="timer">60</span>s</div>
+    </div>
+
+    <div id="vault-area">
+        <div id="vault">🔒</div>
+    </div>
+
+    <div id="clue-tablet">
+        <span id="definition-text">Loading clue...</span>
+    </div>
+
+    <div id="chests-grid">
+        <button class="chest-btn" onclick="checkAnswer(0)"></button>
+        <button class="chest-btn" onclick="checkAnswer(1)"></button>
+        <button class="chest-btn" onclick="checkAnswer(2)"></button>
+        <button class="chest-btn" onclick="checkAnswer(3)"></button>
+    </div>
+
+    <div id="laugh-overlay" class="hidden">
+        <svg id="laugh-img" viewBox="0 0 200 220" xmlns="http://www.w3.org/2000/svg">
+            <path d="M 40 180 C 20 120, 30 50, 100 20 C 170 50, 180 120, 160 180 C 140 210, 60 210, 40 180 Z" fill="#F3CA40" />
+            <path d="M 50 100 C 60 150, 140 150, 150 100 C 130 170, 70 170, 50 100 Z" fill="#E8B030" opacity="0.6" />
+            <path d="M 60 65 Q 75 50 90 65" stroke="#222" stroke-width="5" fill="none" stroke-linecap="round" />
+            <path d="M 110 65 Q 125 50 140 65" stroke="#222" stroke-width="5" fill="none" stroke-linecap="round" />
+            <path d="M 65 80 Q 100 130 135 80 Z" fill="#3D0C11" stroke="#222" stroke-width="3" />
+            <path d="M 75 83 Q 100 95 125 83 Z" fill="#FFF" />
+            <path d="M 85 110 Q 100 100 115 110 Z" fill="#E84A5F" />
+            <path d="M 40 125 C 60 125, 75 145, 95 145" stroke="#7A6855" stroke-width="12" stroke-linecap="round" fill="none" />
+            <path d="M 160 125 C 140 125, 125 145, 105 145" stroke="#7A6855" stroke-width="12" stroke-linecap="round" fill="none" />
+        </svg>
+    </div>
+
+    <div id="start-overlay" class="overlay">
+        <h1>THE HIDDEN VAULT</h1>
+        <p>根據線索選擇正確單字解開金庫！<br><br>⚠️ <b>規則說明：</b><br>每題前兩次答錯不扣分，<b>第三次開始每次扣 5 分</b>！答錯會有嘲笑特效，答對會顯示中文解析與發出音效。</p>
+        <button onclick="startGame()">Mission Start</button>
+    </div>
+
+    <div id="correct-overlay" class="overlay hidden">
+        <h1>🎉 CORRECT!</h1>
+        <div id="explanation-box">
+            <h2 id="exp-word">Word</h2>
+            <p><span class="highlight">【詞性/中文】</span> <span id="exp-zh"></span></p>
+            <p><span class="highlight">【英文定義】</span> <span id="exp-def"></span></p>
+            <p><span class="highlight">【例句】</span> <span id="exp-ex"></span></p>
+        </div>
+        <button onclick="continueGame()">Next Question ➔</button>
+    </div>
+
+    <div id="end-overlay" class="overlay hidden">
+        <h1>MISSION COMPLETE</h1>
+        <p>Your Final Score: <span id="final-score">0</span> points</p>
+        <button onclick="startGame()">Try Again</button>
+    </div>
+</div>
+
+<script>
+    const vocabulary = [
+        { 
+            word: "solo", 
+            pos: "adj.", 
+            zh: "單人的；單獨進行的；獨唱的、獨奏的", 
+            def: "Done by one person alone; a performance by one individual.",
+            example: "Lindsey felt nervous before her first solo performance in front of an audience."
+        },
+        { 
+            word: "flexibility", 
+            pos: "n.", 
+            zh: "靈活性、彈性", 
+            def: "The ability to change or adapt easily to unexpected situations.",
+            example: "Having flexibility in your schedule makes it easier to deal with unexpected changes."
+        },
+        { 
+            word: "compromise", 
+            pos: "v.", 
+            zh: "妥協、折衷、讓步", 
+            def: "An agreement reached by both sides giving up something.",
+            example: "Eli had to compromise with his brother about which movie to watch."
+        },
+        { 
+            word: "destination", 
+            pos: "n.", 
+            zh: "目的地；終點", 
+            def: "The place to which someone or something is going or being sent.",
+            example: "Our luggage arrived at our destination two hours after our flight landed."
+        },
+        { 
+            word: "split", 
+            pos: "v.", 
+            zh: "分攤、分享；分開；分裂", 
+            def: "To divide or share something into two or more parts.",
+            example: "We decided to split the pizza because everyone wanted only one slice."
+        },
+        { 
+            word: "arise", 
+            pos: "v.", 
+            zh: "發生、出現；產生（較正式，常指抽象問題）", 
+            def: "To happen, occur, or come into existence (especially a problem).",
+            example: "A serious problem arose when the computer system stopped working suddenly."
+        },
+        { 
+            word: "occasionally", 
+            pos: "adv.", 
+            zh: "偶爾、有時", 
+            def: "Sometimes, but not dynamic, regularly, or very often.",
+            example: "Although Alexis usually eats at home, she occasionally has dinner with friends."
+        },
+        { 
+            word: "stressful", 
+            pos: "adj.", 
+            zh: "充滿壓力的、令人緊張的", 
+            def: "Causing mental or emotional strain and anxiety.",
+            example: "Exam week can be a very stressful time for students."
+        }
+    ];
+
+    let currentQuestion = {};
+    let score = 0;
+    let timeLeft = 60;
+    let timerInterval = null;
+    let attemptsCount = 0;
+
+    // Web Audio API 音效與背景音樂處理
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    let bgmInterval = null;
+
+    // 播放背景音樂 (輕柔放鬆的旋律)
+    function startBGM() {
+        if (bgmInterval) clearInterval(bgmInterval);
+        const notes = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63]; // C E G C G E
+        let noteIdx = 0;
+        
+        bgmInterval = setInterval(() => {
+            if (audioCtx.state === 'suspended') return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(notes[noteIdx], audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.04, audioCtx.currentTime); // 輕柔音量
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.8);
+            
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.8);
+            noteIdx = (noteIdx + 1) % notes.length;
+        }, 600);
+    }
+
+    function stopBGM() {
+        if (bgmInterval) clearInterval(bgmInterval);
+    }
+
+    function playSound(type) {
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+        
+        if (type === 'correct') {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); 
+            osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1); 
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.3);
+        } else if (type === 'laugh') {
+            // 嘲笑聲效果 (快速連續降調 "Ha-Ha-Ha")
+            [0, 0.15, 0.3].forEach((delay) => {
+                setTimeout(() => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(200, audioCtx.currentTime + 0.12);
+                    gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.12);
+                }, delay * 1000);
+            });
+        }
+    }
+
+    function startGame() {
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+        score = 0;
+        timeLeft = 60;
+        document.getElementById('score').textContent = score;
+        document.getElementById('timer').textContent = timeLeft;
+        document.getElementById('start-overlay').classList.add('hidden');
+        document.getElementById('end-overlay').classList.add('hidden');
+        document.getElementById('correct-overlay').classList.add('hidden');
+        
+        clearInterval(timerInterval);
+        timerInterval = setInterval(updateTimer, 1000);
+        
+        startBGM();
+        nextQuestion();
+    }
+
+    function updateTimer() {
+        timeLeft--;
+        document.getElementById('timer').textContent = timeLeft;
+        if (timeLeft <= 0) {
+            endGame();
+        }
+    }
+
+    function nextQuestion() {
+        attemptsCount = 0;
+        const randomIndex = Math.floor(Math.random() * vocabulary.length);
+        currentQuestion = vocabulary[randomIndex];
+        
+        document.getElementById('definition-text').textContent = currentQuestion.def;
+
+        let options = [currentQuestion.word];
+        while (options.length < 4) {
+            let randomWord = vocabulary[Math.floor(Math.random() * vocabulary.length)].word;
+            if (!options.includes(randomWord)) {
+                options.push(randomWord);
+            }
+        }
+
+        options.sort(() => Math.random() - 0.5);
+
+        const buttons = document.querySelectorAll('.chest-btn');
+        buttons.forEach((button, index) => {
+            button.textContent = options[index];
+            button.disabled = false;
+        });
+    }
+
+    function checkAnswer(selectedIndex) {
+        const buttons = document.querySelectorAll('.chest-btn');
+        const selectedWord = buttons[selectedIndex].textContent;
+        const vault = document.getElementById('vault');
+
+        if (selectedWord === currentQuestion.word) {
+            playSound('correct');
+            
+            score += 10;
+            document.getElementById('score').textContent = score;
+            vault.textContent = "🪙";
+            vault.classList.add('vault-open');
+            
+            clearInterval(timerInterval);
+            showExplanation();
+        } else {
+            // 播放嘲笑聲與顯示嘲笑圖案
+            playSound('laugh');
+            showLaughEffect();
+
+            attemptsCount++;
+            if (attemptsCount >= 2) {
+                score = Math.max(0, score - 5);
+                document.getElementById('score').textContent = score;
+            }
+
+            vault.classList.add('shake');
+            setTimeout(() => {
+                vault.classList.remove('shake');
+            }, 400);
+        }
+    }
+
+    function showLaughEffect() {
+        const laughOverlay = document.getElementById('laugh-overlay');
+        laughOverlay.classList.remove('hidden');
+        setTimeout(() => {
+            laughOverlay.classList.add('hidden');
+        }, 800);
+    }
+
+    function showExplanation() {
+        document.getElementById('exp-word').textContent = currentQuestion.word;
+        document.getElementById('exp-zh').textContent = `(${currentQuestion.pos}) ${currentQuestion.zh}`;
+        document.getElementById('exp-def').textContent = currentQuestion.def;
+        document.getElementById('exp-ex').textContent = currentQuestion.example;
+        
+        setTimeout(() => {
+            document.getElementById('correct-overlay').classList.remove('hidden');
+        }, 500);
+    }
+
+    function continueGame() {
+        document.getElementById('correct-overlay').classList.add('hidden');
+        document.getElementById('vault').textContent = "🔒";
+        document.getElementById('vault').classList.remove('vault-open');
+        
+        if (timeLeft > 0) {
+            timerInterval = setInterval(updateTimer, 1000);
+            nextQuestion();
+        } else {
+            endGame();
+        }
+    }
+
+    function endGame() {
+        clearInterval(timerInterval);
+        stopBGM();
+        document.getElementById('final-score').textContent = score;
+        document.getElementById('end-overlay').classList.remove('hidden');
+    }
+</script>
+
+</body>
+</html>>

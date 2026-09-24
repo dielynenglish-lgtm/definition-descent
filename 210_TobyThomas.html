@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marble Popper: Match-3 Definitions</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Fredoka', cursive, sans-serif;
+            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%);
+            touch-action: none;
+            user-select: none;
+            
+        }
+        canvas {
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            border-radius: 1.5rem;
+        }
+        .glow-text {
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.6);
+        }
+    </style>
+</head>
+<body class="min-h-screen text-white flex flex-col items-center justify-center p-2 sm:p-4 overflow-x-hidden">
+
+    <header class="w-full max-w-4xl text-center mb-3">
+        <h1 class="text-3xl sm:text-4xl font-extrabold tracking-wide text-amber-300 glow-text drop-shadow-md">
+            🌀 Marble Popper: Match-3 Definitions
+        </h1>
+        <p class="text-xs sm:text-sm text-indigo-200 mt-1">
+            Aim & shoot word marbles to match the active definition shown at your launcher! Don't let marbles reach the drain!
+        </p>
+    </header>
+
+    <!-- UI Overlay Bar -->
+    <div class="w-full max-w-4xl bg-indigo-950/80 backdrop-blur-md rounded-2xl p-3 sm:p-4 mb-3 border border-indigo-500/30 flex flex-wrap items-center justify-between gap-2 shadow-lg">
+        <div class="flex items-center space-x-4">
+            <div class="bg-indigo-900/90 px-3 py-1.5 rounded-xl border border-indigo-400/30">
+                <span class="text-xs text-indigo-300 block uppercase font-bold">Score</span>
+                <span id="scoreDisplay" class="text-xl sm:text-2xl font-bold text-emerald-400">0</span>
+            </div>
+            <div class="bg-indigo-900/90 px-3 py-1.5 rounded-xl border border-indigo-400/30">
+                <span class="text-xs text-indigo-300 block uppercase font-bold">Marbles Left</span>
+                <span id="marblesDisplay" class="text-xl sm:text-2xl font-bold text-amber-400">0</span>
+            </div>
+        </div>
+
+        <!-- Target Definition Box -->
+        <div class="flex-1 min-w-[240px] bg-gradient-to-r from-purple-900/80 to-pink-900/80 p-2 sm:p-3 rounded-xl border border-pink-500/40 text-center">
+            <span class="text-[10px] sm:text-xs text-pink-300 font-bold uppercase tracking-wider block">Target Definition</span>
+            <div id="targetDefDisplay" class="text-sm sm:text-base font-semibold text-white leading-tight mt-0.5">
+                Loading target...
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-2">
+            <button id="pauseBtn" class="bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-900 font-bold px-3 py-2 rounded-xl transition shadow-md text-sm">
+                ⏸ Pause
+            </button>
+            <button id="restartBtn" class="bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-slate-900 font-bold px-3 py-2 rounded-xl transition shadow-md text-sm">
+                🔄 Restart
+            </button>
+        </div>
+    </div>
+
+    <div class="relative w-full max-w-4xl aspect-[4/3] max-h-[70vh] flex justify-center items-center">
+        <canvas id="gameCanvas" class="w-full h-full bg-slate-900 border-4 border-indigo-500/50 block"></canvas>
+
+        <!-- Start / Game Over / Win Overlay -->
+        <div id="modalOverlay" class="absolute inset-0 bg-slate-950/85 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center p-6 text-center z-20">
+            <h2 id="modalTitle" class="text-3xl sm:text-5xl font-black text-amber-400 mb-2 drop-shadow-lg">
+                Ready to Play?
+            </h2>
+            <p id="modalDescription" class="text-sm sm:text-base text-indigo-200 max-w-md mb-6 leading-relaxed">
+                Match rolling vocabulary marbles with their target definitions loaded in your launcher! Match 3 or hit correct definitions to pop them!
+            </p>
+
+            <div class="bg-indigo-900/50 p-4 rounded-xl border border-indigo-500/30 max-w-md w-full mb-6 text-left">
+                <h3 class="text-xs font-bold text-amber-300 uppercase tracking-wider mb-2">Vocabulary List (7 Words):</h3>
+                <ul class="text-xs sm:text-sm text-indigo-100 space-y-1 grid grid-cols-1 sm:grid-cols-2 gap-x-2">
+                    <li>🔹 <b>Participant:</b> Takes part</li>
+                    <li>🔹 <b>Implication:</b> Consequence</li>
+                    <li>🔹 <b>Motivation:</b> Reason to act</li>
+                    <li>🔹 <b>Polished:</b> Refined/perfected</li>
+                    <li>🔹 <b>Outfit:</b> Set of clothes</li>
+                    <li>🔹 <b>Reinforce:</b> To strengthen</li>
+                    <li>🔹 <b>Accessible:</b> Easy to reach</li>
+                </ul>
+            </div>
+
+            <button id="startBtn" class="bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950 text-lg sm:text-xl font-black px-8 py-3.5 rounded-2xl shadow-xl hover:scale-105 active:scale-95 transition transform">
+                START GAME
+            </button>
+        </div>
+    </div>
+
+    <!-- Instructions & Guide Footer -->
+    <footer class="mt-4 text-xs text-indigo-300 text-center max-w-2xl px-4">
+        💡 <b>How to play:</b> Move mouse or drag touch to aim launcher. Click/Tap to shoot. Hit a marble that matches the <b>Target Definition</b> or group 3 same-word marbles to clear them!
+    </footer>
+
+    <script>
+        const VOCABULARY = [
+            { word: 'participant', definition: 'A person who takes part in something', color: '#ef4444' }, // Red
+            { word: 'implication', definition: 'A likely consequence or implied effect', color: '#3b82f6' }, // Blue
+            { word: 'motivation', definition: 'The reason or desire to act or do something', color: '#10b981' }, // Green
+            { word: 'polished', definition: 'Refined, elegant, or perfected', color: '#f59e0b' }, // Amber
+            { word: 'outfit', definition: 'A set of clothes worn together', color: '#8b5cf6' }, // Purple
+            { word: 'reinforce', definition: 'To strengthen or support', color: '#ec4899' }, // Pink
+            { word: 'accessible', definition: 'Easy to approach, reach, enter, or use', color: '#14b8a6' } // Teal
+        ];
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Internal logical resolution
+        const CANVAS_WIDTH = 800;
+        const CANVAS_HEIGHT = 600;
+        canvas.width = CANVAS_WIDTH;
+        canvas.height = CANVAS_HEIGHT;
+
+        const MARBLE_RADIUS = 18;
+        const DRAIN_RADIUS = 35;
+        const LAUNCHER_POS = { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2 + 30 };
+
+        // Game State Variables
+        let gameState = 'START'; // 'START', 'PLAYING', 'PAUSED', 'GAMEOVER', 'WIN'
+        let score = 0;
+        let marblesOnTrack = [];
+        let projectiles = [];
+        let particles = [];
+        let currentTargetVocab = null;
+        let nextTargetVocab = null;
+        let aimAngle = 0;
+        let trackPoints = [];
+        let totalTrackLength = 0;
+        let spawnTimer = 0;
+        let totalMarblesToSpawn = 28;
+        let marblesSpawned = 0;
+        let speedMultiplier = 1.0;
+
+        // UI DOM Elements
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const marblesDisplay = document.getElementById('marblesDisplay');
+        const targetDefDisplay = document.getElementById('targetDefDisplay');
+        const modalOverlay = document.getElementById('modalOverlay');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalDescription = document.getElementById('modalDescription');
+        const startBtn = document.getElementById('startBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const restartBtn = document.getElementById('restartBtn');
+
+        function generateTrackPoints() {
+            trackPoints = [];
+            totalTrackLength = 0;
+
+            // Define control points for a smooth winding Bezier / S-Curve track
+            const p0 = { x: 50, y: 50 };
+            const p1 = { x: 750, y: 50 };
+            const p2 = { x: 750, y: 250 };
+            const p3 = { x: 100, y: 250 };
+            const p4 = { x: 100, y: 500 };
+            const p5 = { x: 700, y: 500 };
+
+            // Function to interpolate cubic bezier curves
+            function cubicBezier(t, p0, p1, p2, p3) {
+                const u = 1 - t;
+                const tt = t * t;
+                const uu = u * u;
+                const uuu = uu * u;
+                const ttt = tt * t;
+
+                return {
+                    x: uuu * p0.x + 3 * uu * t * p1.x + 3 * u * tt * p2.x + ttt * p3.x,
+                    y: uuu * p0.y + 3 * uu * t * p1.y + 3 * u * tt * p2.y + ttt * p3.y
+                };
+            }
+
+            // Sample points densely along the two bezier segments
+            const steps = 300;
+            let lastPoint = null;
+
+            for (let i = 0; i <= steps; i++) {
+                const pt = cubicBezier(i / steps, p0, p1, p2, p3);
+                if (lastPoint) {
+                    totalTrackLength += Math.hypot(pt.x - lastPoint.x, pt.y - lastPoint.y);
+                }
+                trackPoints.push({ ...pt, dist: totalTrackLength });
+                lastPoint = pt;
+            }
+
+            for (let i = 0; i <= steps; i++) {
+                const pt = cubicBezier(i / steps, p3, p4, p5, p5); // Turn towards drain
+                if (lastPoint) {
+                    totalTrackLength += Math.hypot(pt.x - lastPoint.x, pt.y - lastPoint.y);
+                }
+                trackPoints.push({ ...pt, dist: totalTrackLength });
+                lastPoint = pt;
+            }
+        }
+
+        // Get exact X,Y point along track based on distance from start
+        function getPointAtDistance(distance) {
+            if (distance <= 0) return trackPoints[0];
+            if (distance >= totalTrackLength) return trackPoints[trackPoints.length - 1];
+
+            // Binary search for closest segment
+            let low = 0, high = trackPoints.length - 1;
+            while (low <= high) {
+                let mid = Math.floor((low + high) / 2);
+                if (trackPoints[mid].dist < distance) low = mid + 1;
+                else high = mid - 1;
+            }
+
+            const p1 = trackPoints[Math.max(0, low - 1)];
+            const p2 = trackPoints[Math.min(trackPoints.length - 1, low)];
+            if (!p1 || !p2 || p1 === p2) return p1 || trackPoints[0];
+
+            const ratio = (distance - p1.dist) / (p2.dist - p1.dist || 1);
+            return {
+                x: p1.x + (p2.x - p1.x) * ratio,
+                y: p1.y + (p2.y - p1.y) * ratio
+            };
+        }
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                const now = audioCtx.currentTime;
+                if (type === 'pop') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(400, now);
+                    osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                    osc.start(now);
+                    osc.stop(now + 0.1);
+                } else if (type === 'shoot') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(250, now);
+                    osc.frequency.exponentialRampToValueAtTime(100, now + 0.12);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+                    osc.start(now);
+                    osc.stop(now + 0.12);
+                } else if (type === 'wrong') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(180, now);
+                    osc.frequency.setValueAtTime(120, now + 0.1);
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                    osc.start(now);
+                    osc.stop(now + 0.25);
+                } else if (type === 'win') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(300, now);
+                    osc.frequency.exponentialRampToValueAtTime(600, now + 0.2);
+                    osc.frequency.exponentialRampToValueAtTime(900, now + 0.4);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                    osc.start(now);
+                    osc.stop(now + 0.5);
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        function initGame() {
+            generateTrackPoints();
+            score = 0;
+            marblesOnTrack = [];
+            projectiles = [];
+            particles = [];
+            marblesSpawned = 0;
+            spawnTimer = 0;
+            speedMultiplier = 1.0;
+
+            selectNextTarget();
+            selectNextTarget(); // Populate both current and next target
+
+            updateUI();
+        }
+
+        function selectNextTarget() {
+            currentTargetVocab = nextTargetVocab || VOCABULARY[Math.floor(Math.random() * VOCABULARY.length)];
+            nextTargetVocab = VOCABULARY[Math.floor(Math.random() * VOCABULARY.length)];
+
+            if (targetDefDisplay) {
+                targetDefDisplay.textContent = `"${currentTargetVocab.definition}"`;
+            }
+        }
+
+        function createExplosion(x, y, color) {
+            for (let i = 0; i < 16; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 1 + Math.random() * 4;
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    radius: 3 + Math.random() * 4,
+                    color: color,
+                    alpha: 1,
+                    life: 0.03 + Math.random() * 0.03
+                });
+            }
+        }
+
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= p.life;
+                if (p.alpha <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        function drawParticles() {
+            particles.forEach(p => {
+                ctx.save();
+                ctx.globalAlpha = p.alpha;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+        }
+
+        function spawnMarble() {
+            if (marblesSpawned >= totalMarblesToSpawn) return;
+
+            // Select vocabulary word (bias towards current target occasionally)
+            let vocab = VOCABULARY[Math.floor(Math.random() * VOCABULARY.length)];
+            if (Math.random() < 0.45 && currentTargetVocab) {
+                vocab = currentTargetVocab;
+            }
+
+            marblesOnTrack.push({
+                vocab: vocab,
+                dist: 0,
+                speed: 0.8
+            });
+
+            marblesSpawned++;
+        }
+
+        function updateMarbles() {
+            if (gameState !== 'PLAYING') return;
+
+            // Spawning logic
+            spawnTimer++;
+            if (spawnTimer > 45 && marblesSpawned < totalMarblesToSpawn) {
+                // Check if space at start of track is clear
+                if (marblesOnTrack.length === 0 || marblesOnTrack[marblesOnTrack.length - 1].dist > MARBLE_RADIUS * 2.2) {
+                    spawnMarble();
+                    spawnTimer = 0;
+                }
+            }
+
+            const moveSpeed = 0.6 * speedMultiplier;
+
+            // Move lead marble
+            if (marblesOnTrack.length > 0) {
+                marblesOnTrack[0].dist += moveSpeed;
+
+                // Check game over drain collision
+                if (marblesOnTrack[0].dist >= totalTrackLength - DRAIN_RADIUS) {
+                    endGame(false);
+                    return;
+                }
+            }
+
+            // Push/pull following marbles to keep spacing
+            for (let i = 1; i < marblesOnTrack.length; i++) {
+                const front = marblesOnTrack[i - 1];
+                const curr = marblesOnTrack[i];
+                const desiredDist = front.dist - (MARBLE_RADIUS * 2);
+
+                if (curr.dist < desiredDist) {
+                    curr.dist += (desiredDist - curr.dist) * 0.2; // Push up smoothly
+                } else if (curr.dist > desiredDist) {
+                    curr.dist = desiredDist; // Maintain snug train
+                }
+            }
+        }
+
+        function shootProjectile() {
+            if (gameState !== 'PLAYING') return;
+
+            const speed = 12;
+            projectiles.push({
+                x: LAUNCHER_POS.x,
+                y: LAUNCHER_POS.y,
+                vx: Math.cos(aimAngle) * speed,
+                vy: Math.sin(aimAngle) * speed,
+                vocab: currentTargetVocab
+            });
+
+            playSound('shoot');
+            selectNextTarget();
+            updateUI();
+        }
+
+        function updateProjectiles() {
+            for (let pIdx = projectiles.length - 1; pIdx >= 0; pIdx--) {
+                const proj = projectiles[pIdx];
+                proj.x += proj.vx;
+                proj.y += proj.vy;
+
+                // Bounds check
+                if (proj.x < 0 || proj.x > CANVAS_WIDTH || proj.y < 0 || proj.y > CANVAS_HEIGHT) {
+                    projectiles.splice(pIdx, 1);
+                    continue;
+                }
+
+                // Collision check with marbles along track
+                for (let mIdx = 0; mIdx < marblesOnTrack.length; mIdx++) {
+                    const marble = marblesOnTrack[mIdx];
+                    const pos = getPointAtDistance(marble.dist);
+                    const dist = Math.hypot(proj.x - pos.x, proj.y - pos.y);
+
+                    if (dist < MARBLE_RADIUS * 1.8) {
+                        // HIT OCCURRED!
+                        handleHit(pIdx, mIdx);
+                        break;
+                    }
+                }
+            }
+        }
+
+        function handleHit(projIdx, hitMarbleIdx) {
+            const proj = projectiles[projIdx];
+            const hitMarble = marblesOnTrack[hitMarbleIdx];
+
+            projectiles.splice(projIdx, 1);
+
+            // Check if shot marble definition matches hit marble word
+            if (proj.vocab.word === hitMarble.vocab.word) {
+                // CORRECT MATCH! Pop hit marble and adjacent matching words
+                playSound('pop');
+                score += 100;
+
+                const hitPos = getPointAtDistance(hitMarble.dist);
+                createExplosion(hitPos.x, hitPos.y, hitMarble.vocab.color);
+
+                // Find contiguous matching sequence (Match-3 or clear adjacent matches)
+                let toRemove = [hitMarbleIdx];
+
+                // Search forward
+                for (let i = hitMarbleIdx + 1; i < marblesOnTrack.length; i++) {
+                    if (marblesOnTrack[i].vocab.word === proj.vocab.word) toRemove.push(i);
+                    else break;
+                }
+                // Search backward
+                for (let i = hitMarbleIdx - 1; i >= 0; i--) {
+                    if (marblesOnTrack[i].vocab.word === proj.vocab.word) toRemove.push(i);
+                    else break;
+                }
+
+                // Remove popped marbles sorted descending
+                toRemove.sort((a, b) => b - a);
+                toRemove.forEach(idx => {
+                    const pos = getPointAtDistance(marblesOnTrack[idx].dist);
+                    createExplosion(pos.x, pos.y, marblesOnTrack[idx].vocab.color);
+                    marblesOnTrack.splice(idx, 1);
+                });
+
+                // Bonus points for combo pops
+                if (toRemove.length > 1) {
+                    score += toRemove.length * 50;
+                }
+
+            } else {
+                // MISMATCH: Insert projectile marble into the track train
+                playSound('wrong');
+                const insertDist = hitMarble.dist - MARBLE_RADIUS;
+                marblesOnTrack.splice(hitMarbleIdx + 1, 0, {
+                    vocab: proj.vocab,
+                    dist: insertDist,
+                    speed: 0.8
+                });
+            }
+
+            updateUI();
+
+            // Check win condition
+            if (marblesSpawned >= totalMarblesToSpawn && marblesOnTrack.length === 0) {
+                endGame(true);
+            }
+        }
+
+        function render() {
+            // Clear canvas background
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+            // Draw track border & groove
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = MARBLE_RADIUS * 2 + 8;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            trackPoints.forEach((pt, i) => {
+                if (i === 0) ctx.moveTo(pt.x, pt.y);
+                else ctx.lineTo(pt.x, pt.y);
+            });
+            ctx.stroke();
+
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = MARBLE_RADIUS * 2;
+            ctx.stroke();
+
+            // Draw End Drain Pit
+            const endPt = trackPoints[trackPoints.length - 1];
+            if (endPt) {
+                ctx.fillStyle = '#020617';
+                ctx.beginPath();
+                ctx.arc(endPt.x, endPt.y, DRAIN_RADIUS, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(endPt.x, endPt.y, DRAIN_RADIUS, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Spiral details in drain
+                ctx.strokeStyle = '#7f1d1d';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(endPt.x, endPt.y, DRAIN_RADIUS * 0.5, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+
+            // Draw Marbles on Track
+            marblesOnTrack.forEach(m => {
+                const pos = getPointAtDistance(m.dist);
+                drawMarble(pos.x, pos.y, m.vocab);
+            });
+
+            // Draw Flying Projectiles
+            projectiles.forEach(p => {
+                drawMarble(p.x, p.y, p.vocab);
+            });
+
+            // Draw Launcher (Center Turret)
+            ctx.save();
+            ctx.translate(LAUNCHER_POS.x, LAUNCHER_POS.y);
+
+            // Launcher Base Shadow & Rim
+            ctx.fillStyle = '#1e1b4b';
+            ctx.beginPath();
+            ctx.arc(0, 0, 40, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#6366f1';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+
+            // Barrel rotation
+            ctx.rotate(aimAngle);
+            ctx.fillStyle = '#475569';
+            ctx.fillRect(0, -10, 45, 20);
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(0, -10, 45, 20);
+
+            ctx.restore();
+
+            // Draw Marble loaded inside Launcher
+            if (currentTargetVocab) {
+                drawMarble(LAUNCHER_POS.x, LAUNCHER_POS.y, currentTargetVocab);
+            }
+
+            // Draw Particles
+            drawParticles();
+        }
+
+        // Helper function to render styled shiny marble with word label
+        function drawMarble(x, y, vocab) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            // Marble 3D Gradient Sphere
+            const grad = ctx.createRadialGradient(-MARBLE_RADIUS * 0.3, -MARBLE_RADIUS * 0.3, MARBLE_RADIUS * 0.1, 0, 0, MARBLE_RADIUS);
+            grad.addColorStop(0, '#ffffff');
+            grad.addColorStop(0.3, vocab.color);
+            grad.addColorStop(1, '#0f172a');
+
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(0, 0, MARBLE_RADIUS, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // Word Label Text
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 10px Fredoka, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+            ctx.shadowBlur = 4;
+            ctx.fillText(vocab.word.toUpperCase(), 0, 0);
+
+            ctx.restore();
+        }
+
+        function updateUI() {
+            scoreDisplay.textContent = score;
+            marblesDisplay.textContent = Math.max(0, (totalMarblesToSpawn - marblesSpawned) + marblesOnTrack.length);
+        }
+
+        function endGame(isWin) {
+            gameState = isWin ? 'WIN' : 'GAMEOVER';
+
+            modalOverlay.classList.remove('hidden');
+            if (isWin) {
+                playSound('win');
+                modalTitle.textContent = "🎉 YOU WON!";
+                modalTitle.className = "text-3xl sm:text-5xl font-black text-emerald-400 mb-2 drop-shadow-lg";
+                modalDescription.textContent = `Excellent job! You mastered all vocabulary definitions and scored ${score} points!`;
+                startBtn.textContent = "PLAY AGAIN";
+            } else {
+                playSound('wrong');
+                modalTitle.textContent = "💥 GAME OVER";
+                modalTitle.className = "text-3xl sm:text-5xl font-black text-rose-500 mb-2 drop-shadow-lg";
+                modalDescription.textContent = `The marbles reached the drain! Don't give up—review the definitions and try again! Score: ${score}`;
+                startBtn.textContent = "TRY AGAIN";
+            }
+        }
+
+        function gameLoop() {
+            if (gameState === 'PLAYING') {
+                updateMarbles();
+                updateProjectiles();
+                updateParticles();
+            }
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function handleAim(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+            const mouseX = (clientX - rect.left) * (CANVAS_WIDTH / rect.width);
+            const mouseY = (clientY - rect.top) * (CANVAS_HEIGHT / rect.height);
+
+            aimAngle = Math.atan2(mouseY - LAUNCHER_POS.y, mouseX - LAUNCHER_POS.x);
+        }
+
+        canvas.addEventListener('mousemove', handleAim);
+        canvas.addEventListener('touchmove', (e) => {
+            handleAim(e);
+            e.preventDefault();
+        }, { passive: false });
+
+        canvas.addEventListener('click', () => {
+            if (gameState === 'PLAYING') shootProjectile();
+        });
+
+        canvas.addEventListener('touchend', () => {
+            if (gameState === 'PLAYING') shootProjectile();
+        });
+
+        startBtn.addEventListener('click', () => {
+            modalOverlay.classList.add('hidden');
+            initGame();
+            gameState = 'PLAYING';
+        });
+
+        pauseBtn.addEventListener('click', () => {
+            if (gameState === 'PLAYING') {
+                gameState = 'PAUSED';
+                pauseBtn.textContent = "▶ Resume";
+                pauseBtn.classList.replace('bg-amber-500', 'bg-emerald-500');
+            } else if (gameState === 'PAUSED') {
+                gameState = 'PLAYING';
+                pauseBtn.textContent = "⏸ Pause";
+                pauseBtn.classList.replace('bg-emerald-500', 'bg-amber-500');
+            }
+        });
+
+        restartBtn.addEventListener('click', () => {
+            initGame();
+            if (gameState === 'PAUSED') {
+                gameState = 'PLAYING';
+                pauseBtn.textContent = "⏸ Pause";
+                pauseBtn.classList.replace('bg-emerald-500', 'bg-amber-500');
+            }
+        });
+
+        // Start initialization on window load
+        window.onload = function() {
+            initGame();
+            gameLoop();
+        };
+    </script>
+</body>
+</html>

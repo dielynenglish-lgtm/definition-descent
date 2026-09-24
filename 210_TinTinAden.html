@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Target Archers - Vocabulary Game</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a2a3a;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        #game-container {
+            position: relative;
+            width: 900px;
+            height: 600px;
+            background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 60%, #4CAF50 60%, #2E7D32 100%);
+            border: 4px solid #fff;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            overflow: hidden;
+        }
+
+        /* Top Bar Info */
+        #ui-bar {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 10px 20px;
+            border-radius: 8px;
+            z-index: 10;
+        }
+
+        .stat-box {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        /* Targets */
+        .target-board {
+            position: absolute;
+            width: 110px;
+            height: 70px;
+            background: #D84315;
+            border: 3px solid #FFF;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            font-weight: bold;
+            font-size: 14px;
+            color: #FFF;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            transition: transform 0.1s linear;
+        }
+
+        .target-board::before {
+            content: '';
+            position: absolute;
+            width: 80%;
+            height: 70%;
+            border: 2px dashed #FFD54F;
+            border-radius: 4px;
+        }
+
+        /* Launcher / Bow Area */
+        #launcher-area {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 140px;
+            background: rgba(0, 0, 0, 0.7);
+            border-top: 3px solid #FFD700;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-around;
+            padding: 10px;
+            z-index: 10;
+        }
+
+        #definition-display {
+            font-size: 16px;
+            color: #FFD700;
+            text-align: center;
+            max-width: 800px;
+            line-height: 1.3;
+        }
+
+        #bow-controls {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        input[type=range] {
+            cursor: pointer;
+        }
+
+        button {
+            padding: 8px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            background: #FF9800;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            box-shadow: 0 4px #E65100;
+            transition: all 0.1s;
+        }
+
+        button:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px #E65100;
+        }
+
+        /* Canvas for arrow trajectory and drawing */
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="ui-bar">
+        <div class="stat-box">Score: <span id="score">0</span></div>
+        <div class="stat-box">Wind: <span id="wind-indicator">0 mph</span></div>
+        <div class="stat-box">Arrows Left: <span id="arrows">10</span></div>
+    </div>
+
+    <!-- Target boards container -->
+    <div id="targets-layer"></div>
+
+    <canvas id="gameCanvas" width="900" height="600"></canvas>
+
+    <div id="launcher-area">
+        <div id="definition-display">Loading definition...</div>
+        <div id="bow-controls">
+            <div class="control-group">
+                <label for="angle">Angle (°):</label>
+                <input type="range" id="angle" min="10" max="80" value="45">
+                <span id="angle-val">45</span>
+            </div>
+            <div class="control-group">
+                <label for="power">Power:</label>
+                <input type="range" id="power" min="20" max="100" value="60">
+                <span id="power-val">60</span>
+            </div>
+            <button id="shoot-btn">RELEASE ARROW</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 1. Vocabulary Data (Using your 7 words)
+    const vocabData = [
+        { word: "unidentified", def: "Not recognized or identified; unknown origin or identity." },
+        { word: "phenomenon", def: "A remarkable event or situation whose cause may be in question." },
+        { word: "radar", def: "A system for detecting the presence, direction, or speed of aircraft or objects." },
+        { word: "sensor", def: "A device which detects or measures a physical property and records/responds to it." },
+        { word: "personnel", def: "People employed in an organization or engaged in an organized undertaking." },
+        { word: "strengthen", def: "Make or become stronger or more effective." },
+        { word: "mysterious", def: "Difficult or impossible to understand, explain, or identify." }
+    ];
+
+    // Game state variables
+    let score = 0;
+    let arrowsLeft = 10;
+    let currentWind = 0; // Negative = left, Positive = right
+    let currentTargetWord = "";
+    let targets = [];
+    let isArrowFlying = false;
+
+    // Arrow Physics parameters
+    let arrow = null;
+    const gravity = 0.25;
+
+    // Canvas setup
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Control Elements
+    const angleInput = document.getElementById('angle');
+    const powerInput = document.getElementById('power');
+    const angleVal = document.getElementById('angle-val');
+    const powerVal = document.getElementById('power-val');
+    const shootBtn = document.getElementById('shoot-btn');
+
+    angleInput.addEventListener('input', () => angleVal.textContent = angleInput.value);
+    powerInput.addEventListener('input', () => powerVal.textContent = powerInput.value);
+
+    // Initialize Game
+    function initGame() {
+        score = 0;
+        arrowsLeft = 10;
+        document.getElementById('score').textContent = score;
+        document.getElementById('arrows').textContent = arrowsLeft;
+        generateTargets();
+        nextTurn();
+        requestAnimationFrame(gameLoop);
+    }
+
+    // Set new wind and target word
+    function nextTurn() {
+        if (arrowsLeft <= 0) {
+            alert(`Game Over! Final Score: ${score}`);
+            initGame();
+            return;
+        }
+
+        // Random wind (-5 to +5)
+        currentWind = Math.floor(Math.random() * 11) - 5;
+        const windText = currentWind > 0 ? `→ ${currentWind} mph` : currentWind < 0 ? `← ${Math.abs(currentWind)} mph` : `0 mph`;
+        document.getElementById('wind-indicator').textContent = windText;
+
+        // Choose random word for current round
+        const randomIndex = Math.floor(Math.random() * vocabData.length);
+        const selected = vocabData[randomIndex];
+        currentTargetWord = selected.word;
+        document.getElementById('definition-display').textContent = `TARGET DEFINITION: "${selected.def}"`;
+    }
+
+    // Spawn moving targets at varying distances (Y positions)
+    function generateTargets() {
+        const container = document.getElementById('targets-layer');
+        container.innerHTML = '';
+        targets = [];
+
+        // Distribute words across targets
+        const YPositions = [100, 190, 280, 370];
+
+        vocabData.forEach((item, index) => {
+            const el = document.createElement('div');
+            el.className = 'target-board';
+            el.textContent = item.word.toUpperCase();
+            container.appendChild(el);
+
+            const targetObj = {
+                word: item.word,
+                element: el,
+                x: Math.random() * 700,
+                y: YPositions[index % YPositions.length],
+                speed: (Math.random() * 1.5 + 0.8) * (Math.random() < 0.5 ? 1 : -1)
+            };
+
+            targets.push(targetObj);
+        });
+    }
+
+    // Update Target Movements
+    function updateTargets() {
+        targets.forEach(t => {
+            t.x += t.speed;
+            if (t.x <= 0 || t.x >= 790) {
+                t.speed *= -1; // Bounce back
+            }
+            t.element.style.transform = `translate(${t.x}px, ${t.y}px)`;
+        });
+    }
+
+    // Launch Arrow
+    shootBtn.addEventListener('click', () => {
+        if (isArrowFlying) return;
+
+        const angleDeg = parseFloat(angleInput.value);
+        const power = parseFloat(powerInput.value);
+
+        const angleRad = (angleDeg * Math.PI) / 180;
+
+        arrow = {
+            x: 450, // Bow starting position (Center bottom)
+            y: 460,
+            vx: Math.cos(angleRad) * (power * 0.25) * (angleDeg > 90 ? -1 : 1), // trajectory vector
+            vy: -Math.sin(angleRad) * (power * 0.25)
+        };
+
+        // Correct directional trajectory calculation
+        const shootAngleRad = angleRad;
+        arrow.vx = Math.cos(shootAngleRad) * (power * 0.3) * -1; // Horizontal launch vector
+        arrow.vy = -Math.sin(shootAngleRad) * (power * 0.3);
+
+        arrowsLeft--;
+        document.getElementById('arrows').textContent = arrowsLeft;
+        isArrowFlying = true;
+    });
+
+    // Main Game Engine Loop
+    function gameLoop() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        updateTargets();
+        drawBow();
+
+        if (isArrowFlying && arrow) {
+            // Apply wind resistance and gravity
+            arrow.vx += currentWind * 0.01;
+            arrow.vy += gravity;
+
+            arrow.x += arrow.vx;
+            arrow.y += arrow.vy;
+
+            drawArrow(arrow.x, arrow.y, Math.atan2(arrow.vy, arrow.vx));
+
+            // Collision check with targets
+            checkCollision();
+
+            // Off-screen boundary check
+            if (arrow.y > 600 || arrow.x < 0 || arrow.x > 900) {
+                isArrowFlying = false;
+                arrow = null;
+                nextTurn();
+            }
+        }
+
+        requestAnimationFrame(gameLoop);
+    }
+
+    // Draw Bow Base
+    function drawBow() {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(450, 480, 25, Math.PI, 0, false);
+        ctx.lineWidth = 5;
+        ctx.strokeStyle = '#8B4513';
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    // Draw Flying Arrow
+    function drawArrow(x, y, angle) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+
+        ctx.beginPath();
+        ctx.moveTo(-20, 0);
+        ctx.lineTo(10, 0);
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#5D4037';
+        ctx.stroke();
+
+        // Tip
+        ctx.beginPath();
+        ctx.arc(10, 0, 3, 0, Math.PI * 2);
+        ctx.fillStyle = '#000';
+        ctx.fill();
+
+        ctx.restore();
+    }
+
+    // Hit Detection logic
+    function checkCollision() {
+        targets.forEach(t => {
+            // Target Bounding Box
+            if (
+                arrow.x >= t.x &&
+                arrow.x <= t.x + 110 &&
+                arrow.y >= t.y &&
+                arrow.y <= t.y + 70
+            ) {
+                isArrowFlying = false;
+
+                if (t.word === currentTargetWord) {
+                    score += 100;
+                    alert(`BULLSEYE! Accurate shot on: ${t.word.toUpperCase()}`);
+                } else {
+                    score = Math.max(0, score - 20);
+                    alert(`OOPS! Hit "${t.word.toUpperCase()}", but definition was for "${currentTargetWord.toUpperCase()}".`);
+                }
+
+                document.getElementById('score').textContent = score;
+                arrow = null;
+                nextTurn();
+            }
+        });
+    }
+
+    // Start Game on load
+    initGame();
+</script>
+
+</body>
+</html>

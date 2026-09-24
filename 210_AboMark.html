@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Invaders: Vocab Edition</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: #050510;
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        #game-container {
+            width: 800px;
+            height: 600px;
+            background: linear-gradient(to bottom, #020208, #101025);
+            border: 3px solid #00f0ff;
+            box-shadow: 0 0 20px #00f0ff;
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Top Bar Info */
+        #hud {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background: rgba(0, 0, 0, 0.6);
+            border-bottom: 1px solid #00f0ff;
+            z-index: 10;
+            position: relative;
+        }
+
+        .hud-item {
+            font-size: 18px;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        #briefing-panel {
+            background: rgba(0, 240, 255, 0.1);
+            border: 1px solid #00f0ff;
+            border-radius: 5px;
+            padding: 10px;
+            text-align: center;
+            margin: 10px 20px;
+            box-shadow: inset 0 0 10px rgba(0, 240, 255, 0.2);
+            z-index: 10;
+            position: relative;
+        }
+
+        #briefing-title {
+            color: #ff007f;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 4px;
+        }
+
+        #definition-display {
+            font-size: 18px;
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        /* Canvas Arena */
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* Overlay Screens */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 5, 16, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .overlay h1 {
+            font-size: 40px;
+            color: #00f0ff;
+            text-shadow: 0 0 10px #00f0ff;
+            margin-bottom: 15px;
+        }
+
+        .overlay p {
+            font-size: 16px;
+            max-width: 600px;
+            line-height: 1.5;
+            margin-bottom: 25px;
+            color: #d0d0e0;
+        }
+
+        .btn {
+            background: #ff007f;
+            color: #fff;
+            border: none;
+            padding: 12px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 0 15px #ff007f;
+            transition: all 0.2s ease;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+            background: #ff3399;
+            box-shadow: 0 0 25px #ff007f;
+        }
+
+        #glitch-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 0, 0, 0.2);
+            pointer-events: none;
+            display: none;
+            z-index: 15;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <!-- HUD -->
+        <div id="hud">
+            <div class="hud-item">SCORE: <span id="score-val" style="color: #00f0ff;">0</span></div>
+            <div class="hud-item">WARP DRIVE: <span id="timer-val" style="color: #ff007f;">60</span>s</div>
+        </div>
+
+        <!-- Mission Briefing Panel -->
+        <div id="briefing-panel">
+            <div id="briefing-title">⚡ MISSION BRIEFING ⚡</div>
+            <div id="definition-display">Loading Mission Target...</div>
+        </div>
+
+        <div id="glitch-overlay"></div>
+
+        <!-- Canvas -->
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+        <!-- Start Screen -->
+        <div id="start-screen" class="overlay">
+            <h1>INTERGALACTIC VOCAB-DEFENDER</h1>
+            <p>
+                Defend Earth from the incoming alien word-ships! Read the <b>Mission Briefing</b> at the top, navigate your sleek spaceship using <b>LEFT/RIGHT Arrow Keys</b> or <b>A/D</b>, and press <b>SPACEBAR</b> to shoot lasers at the ship carrying the correct matching word.
+            </p>
+            <p style="color: #ff007f; font-size: 14px;">
+                ⚠️ Warning: Shooting the wrong ship will glitch your ship, deduct 50 points, and stall your lasers!
+            </p>
+            <button class="btn" onclick="startGame()">ENGAGE MISSION</button>
+        </div>
+
+        <!-- Game Over / Victory Screen -->
+        <div id="end-screen" class="overlay hidden">
+            <h1 id="end-title">MISSION COMPLETE!</h1>
+            <p id="end-desc">Your total score has been calculated.</p>
+            <h2 style="font-size: 32px; color: #00f0ff; margin-bottom: 20px;">
+                FINAL SCORE: <span id="final-score">0</span>
+            </h2>
+            <div id="badge-display" style="font-size: 20px; color: #ff007f; margin-bottom: 25px; font-weight: bold;"></div>
+            <button class="btn" onclick="startGame()">PLAY AGAIN</button>
+        </div>
+    </div>
+
+    <script>
+        // Vocabulary Database (B1 Level)
+        const vocabData = [
+            { word: "beloved", def: "Loved very much by someone." },
+            { word: "highlight", def: "The best, most interesting, or most important part of something." },
+            { word: "performer", def: "A person who entertains an audience (actor, singer, musician)." },
+            { word: "compelling", def: "Evoking interest, attention, or admiration in a powerfully irresistible way." },
+            { word: "luxury", def: "A state of great comfort or elegance, especially when involving great expense." },
+            { word: "elaborately", def: "In a detailed and carefully arranged manner." },
+            { word: "surroundings", def: "The things and conditions around a person or place." }
+        ];
+
+        // Canvas Setup
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Game State Variables
+        let score = 0;
+        let timeLeft = 60;
+        let gameInterval = null;
+        let timerInterval = null;
+        let isPlaying = false;
+        let isStalled = false;
+        let stallTimer = 0;
+
+        let currentTarget = null;
+        let lasers = [];
+        let aliens = [];
+        let particles = [];
+        let stars = [];
+
+        // Player Ship
+        const player = {
+            x: canvas.width / 2 - 25,
+            y: 520,
+            width: 50,
+            height: 30,
+            speed: 7,
+            dx: 0
+        };
+
+        // Key Listeners
+        const keys = {};
+        window.addEventListener('keydown', (e) => {
+            keys[e.code] = true;
+            if (e.code === 'Space' && isPlaying) {
+                e.preventDefault();
+                shootLaser();
+            }
+        });
+        window.addEventListener('keyup', (e) => {
+            keys[e.code] = false;
+        });
+
+        // Initialize Background Stars
+        for (let i = 0; i < 80; i++) {
+            stars.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                size: Math.random() * 2,
+                speed: Math.random() * 0.5 + 0.2
+            });
+        }
+
+        function startGame() {
+            score = 0;
+            timeLeft = 60;
+            isPlaying = true;
+            isStalled = false;
+            lasers = [];
+            aliens = [];
+            particles = [];
+            
+            document.getElementById('score-val').innerText = score;
+            document.getElementById('timer-val').innerText = timeLeft;
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('end-screen').classList.add('hidden');
+
+            player.x = canvas.width / 2 - 25;
+
+            nextQuestion();
+
+            if (gameInterval) clearInterval(gameInterval);
+            if (timerInterval) clearInterval(timerInterval);
+
+            gameInterval = setInterval(update, 1000 / 60);
+            timerInterval = setInterval(() => {
+                if (timeLeft > 0) {
+                    timeLeft--;
+                    document.getElementById('timer-val').innerText = timeLeft;
+                } else {
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        function nextQuestion() {
+            // Select random target word
+            const randIndex = Math.floor(Math.random() * vocabData.length);
+            currentTarget = vocabData[randIndex];
+            document.getElementById('definition-display').innerText = `"${currentTarget.def}"`;
+
+            // Prepare choices (1 correct + 2 distractors)
+            let choices = [currentTarget.word];
+            let distractors = vocabData.filter(v => v.word !== currentTarget.word);
+            distractors.sort(() => 0.5 - Math.random());
+            
+            choices.push(distractors[0].word);
+            choices.push(distractors[1].word);
+
+            // Shuffle choices
+            choices.sort(() => 0.5 - Math.random());
+
+            // Spawn aliens with choices
+            aliens = [];
+            const startY = 130;
+            const spacing = canvas.width / 3;
+
+            for (let i = 0; i < choices.length; i++) {
+                aliens.push({
+                    x: spacing * i + spacing / 2 - 40,
+                    y: startY,
+                    width: 80,
+                    height: 40,
+                    word: choices[i],
+                    dx: (Math.random() > 0.5 ? 1 : -1) * (1.5 + Math.random() * 1.5),
+                    color: '#ff007f'
+                });
+            }
+        }
+
+        function shootLaser() {
+            if (isStalled) return; // Ship glitched/stalled
+
+            lasers.push({
+                x: player.x + player.width / 2 - 3,
+                y: player.y,
+                width: 6,
+                height: 15,
+                speed: 9
+            });
+        }
+
+        function triggerGlitch() {
+            isStalled = true;
+            const glitchOverlay = document.getElementById('glitch-overlay');
+            glitchOverlay.style.display = 'block';
+
+            setTimeout(() => {
+                glitchOverlay.style.display = 'none';
+            }, 300);
+
+            // Stalled for 2 seconds
+            setTimeout(() => {
+                isStalled = false;
+            }, 2000);
+        }
+
+        function createExplosion(x, y, color) {
+            for (let i = 0; i < 25; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    dx: (Math.random() - 0.5) * 6,
+                    dy: (Math.random() - 0.5) * 6,
+                    size: Math.random() * 4 + 1,
+                    color: color,
+                    life: 30
+                });
+            }
+        }
+
+        function update() {
+            // Player Movement
+            if ((keys['ArrowLeft'] || keys['KeyA']) && player.x > 0) {
+                player.x -= player.speed;
+            }
+            if ((keys['ArrowRight'] || keys['KeyD']) && player.x < canvas.width - player.width) {
+                player.x += player.speed;
+            }
+
+            // Update Lasers
+            for (let i = lasers.length - 1; i >= 0; i--) {
+                lasers[i].y -= lasers[i].speed;
+                if (lasers[i].y < 0) lasers.splice(i, 1);
+            }
+
+            // Update Alien Positions (Zig-zag maneuver)
+            aliens.forEach(alien => {
+                alien.x += alien.dx;
+                if (alien.x <= 0 || alien.x + alien.width >= canvas.width) {
+                    alien.dx *= -1;
+                    alien.y += 10; // descend slowly
+                }
+            });
+
+            // Update Particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].x += particles[i].dx;
+                particles[i].y += particles[i].dy;
+                particles[i].life--;
+                if (particles[i].life <= 0) particles.splice(i, 1);
+            }
+
+            // Collision Detection: Lasers vs Aliens
+            for (let l = lasers.length - 1; l >= 0; l--) {
+                for (let a = aliens.length - 1; a >= 0; a--) {
+                    if (
+                        lasers[l] &&
+                        lasers[l].x < aliens[a].x + aliens[a].width &&
+                        lasers[l].x + lasers[l].width > aliens[a].x &&
+                        lasers[l].y < aliens[a].y + aliens[a].height &&
+                        lasers[l].y + lasers[l].height > aliens[a].y
+                    ) {
+                        // Check if correct word hit
+                        if (aliens[a].word === currentTarget.word) {
+                            score += 100;
+                            document.getElementById('score-val').innerText = score;
+                            createExplosion(aliens[a].x + aliens[a].width / 2, aliens[a].y + aliens[a].height / 2, '#00f0ff');
+                            lasers.splice(l, 1);
+                            nextQuestion();
+                            break;
+                        } else {
+                            // Incorrect Hit
+                            score = Math.max(0, score - 50);
+                            document.getElementById('score-val').innerText = score;
+                            createExplosion(aliens[a].x + aliens[a].width / 2, aliens[a].y + aliens[a].height / 2, '#ff0000');
+                            triggerGlitch();
+                            lasers.splice(l, 1);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            render();
+        }
+
+        function render() {
+            // Clear Canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Render Stars
+            ctx.fillStyle = '#ffffff';
+            stars.forEach(star => {
+                ctx.fillRect(star.x, star.y, star.size, star.size);
+                star.y += star.speed;
+                if (star.y > canvas.height) star.y = 0;
+            });
+
+            // Render Ship
+            ctx.fillStyle = isStalled ? '#ff3333' : '#00f0ff';
+            // Sleek spaceship triangle shape
+            ctx.beginPath();
+            ctx.moveTo(player.x + player.width / 2, player.y);
+            ctx.lineTo(player.x + player.width, player.y + player.height);
+            ctx.lineTo(player.x, player.y + player.height);
+            ctx.closePath();
+            ctx.fill();
+
+            // Render Lasers
+            ctx.fillStyle = '#00f0ff';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#00f0ff';
+            lasers.forEach(laser => {
+                ctx.fillRect(laser.x, laser.y, laser.width, laser.height);
+            });
+            ctx.shadowBlur = 0;
+
+            // Render Aliens & Words
+            aliens.forEach(alien => {
+                // Ship Body
+                ctx.fillStyle = '#102040';
+                ctx.strokeStyle = '#00f0ff';
+                ctx.lineWidth = 2;
+                ctx.fillRect(alien.x, alien.y, alien.width, alien.height);
+                ctx.strokeRect(alien.x, alien.y, alien.width, alien.height);
+
+                // Word Label
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 12px Segoe UI';
+                ctx.textAlign = 'center';
+                ctx.fillText(alien.word, alien.x + alien.width / 2, alien.y + alien.height / 2 + 4);
+            });
+
+            // Render Particles
+            particles.forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.fillRect(p.x, p.y, p.size, p.size);
+            });
+        }
+
+        function endGame() {
+            isPlaying = false;
+            clearInterval(gameInterval);
+            clearInterval(timerInterval);
+
+            document.getElementById('final-score').innerText = score;
+            const badgeDisplay = document.getElementById('badge-display');
+
+            if (score >= 500) {
+                badgeDisplay.innerText = "🏆 Victory Badge Earned: Ultimate Defender (Galactic Ace)";
+            } else if (score >= 200) {
+                badgeDisplay.innerText = "🏅 Honor Badge: Sector Guardian";
+            } else {
+                badgeDisplay.innerText = "🎗️ Ribbon: Starship Cadet (Keep Practicing!)";
+            }
+
+            document.getElementById('end-screen').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
