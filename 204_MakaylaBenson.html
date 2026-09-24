@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marble Popper: Match-3 Definitions</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        #game-container {
+            position: relative;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+            border-radius: 16px;
+            overflow: hidden;
+            border: 2px solid #334155;
+        }
+
+        canvas {
+            background-color: #1e293b;
+            display: block;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: none;
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .hud-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(8px);
+            padding: 10px 20px;
+            border-radius: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        #target-display {
+            position: absolute;
+            bottom: 25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(10px);
+            border: 2px solid #38bdf8;
+            border-radius: 14px;
+            padding: 14px 28px;
+            text-align: center;
+            max-width: 85%;
+            pointer-events: none;
+            box-shadow: 0 8px 32px rgba(56, 189, 248, 0.25);
+        }
+
+        #target-display span {
+            color: #38bdf8;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        #target-def {
+            font-size: 18px;
+            font-weight: 600;
+            color: #f1f5f9;
+        }
+
+        #game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        h1 {
+            font-size: 48px;
+            margin-bottom: 12px;
+            color: #f43f5e;
+            text-shadow: 0 0 20px rgba(244, 63, 94, 0.4);
+        }
+
+        p {
+            font-size: 22px;
+            margin-bottom: 30px;
+            color: #cbd5e1;
+        }
+
+        button {
+            background: #2563eb;
+            color: #ffffff;
+            border: none;
+            padding: 14px 36px;
+            font-size: 18px;
+            font-weight: 700;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+        }
+
+        button:hover {
+            background: #1d4ed8;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(37, 99, 235, 0.6);
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="ui-layer">
+        <div class="hud-panel">Score: <span id="score">0</span></div>
+        <div class="hud-panel">High Score: <span id="high-score">0</span></div>
+    </div>
+
+    <div id="target-display">
+        <span>Target Definition (瞄準相對應的英文單字)</span>
+        <div id="target-def">載入中...</div>
+    </div>
+
+    <canvas id="gameCanvas" width="900" height="650"></canvas>
+
+    <div id="game-over-screen" class="hidden">
+        <h1>Game Over</h1>
+        <p>最終得分：<span id="final-score">0</span></p>
+        <button id="restart-btn">重新開始遊戲</button>
+    </div>
+</div>
+
+<script>
+// 高二核心 Vocabulary 庫 (使用您所提供的 7 個單字)
+const VOCABULARY = [
+    { word: "miraculous", def: "Occurring like a miracle; completely unexpected and wonderful", color: "#ec4899" },
+    { word: "massive", def: "Large and heavy or solid; exceptionally great in extent", color: "#eab308" },
+    { word: "vomit", def: "Eject contents from the stomach through the mouth", color: "#84cc16" },
+    { word: "physician", def: "A person qualified to practice medicine; a medical doctor", color: "#06b6d4" },
+    { word: "dose", def: "A measured amount of a medicine or drug taken at one time", color: "#3b82f6" },
+    { word: "established", def: "Having existed for a long time and generally accepted", color: "#a855f7" },
+    { word: "undergo", def: "Experience or be subjected to (something, typically unpleasant)", color: "#f97316" }
+];
+
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+// 遊戲參數設定
+const RADIUS = 22;
+const SPEED = 0.75;
+let score = 0;
+let highScore = 0;
+let gameOver = false;
+
+// Pathfinding Arrays (建立弧形彎曲軌道陣列)
+const PATH = [];
+function generatePath() {
+    PATH.length = 0;
+    // 使用三角函數構建彎曲螺旋軌道
+    for (let t = 0; t <= 1; t += 0.0008) {
+        let x = 450 + Math.sin(t * Math.PI * 3.2) * (380 - t * 290);
+        let y = 325 + Math.cos(t * Math.PI * 3.2) * (260 - t * 190);
+        PATH.push({ x, y });
+    }
+}
+generatePath();
+
+const DANGER_PIT = PATH[PATH.length - 1];
+
+// 發射台 (Launcher)
+const launcher = {
+    x: 450,
+    y: 325,
+    angle: 0
+};
+
+// 瞄準字義機制
+let currentTarget = null;
+
+function setNextTarget() {
+    const randomIndex = Math.floor(Math.random() * VOCABULARY.length);
+    currentTarget = VOCABULARY[randomIndex];
+    document.getElementById("target-def").innerText = `"${currentTarget.def}"`;
+}
+
+// 滾珠與發射物陣列
+let trackMarbles = [];
+let projectiles = [];
+
+class TrackMarble {
+    constructor(vocab, pathIndex) {
+        this.vocab = vocab;
+        this.pathIndex = pathIndex;
+        this.x = 0;
+        this.y = 0;
+        this.updatePosition();
+    }
+
+    updatePosition() {
+        const idx = Math.floor(this.pathIndex);
+        if (idx >= PATH.length - 1) {
+            triggerGameOver();
+            return;
+        }
+        if (idx >= 0) {
+            this.x = PATH[idx].x;
+            this.y = PATH[idx].y;
+        } else {
+            // 尚未進入畫面的起點預備區
+            this.x = PATH[0].x;
+            this.y = PATH[0].y;
+        }
+    }
+
+    update() {
+        this.pathIndex += SPEED;
+        this.updatePosition();
+    }
+
+    draw() {
+        if (this.pathIndex < 0) return;
+
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, RADIUS, 0, Math.PI * 2);
+        ctx.fillStyle = this.vocab.color;
+        ctx.fill();
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = "#ffffff";
+        ctx.stroke();
+
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 10px 'Segoe UI', sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(this.vocab.word, this.x, this.y);
+    }
+}
+
+class Projectile {
+    constructor(x, y, angle, vocab) {
+        this.x = x;
+        this.y = y;
+        this.vx = Math.cos(angle) * 14;
+        this.vy = Math.sin(angle) * 14;
+        this.vocab = vocab;
+        this.active = true;
+    }
+
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+
+        if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) {
+            this.active = false;
+        }
+    }
+
+    draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, RADIUS, 0, Math.PI * 2);
+        ctx.fillStyle = this.vocab.color;
+        ctx.fill();
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = "#ffffff";
+        ctx.stroke();
+
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 10px 'Segoe UI', sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(this.vocab.word, this.x, this.y);
+    }
+}
+
+// 滑鼠控制發射台角度
+let mousePos = { x: 0, y: 0 };
+canvas.addEventListener("mousemove", (e) => {
+    const rect = canvas.getBoundingClientRect();
+    mousePos.x = e.clientX - rect.left;
+    mousePos.y = e.clientY - rect.top;
+    launcher.angle = Math.atan2(mousePos.y - launcher.y, mousePos.x - launcher.x);
+});
+
+// 點擊發射子彈
+canvas.addEventListener("click", () => {
+    if (gameOver || !currentTarget) return;
+    projectiles.push(new Projectile(launcher.x, launcher.y, launcher.angle, currentTarget));
+    setNextTarget();
+});
+
+// 碰撞插值計算與配對消除邏輯 (Collision Interpolation & Match-3/Sequence Check)
+function checkCollisions() {
+    for (let pIndex = projectiles.length - 1; pIndex >= 0; pIndex--) {
+        const proj = projectiles[pIndex];
+        if (!proj.active) continue;
+
+        for (let mIndex = 0; mIndex < trackMarbles.length; mIndex++) {
+            const marble = trackMarbles[mIndex];
+            if (marble.pathIndex < 0) continue;
+
+            const dist = Math.hypot(proj.x - marble.x, proj.y - marble.y);
+
+            // 觸發碰撞
+            if (dist < RADIUS * 2) {
+                proj.active = false;
+
+                // 檢查射出的單字是否符合目標 Match/Sequence 條件
+                if (proj.vocab.word === marble.vocab.word) {
+                    // 正確擊中！消除相鄰相同的單字滾珠
+                    popMatches(mIndex, proj.vocab.word);
+                    score += 150;
+                    document.getElementById("score").innerText = score;
+                } else {
+                    // 沒擊中相對應單字，插入隊伍中
+                    const newMarble = new TrackMarble(proj.vocab, marble.pathIndex);
+                    trackMarbles.splice(mIndex, 0, newMarble);
+                    adjustMarblePositions();
+                }
+                break;
+            }
+        }
+    }
+}
+
+// 配對消除 (Match/Sequence Clearance)
+function popMatches(startIndex, targetWord) {
+    let toRemove = [startIndex];
+
+    // 向前搜尋相同單字
+    for (let i = startIndex + 1; i < trackMarbles.length; i++) {
+        if (trackMarbles[i].vocab.word === targetWord) toRemove.push(i);
+        else break;
+    }
+    // 向後搜尋相同單字
+    for (let i = startIndex - 1; i >= 0; i--) {
+        if (trackMarbles[i].vocab.word === targetWord) toRemove.push(i);
+        else break;
+    }
+
+    toRemove.sort((a, b) => b - a);
+    toRemove.forEach(idx => trackMarbles.splice(idx, 1));
+}
+
+// 調整插入後的滾珠距離
+function adjustMarblePositions() {
+    for (let i = 1; i < trackMarbles.length; i++) {
+        const prev = trackMarbles[i - 1];
+        const curr = trackMarbles[i];
+        if (curr.pathIndex > prev.pathIndex - 30) {
+            curr.pathIndex = prev.pathIndex - 30;
+        }
+    }
+}
+
+// 定期生成軌道滾珠
+let spawnTimer = 0;
+function spawnMarbles() {
+    spawnTimer++;
+    if (spawnTimer % 70 === 0 && trackMarbles.length < 30) {
+        const randomVocab = VOCABULARY[Math.floor(Math.random() * VOCABULARY.length)];
+        let startIdx = 0;
+        if (trackMarbles.length > 0) {
+            startIdx = trackMarbles[trackMarbles.length - 1].pathIndex - 35;
+        }
+        if (startIdx >= -200) {
+            trackMarbles.push(new TrackMarble(randomVocab, startIdx));
+        }
+    }
+}
+
+// Game Over 觸發機制
+function triggerGameOver() {
+    if (gameOver) return;
+    gameOver = true;
+    if (score > highScore) highScore = score;
+    document.getElementById("high-score").innerText = highScore;
+    document.getElementById("final-score").innerText = score;
+    document.getElementById("game-over-screen").classList.remove("hidden");
+}
+
+// 重置遊戲
+function resetGame() {
+    score = 0;
+    gameOver = false;
+    trackMarbles = [];
+    projectiles = [];
+    document.getElementById("score").innerText = score;
+    document.getElementById("game-over-screen").classList.add("hidden");
+    setNextTarget();
+    
+    // 初始化起點隊伍
+    for (let i = 0; i < 7; i++) {
+        const randomVocab = VOCABULARY[Math.floor(Math.random() * VOCABULARY.length)];
+        trackMarbles.push(new TrackMarble(randomVocab, -i * 35));
+    }
+}
+
+document.getElementById("restart-btn").addEventListener("click", resetGame);
+
+// 主渲染迴圈 (Main Render Loop)
+function render() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 繪製 curved line track (彎曲軌道)
+    ctx.beginPath();
+    for (let i = 0; i < PATH.length; i++) {
+        if (i === 0) ctx.moveTo(PATH[i].x, PATH[i].y);
+        else ctx.lineTo(PATH[i].x, PATH[i].y);
+    }
+    ctx.lineWidth = 16;
+    ctx.strokeStyle = "#334155";
+    ctx.stroke();
+
+    // 繪製 Endpoint Drain / Danger Pit (終點危險洞口)
+    ctx.beginPath();
+    ctx.arc(DANGER_PIT.x, DANGER_PIT.y, 28, 0, Math.PI * 2);
+    ctx.fillStyle = "#f43f5e";
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "#881337";
+    ctx.stroke();
+
+    if (!gameOver) {
+        spawnMarbles();
+
+        // 更新與繪製軌道滾珠
+        for (let i = trackMarbles.length - 1; i >= 0; i--) {
+            trackMarbles[i].update();
+            if (!gameOver) trackMarbles[i].draw();
+        }
+
+        // 更新與繪製發射子彈
+        projectiles.forEach((p, idx) => {
+            p.update();
+            p.draw();
+            if (!p.active) projectiles.splice(idx, 1);
+        });
+
+        checkCollisions();
+
+        // 繪製中央發射台 (Static Marble Launcher)
+        ctx.save();
+        ctx.translate(launcher.x, launcher.y);
+        ctx.rotate(launcher.angle);
+        
+        // 砲管
+        ctx.fillStyle = currentTarget ? currentTarget.color : "#ffffff";
+        ctx.fillRect(0, -10, 40, 20);
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(0, -10, 40, 20);
+
+        // 中央座台
+        ctx.beginPath();
+        ctx.arc(0, 0, 24, 0, Math.PI * 2);
+        ctx.fillStyle = "#475569";
+        ctx.fill();
+        ctx.strokeStyle = "#94a3b8";
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    requestAnimationFrame(render);
+}
+
+setNextTarget();
+resetGame();
+render();
+</script>
+</body>
+</html>
