@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Target Archers - Vocabulary Challenge</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a1a2e;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        #game-container {
+            position: relative;
+            width: 900px;
+            height: 650px;
+            background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 60%, #90EE90 60%, #228B22 100%);
+            border: 4px solid #16213e;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        #ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 15px;
+        }
+
+        .hud-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(22, 33, 62, 0.85);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            color: #e94560;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        .hud-item span {
+            color: #fff;
+        }
+
+        #prompt-box {
+            background: rgba(22, 33, 62, 0.9);
+            border: 2px solid #0f3460;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            margin-bottom: 5px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+        }
+
+        #prompt-box h3 {
+            color: #f8b500;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        #definition-display {
+            font-size: 18px;
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        #start-screen, #end-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(22, 33, 62, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            pointer-events: auto;
+            z-index: 10;
+        }
+
+        h1 {
+            font-size: 42px;
+            color: #f8b500;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        p.subtitle {
+            font-size: 16px;
+            color: #cccccc;
+            margin-bottom: 30px;
+            max-width: 600px;
+            text-align: center;
+            line-height: 1.4;
+        }
+
+        .btn {
+            background: #e94560;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 20px;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(233, 69, 96, 0.4);
+        }
+
+        .btn:hover {
+            background: #ff6b81;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(233, 69, 96, 0.6);
+        }
+
+        .hide {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas" width="900" height="650"></canvas>
+
+    <div id="ui-overlay">
+        <div class="hud-panel">
+            <div class="hud-item">SCORE: <span id="score">0</span></div>
+            <div class="hud-item">WIND: <span id="wind-indicator">0.0 MPH</span></div>
+            <div class="hud-item">TARGET: <span id="target-count">1/7</span></div>
+        </div>
+
+        <div id="prompt-box">
+            <h3>Target Definition</h3>
+            <div id="definition-display">Click Launch to Start!</div>
+        </div>
+    </div>
+
+    <div id="start-screen">
+        <h1>TARGET ARCHERS</h1>
+        <p class="subtitle">Aim carefully! Calculate arrow trajectory, distance, and wind resistance to shoot down the moving target board that matches the given definition.</p>
+        <button class="btn" id="start-btn">START GAME</button>
+    </div>
+
+    <div id="end-screen" class="hide">
+        <h1>SESSION COMPLETE</h1>
+        <p class="subtitle" id="final-score-text">Your final score is 0</p>
+        <button class="btn" id="restart-btn">PLAY AGAIN</button>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// Game UI Elements
+const scoreEl = document.getElementById('score');
+const windEl = document.getElementById('wind-indicator');
+const targetCountEl = document.getElementById('target-count');
+const definitionEl = document.getElementById('definition-display');
+const startScreen = document.getElementById('start-screen');
+const endScreen = document.getElementById('end-screen');
+const startBtn = document.getElementById('start-btn');
+const restartBtn = document.getElementById('restart-btn');
+const finalScoreText = document.getElementById('final-score-text');
+
+// 10th Grade Level Vocabulary List (7 Words)
+const vocabulary = [
+    { word: "Reservation", def: "An arrangement to secure something, like a room or seat, in advance." },
+    { word: "Preference", def: "A greater liking for one alternative over another." },
+    { word: "Secure", def: "Fixed or fastened firmly so as not to give way, become loose, or be lost." },
+    { word: "Session", def: "A period devoted to a particular activity or purpose." },
+    { word: "Massage", def: "Rubbing and kneading of muscles and joints to relieve tension or pain." },
+    { word: "Promptly", def: "With little or no delay; immediately or at the scheduled time." },
+    { word: "Opening", def: "An available position, vacancy, or an initial gap/opportunity." }
+];
+
+// Game State Variables
+let score = 0;
+let currentQuestionIdx = 0;
+let wind = 0; // Wind influence in X axis (-3 to 3)
+let isAiming = false;
+let gameActive = false;
+
+// Physics World
+const gravity = 0.25;
+const launcher = { x: 450, y: 580 };
+let arrow = null;
+let targets = [];
+
+// Input Tracking
+let mousePos = { x: 450, y: 300 };
+
+class Target {
+    constructor(word, isCorrect, distanceRow) {
+        this.word = word;
+        this.isCorrect = isCorrect;
+        
+        // Depth simulation (Distance scaling)
+        // Distance row: 0 = Far, 1 = Mid, 2 = Close
+        this.distanceRow = distanceRow; 
+        this.scale = 0.6 + (distanceRow * 0.2); // Far is smaller, close is bigger
+        
+        this.width = 120 * this.scale;
+        this.height = 50 * this.scale;
+        this.y = 120 + (distanceRow * 80); 
+        
+        this.speed = (1.5 + Math.random() * 2) * (Math.random() < 0.5 ? 1 : -1) * (1 / this.scale);
+        this.x = Math.random() * (canvas.width - this.width - 100) + 50;
+        this.hit = false;
+    }
+
+    update() {
+        this.x += this.speed;
+        // Bounce off canvas walls
+        if (this.x <= 20 || this.x + this.width >= canvas.width - 20) {
+            this.speed *= -1;
+        }
+    }
+
+    draw() {
+        ctx.save();
+        ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
+        
+        // Target Board Backing
+        ctx.fillStyle = "#8B4513";
+        ctx.fillRect(-this.width / 2, -this.height / 2, this.width, this.height);
+        ctx.strokeStyle = "#5c2e0b";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(-this.width / 2, -this.height / 2, this.width, this.height);
+
+        // Archery Bullseye Circle
+        ctx.beginPath();
+        ctx.arc(0, 0, 15 * this.scale, 0, Math.PI * 2);
+        ctx.fillStyle = "#e94560";
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(0, 0, 7 * this.scale, 0, Math.PI * 2);
+        ctx.fillStyle = "#f8b500";
+        ctx.fill();
+
+        // Text label
+        ctx.fillStyle = "#ffffff";
+        ctx.font = `bold ${Math.floor(14 * this.scale)}px Segoe UI`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.shadowColor = "black";
+        ctx.shadowBlur = 4;
+        ctx.fillText(this.word, 0, -this.height / 2 - 10);
+
+        ctx.restore();
+    }
+}
+
+class Arrow {
+    constructor(x, y, vx, vy) {
+        this.x = x;
+        this.y = y;
+        this.vx = vx;
+        this.vy = vy;
+        this.length = 40;
+        this.active = true;
+        this.angle = Math.atan2(vy, vx);
+    }
+
+    update() {
+        if (!this.active) return;
+
+        // Apply physics
+        this.vx += wind * 0.03; // Wind drift
+        this.vy += gravity;    // Gravity pull
+        
+        this.x += this.vx;
+        this.y += this.vy;
+        
+        this.angle = Math.atan2(this.vy, this.vx);
+
+        // Canvas Boundary collision checks
+        if (this.x < 0 || this.x > canvas.width || this.y > canvas.height || this.y < -100) {
+            this.active = false;
+        }
+    }
+
+    draw() {
+        if (!this.active) return;
+
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
+
+        // Shaft
+        ctx.strokeStyle = "#D2B48C";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(-this.length, 0);
+        ctx.lineTo(0, 0);
+        ctx.stroke();
+
+        // Arrowhead
+        ctx.fillStyle = "#C0C0C0";
+        ctx.beginPath();
+        ctx.moveTo(0, -4);
+        ctx.lineTo(8, 0);
+        ctx.lineTo(0, 4);
+        ctx.closePath();
+        ctx.fill();
+
+        // Fletching (Feathers)
+        ctx.fillStyle = "#e94560";
+        ctx.beginPath();
+        ctx.moveTo(-this.length, 0);
+        ctx.lineTo(-this.length - 6, -5);
+        ctx.lineTo(-this.length + 4, 0);
+        ctx.lineTo(-this.length - 6, 5);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.restore();
+    }
+}
+
+// Controls & Listeners
+canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    mousePos.x = e.clientX - rect.left;
+    mousePos.y = e.clientY - rect.top;
+});
+
+canvas.addEventListener('mousedown', () => {
+    if (!gameActive || arrow) return;
+    shootArrow();
+});
+
+startBtn.addEventListener('click', startGame);
+restartBtn.addEventListener('click', startGame);
+
+function startGame() {
+    score = 0;
+    currentQuestionIdx = 0;
+    gameActive = true;
+    startScreen.classList.add('hide');
+    endScreen.classList.add('hide');
+    scoreEl.textContent = score;
+    setupQuestion();
+    requestAnimationFrame(gameLoop);
+}
+
+function setupQuestion() {
+    arrow = null;
+    targets = [];
+    
+    // Wind generation between -3.0 and +3.0 MPH
+    wind = (Math.random() * 6 - 3);
+    const windDirection = wind >= 0 ? "E" : "W";
+    windEl.textContent = `${Math.abs(wind).toFixed(1)} MPH ${windDirection}`;
+
+    const currentVocab = vocabulary[currentQuestionIdx];
+    definitionEl.textContent = currentVocab.def;
+    targetCountEl.textContent = `${currentQuestionIdx + 1}/${vocabulary.length}`;
+
+    // Select 2 random distractors
+    let distractors = vocabulary.filter((_, idx) => idx !== currentQuestionIdx);
+    distractors = distractors.sort(() => 0.5 - Math.random()).slice(0, 2);
+
+    // Combine correct word + distractors & shuffle
+    let choices = [
+        { word: currentVocab.word, isCorrect: true },
+        { word: distractors[0].word, isCorrect: false },
+        { word: distractors[1].word, isCorrect: false }
+    ].sort(() => 0.5 - Math.random());
+
+    // Generate targets at different dynamic distance layers (rows 0, 1, 2)
+    choices.forEach((choice, index) => {
+        targets.push(new Target(choice.word, choice.isCorrect, index));
+    });
+}
+
+function shootArrow() {
+    const dx = mousePos.x - launcher.x;
+    const dy = mousePos.y - launcher.y;
+    
+    // Calculate launch power
+    const power = 0.18;
+    const vx = dx * power;
+    const vy = dy * power;
+
+    arrow = new Arrow(launcher.x, launcher.y, vx, vy);
+}
+
+function checkCollisions() {
+    if (!arrow || !arrow.active) return;
+
+    targets.forEach(target => {
+        if (target.hit) return;
+
+        // Bounding Box Collision
+        if (
+            arrow.x >= target.x &&
+            arrow.x <= target.x + target.width &&
+            arrow.y >= target.y &&
+            arrow.y <= target.y + target.height
+        ) {
+            target.hit = true;
+            arrow.active = false;
+
+            if (target.isCorrect) {
+                score += 100;
+                scoreEl.textContent = score;
+                advanceTurn();
+            } else {
+                score = Math.max(0, score - 30);
+                scoreEl.textContent = score;
+                // Reload arrow after wrong target hit
+                setTimeout(() => { arrow = null; }, 500);
+            }
+        }
+    });
+
+    // Reset arrow if missed targets
+    if (arrow && !arrow.active) {
+        setTimeout(() => { arrow = null; }, 500);
+    }
+}
+
+function advanceTurn() {
+    currentQuestionIdx++;
+    setTimeout(() => {
+        if (currentQuestionIdx < vocabulary.length) {
+            setupQuestion();
+        } else {
+            endGame();
+        }
+    }, 800);
+}
+
+function endGame() {
+    gameActive = false;
+    endScreen.classList.remove('hide');
+    finalScoreText.textContent = `Excellent job! You finished with a total score of ${score} points!`;
+}
+
+function drawLauncher() {
+    // Calculate angle towards cursor
+    const angle = Math.atan2(mousePos.y - launcher.y, mousePos.x - launcher.x);
+
+    ctx.save();
+    ctx.translate(launcher.x, launcher.y);
+
+    // Draw Windmill / Distance Trajectory line
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(Math.cos(angle) * 60, Math.sin(angle) * 60);
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+    ctx.setLineDash([5, 5]);
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Draw Bow Base
+    ctx.rotate(angle);
+    ctx.strokeStyle = "#8B4513";
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.arc(-20, 0, 40, -Math.PI / 2, Math.PI / 2);
+    ctx.stroke();
+
+    // Bowstring
+    ctx.strokeStyle = "#FFFFFF";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(-20, -40);
+    ctx.lineTo(-20, 40);
+    ctx.stroke();
+
+    ctx.restore();
+}
+
+function gameLoop() {
+    if (!gameActive) return;
+
+    // Clear Canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Update and Draw Targets
+    targets.forEach(target => {
+        target.update();
+        target.draw();
+    });
+
+    // Update and Draw Arrow
+    if (arrow) {
+        arrow.update();
+        arrow.draw();
+        checkCollisions();
+    }
+
+    // Draw Launcher
+    drawLauncher();
+
+    requestAnimationFrame(gameLoop);
+}
+</script>
+</body>
+</html>
