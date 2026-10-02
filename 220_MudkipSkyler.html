@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bridge Builder - Vocabulary Game</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        #game-container {
+            width: 800px;
+            height: 500px;
+            background: linear-gradient(to bottom, #87CEEB, #E0F6FF 70%, #87CEEB);
+            border: 4px solid #fff;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        /* Top Header */
+        .header {
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.4);
+            color: #fff;
+            font-size: 18px;
+            font-weight: bold;
+            z-index: 10;
+        }
+
+        /* Definition Display Box */
+        #hint-box {
+            position: absolute;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.95);
+            color: #333;
+            padding: 15px 25px;
+            border-radius: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            max-width: 80%;
+            z-index: 10;
+            border: 2px solid #3498db;
+        }
+
+        /* Game Scene */
+        #scene {
+            position: relative;
+            width: 100%;
+            height: 250px;
+            overflow: hidden;
+        }
+
+        /* Character */
+        #runner {
+            width: 40px;
+            height: 50px;
+            background-color: #e74c3c;
+            border-radius: 8px 8px 0 0;
+            position: absolute;
+            bottom: 60px;
+            left: 100px;
+            transition: left 0.5s linear, bottom 0.5s ease-in;
+            z-index: 5;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        #runner::after {
+            content: '👀';
+            font-size: 16px;
+            position: absolute;
+            top: 5px;
+            right: 5px;
+        }
+
+        /* Bridge Structure */
+        .bridge-part {
+            position: absolute;
+            bottom: 0;
+            height: 60px;
+            background: #8B4513;
+            border-top: 5px solid #A0522D;
+        }
+
+        #bridge-left {
+            left: 0;
+            width: 300px;
+        }
+
+        #gap {
+            position: absolute;
+            bottom: 0;
+            left: 300px;
+            width: 200px;
+            height: 60px;
+            border: 2px dashed #e74c3c;
+            background: rgba(231, 76, 60, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        #gap.hovered {
+            background: rgba(46, 204, 113, 0.3);
+            border-color: #2ecc71;
+        }
+
+        #bridge-right {
+            left: 500px;
+            width: 300px;
+        }
+
+        /* Water/Pit */
+        .water {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 20px;
+            background: #3498db;
+            opacity: 0.7;
+        }
+
+        /* Word Planks Container */
+        #inventory {
+            height: 120px;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            padding: 10px;
+            z-index: 10;
+        }
+
+        .plank {
+            background: #d35400;
+            color: #fff;
+            padding: 12px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 6px;
+            border: 2px solid #e67e22;
+            cursor: grab;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            transition: transform 0.2s, background-color 0.2s;
+        }
+
+        .plank:active {
+            cursor: grabbing;
+        }
+
+        .plank:hover {
+            transform: translateY(-3px);
+            background: #e67e22;
+        }
+
+        /* Overlay Screens */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+        }
+
+        .overlay h1 {
+            font-size: 36px;
+            margin-bottom: 20px;
+            color: #f1c40f;
+        }
+
+        .overlay button {
+            padding: 12px 30px;
+            font-size: 18px;
+            background: #2ecc71;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+
+        .overlay button:hover {
+            background: #27ae60;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <!-- Header Info -->
+        <div class="header">
+            <div>Bridge Builder 🌉</div>
+            <div id="score">Score: 0 / 10</div>
+        </div>
+
+        <!-- Definition Floating Box -->
+        <div id="hint-box">Loading question...</div>
+
+        <!-- Main Game Stage -->
+        <div id="scene">
+            <div id="runner"></div>
+            <div id="bridge-left" class="bridge-part"></div>
+            <div id="gap">Drop Wooden Plank Here</div>
+            <div id="bridge-right" class="bridge-part"></div>
+            <div class="water"></div>
+        </div>
+
+        <!-- Inventory of Word Planks -->
+        <div id="inventory">
+            <!-- Word Planks will be generated dynamically -->
+        </div>
+
+        <!-- Start / Game Over Screen -->
+        <div id="start-screen" class="overlay">
+            <h1>Bridge Builder Platformer</h1>
+            <p style="margin-bottom: 20px; font-size: 16px;">Drag the correct vocabulary plank to fix the bridge and help the runner cross!</p>
+            <button onclick="startGame()">Start Game</button>
+        </div>
+
+        <div id="end-screen" class="overlay hidden">
+            <h1 id="end-title">Game Over!</h1>
+            <p id="end-message" style="margin-bottom: 20px; font-size: 18px;"></p>
+            <button onclick="startGame()">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        // Vocabulary Dataset (Targeted for Grade 11)
+        const vocabulary = [
+            { word: "beloved", def: "Dearly loved; dearly loved person." },
+            { word: "highlight", def: "An outstanding part of an event or period of time." },
+            { word: "performer", def: "A person who entertains an audience." },
+            { word: "compelling", def: "Evoking interest, attention, or admiration in a powerfully irresistible way." },
+            { word: "luxury", def: "A state of great comfort or elegant living." },
+            { word: "elaborately", def: "In a detailed and carefully arranged manner." },
+            { word: "surroundings", def: "The things and conditions around a person or place." },
+            { word: "imaginative", def: "Having or showing creativity or inventiveness." },
+            { word: "artistic", def: "Having or showing natural creative skill." },
+            { word: "atmosphere", def: "The pervading tone or mood of a place, situation, or work of art." },
+            { word: "gallery", def: "A room or building for the display or sale of works of art." },
+            { word: "architecture", def: "The art or practice of designing and constructing buildings." },
+            { word: "professional", def: "Relating to or belonging to a profession; competent or skilled." }
+        ];
+
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let currentTargetWord = "";
+        let isMoving = false;
+
+        const runner = document.getElementById("runner");
+        const gap = document.getElementById("gap");
+        const hintBox = document.getElementById("hint-box");
+        const scoreDisplay = document.getElementById("score");
+        const inventory = document.getElementById("inventory");
+        const startScreen = document.getElementById("start-screen");
+        const endScreen = document.getElementById("end-screen");
+
+        function shuffle(array) {
+            return array.sort(() => Math.random() - 0.5);
+        }
+
+        function startGame() {
+            score = 0;
+            currentQuestionIndex = 0;
+            startScreen.classList.add("hidden");
+            endScreen.classList.add("hidden");
+            resetRunner();
+            loadQuestion();
+        }
+
+        function resetRunner() {
+            runner.style.transition = "none";
+            runner.style.left = "100px";
+            runner.style.bottom = "60px";
+            gap.style.background = "rgba(231, 76, 60, 0.1)";
+            gap.style.borderColor = "#e74c3c";
+            gap.innerText = "Drop Wooden Plank Here";
+            isMoving = false;
+        }
+
+        function loadQuestion() {
+            if (currentQuestionIndex >= 10 || currentQuestionIndex >= vocabulary.length) {
+                endGame(true);
+                return;
+            }
+
+            scoreDisplay.innerText = `Score: ${score} / 10`;
+            resetRunner();
+
+            const currentData = vocabulary[currentQuestionIndex];
+            currentTargetWord = currentData.word;
+            hintBox.innerText = `Definition: "${currentData.def}"`;
+
+            // Pick 3 options (1 correct, 2 distractors)
+            let choices = [currentData.word];
+            let otherWords = vocabulary.filter(v => v.word !== currentData.word);
+            shuffle(otherWords);
+            choices.push(otherWords[0].word, otherWords[1].word);
+            shuffle(choices);
+
+            // Render Planks
+            inventory.innerHTML = "";
+            choices.forEach(word => {
+                const plank = document.createElement("div");
+                plank.classList.add("plank");
+                plank.innerText = word;
+                plank.draggable = true;
+                
+                plank.addEventListener("dragstart", (e) => {
+                    e.dataTransfer.setData("text/plain", word);
+                });
+
+                inventory.appendChild(plank);
+            });
+        }
+
+        // Drag and Drop Events for Gap
+        gap.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            gap.classList.add("hovered");
+        });
+
+        gap.addEventListener("dragleave", () => {
+            gap.classList.remove("hovered");
+        });
+
+        gap.addEventListener("drop", (e) => {
+            e.preventDefault();
+            gap.classList.remove("hovered");
+            if (isMoving) return;
+
+            const droppedWord = e.dataTransfer.getData("text/plain");
+            handleAnswer(droppedWord);
+        });
+
+        function handleAnswer(selectedWord) {
+            isMoving = true;
+
+            if (selectedWord === currentTargetWord) {
+                // Correct Choice
+                gap.style.background = "#8B4513";
+                gap.style.borderColor = "#A0522D";
+                gap.innerText = selectedWord;
+                score++;
+
+                // Animate runner across bridge
+                runner.style.transition = "left 1.5s linear";
+                runner.style.left = "550px";
+
+                setTimeout(() => {
+                    currentQuestionIndex++;
+                    loadQuestion();
+                }, 1800);
+
+            } else {
+                // Incorrect Choice
+                gap.style.background = "transparent";
+                gap.innerText = "WRONG!";
+                
+                // Animate runner falling
+                runner.style.transition = "left 0.8s linear, bottom 0.5s ease-in 0.8s";
+                runner.style.left = "380px";
+                
+                setTimeout(() => {
+                    runner.style.bottom = "0px";
+                }, 800);
+
+                setTimeout(() => {
+                    endGame(false);
+                }, 1600);
+            }
+        }
+
+        function endGame(won) {
+            endScreen.classList.remove("hidden");
+            const endTitle = document.getElementById("end-title");
+            const endMessage = document.getElementById("end-message");
+
+            if (won) {
+                endTitle.innerText = "🎉 Congratulations!";
+                endMessage.innerText = `You successfully built the bridges! Final Score: ${score}/10`;
+            } else {
+                endTitle.innerText = "💥 Game Over!";
+                endMessage.innerText = `You fell into the gap! Final Score: ${score}/10`;
+            }
+        }
+    </script>
+</body>
+</html>

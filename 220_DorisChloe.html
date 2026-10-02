@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retro Space Vocab Defender</title>
+    <style>
+        body {
+            background-color: #050510;
+            color: #00ffcc;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            border: 4px solid #00ffcc;
+            box-shadow: 0 0 20px #00ffcc33;
+            background: radial-gradient(circle at center, #0b0b26 0%, #020208 100%);
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            box-sizing: border-box;
+            padding: 15px;
+        }
+
+        .hud-top {
+            display: flex;
+            justify-content: space-between;
+            font-size: 18px;
+            font-weight: bold;
+            text-shadow: 0 0 8px #00ffcc;
+        }
+
+        #shield-display {
+            background: rgba(0, 20, 40, 0.8);
+            border: 2px solid #ff007f;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            box-shadow: 0 0 10px #ff007faa;
+        }
+
+        #target-def {
+            color: #fff;
+            font-size: 16px;
+            margin-top: 5px;
+            text-shadow: 0 0 5px #fff;
+        }
+
+        #game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+        }
+
+        .btn {
+            background: #ff007f;
+            color: #fff;
+            border: none;
+            padding: 12px 24px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 0 10px #ff007f;
+            margin-top: 15px;
+        }
+
+        .btn:hover {
+            background: #00ffcc;
+            color: #000;
+            box-shadow: 0 0 10px #00ffcc;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    
+    <div id="ui-layer">
+        <div class="hud-top">
+            <div>SCORE: <span id="score">0</span></div>
+            <div>SHIELD: <span id="shield">100</span>%</div>
+        </div>
+        
+        <div id="shield-display">
+            <div style="color: #ff007f; font-size: 12px;">TARGET DEFINITION:</div>
+            <div id="target-def">Loading target...</div>
+        </div>
+    </div>
+
+    <div id="game-over-screen">
+        <h1 id="game-title" style="color: #ff007f; font-size: 36px; text-shadow: 0 0 10px #ff007f;">VOCAB DEFENDER</h1>
+        <p id="game-status" style="font-size: 18px; text-align: center; max-width: 80%;">Match the definition on your shield display to the correct alien ship!</p>
+        <button id="start-btn" class="btn" onclick="startGame()">START GAME</button>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+const vocabList = [
+    { word: "communication", def: "The exchange of information, news, or ideas" },
+    { word: "conventional", def: "Based on or in accordance with what is generally done" },
+    { word: "fascinating", def: "Extremely interesting or captivating" },
+    { word: "generate", def: "To produce, create, or bring into existence" },
+    { word: "scent", def: "A distinctive smell, especially one that is pleasant" },
+    { word: "prompt", def: "Done without delay; immediate, or to cause action" },
+    { word: "nutrient", def: "A substance that provides nourishment essential for growth" }
+];
+
+let player, bullets, aliens, currentTarget, score, shield, gameInterval, keys;
+let isPlaying = false;
+
+keys = {};
+window.addEventListener('keydown', e => keys[e.code] = true);
+window.addEventListener('keyup', e => keys[e.code] = false);
+
+class Player {
+    constructor() {
+        this.x = canvas.width / 2;
+        this.y = canvas.height - 50;
+        this.width = 30;
+        this.height = 30;
+        this.speed = 6;
+        this.cooldown = 0;
+    }
+
+    draw() {
+        ctx.fillStyle = '#00ffcc';
+        ctx.beginPath();
+        ctx.moveTo(this.x, this.y - this.height / 2);
+        ctx.lineTo(this.x - this.width / 2, this.y + this.height / 2);
+        ctx.lineTo(this.x + this.width / 2, this.y + this.height / 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = '#00ffcc';
+    }
+
+    update() {
+        if (keys['ArrowLeft'] || keys['KeyA']) this.x -= this.speed;
+        if (keys['ArrowRight'] || keys['KeyD']) this.x += this.speed;
+        
+        if (this.x - this.width / 2 < 0) this.x = this.width / 2;
+        if (this.x + this.width / 2 > canvas.width) this.x = canvas.width - this.width / 2;
+
+        if ((keys['Space'] || keys['ArrowUp'] || keys['KeyW']) && this.cooldown <= 0) {
+            bullets.push(new Bullet(this.x, this.y - this.height / 2));
+            this.cooldown = 15;
+        }
+        if (this.cooldown > 0) this.cooldown--;
+    }
+}
+
+class Bullet {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.speed = 8;
+        this.radius = 4;
+    }
+
+    draw() {
+        ctx.fillStyle = '#ff007f';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = '#ff007f';
+    }
+
+    update() {
+        this.y -= this.speed;
+    }
+}
+
+class Alien {
+    constructor(x, y, wordObj) {
+        this.x = x;
+        this.y = y;
+        this.wordObj = wordObj;
+        this.speed = 0.8;
+        this.width = 110;
+        this.height = 35;
+    }
+
+    draw() {
+        ctx.fillStyle = '#112244';
+        ctx.strokeStyle = '#00ffcc';
+        ctx.lineWidth = 2;
+        ctx.fillRect(this.x - this.width / 2, this.y - this.height / 2, this.width, this.height);
+        ctx.strokeRect(this.x - this.width / 2, this.y - this.height / 2, this.width, this.height);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '12px "Courier New"';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowBlur = 0;
+        ctx.fillText(this.wordObj.word, this.x, this.y);
+    }
+
+    update() {
+        this.y += this.speed;
+    }
+}
+
+function selectNewTarget() {
+    currentTarget = vocabList[Math.floor(Math.random() * vocabList.length)];
+    document.getElementById('target-def').innerText = `"${currentTarget.def}"`;
+    spawnWave();
+}
+
+function spawnWave() {
+    aliens = [];
+    let pool = [...vocabList];
+    
+    // Ensure target word is included
+    let waveWords = [currentTarget];
+    pool = pool.filter(item => item.word !== currentTarget.word);
+
+    // Pick 2 other random distractor words
+    for (let i = 0; i < 2; i++) {
+        let randIdx = Math.floor(Math.random() * pool.length);
+        waveWords.push(pool[randIdx]);
+        pool.splice(randIdx, 1);
+    }
+
+    // Shuffle positions
+    waveWords.sort(() => Math.random() - 0.5);
+
+    let spacing = canvas.width / 4;
+    for (let i = 0; i < waveWords.length; i++) {
+        aliens.push(new Alien(spacing * (i + 1), 40, waveWords[i]));
+    }
+}
+
+function startGame() {
+    score = 0;
+    shield = 100;
+    bullets = [];
+    aliens = [];
+    player = new Player();
+    isPlaying = true;
+
+    document.getElementById('score').innerText = score;
+    document.getElementById('shield').innerText = shield;
+    document.getElementById('game-over-screen').classList.add('hidden');
+
+    selectNewTarget();
+    requestAnimationFrame(gameLoop);
+}
+
+function gameOver(won = false) {
+    isPlaying = false;
+    document.getElementById('game-over-screen').classList.remove('hidden');
+    document.getElementById('game-title').innerText = won ? "VICTORY!" : "GAME OVER";
+    document.getElementById('game-status').innerText = won 
+        ? `Great job! Final Score: ${score}` 
+        : `Shield depleted! Final Score: ${score}`;
+    document.getElementById('start-btn').innerText = "PLAY AGAIN";
+}
+
+function gameLoop() {
+    if (!isPlaying) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Background Stars
+    ctx.fillStyle = '#ffffff';
+    for (let i = 0; i < 5; i++) {
+        let sx = Math.random() * canvas.width;
+        let sy = Math.random() * canvas.height;
+        ctx.fillRect(sx, sy, 1, 1);
+    }
+
+    player.update();
+    player.draw();
+
+    // Bullet logic
+    for (let i = bullets.length - 1; i >= 0; i--) {
+        bullets[i].update();
+        bullets[i].draw();
+
+        if (bullets[i].y < 0) {
+            bullets.splice(i, 1);
+            continue;
+        }
+
+        // Check collision with aliens
+        for (let j = aliens.length - 1; j >= 0; j--) {
+            let a = aliens[j];
+            let b = bullets[i];
+            if (b && 
+                b.x > a.x - a.width / 2 && 
+                b.x < a.x + a.width / 2 && 
+                b.y > a.y - a.height / 2 && 
+                b.y < a.y + a.height / 2) {
+                
+                if (a.wordObj.word === currentTarget.word) {
+                    score += 100;
+                    document.getElementById('score').innerText = score;
+                    selectNewTarget();
+                } else {
+                    shield -= 20;
+                    document.getElementById('shield').innerText = shield;
+                    aliens.splice(j, 1);
+                    if (shield <= 0) gameOver(false);
+                }
+                bullets.splice(i, 1);
+                break;
+            }
+        }
+    }
+
+    // Alien logic
+    for (let i = aliens.length - 1; i >= 0; i--) {
+        aliens[i].update();
+        aliens[i].draw();
+
+        // If alien reaches bottom
+        if (aliens[i].y > canvas.height) {
+            if (aliens[i].wordObj.word === currentTarget.word) {
+                shield -= 20;
+                document.getElementById('shield').innerText = shield;
+                if (shield <= 0) gameOver(false);
+                else selectNewTarget();
+            } else {
+                aliens.splice(i, 1);
+            }
+        }
+    }
+
+    requestAnimationFrame(gameLoop);
+}
+</script>
+</body>
+</html>

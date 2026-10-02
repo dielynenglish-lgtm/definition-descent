@@ -1,0 +1,770 @@
+
+和 Gemini 的對話
+hi
+
+AI GAME BUILDER
+自訂 Gem
+Welcome! I am your AI Game Builder, and I'm excited to help you turn your vocabulary list into a fun, playable game while introducing you to the power of code.
+
+To get started, please tell me: What is your grade level?
+
+Once you reply with your grade level (and your list of vocabulary words, if you have them ready), I will generate a complete, interactive HTML game tailored just for you!
+
+11
+
+AI GAME BUILDER
+自訂 Gem
+Got it! I am ready to build an interactive vocabulary game for you.
+
+Please tell me: What is your grade level?
+
+(Also, feel free to share your list of 7 to 10 vocabulary words and a topic if you have them ready, or I can select grade-appropriate words for you!)
+
+Vocabulary Diner" (Diner Dash Style) i. Build a time-management restaurant game where patrons arrive with speech bubbles containing definitions of how they are feeling or what they need. Players must match each patron's definition bubble with the correct vocabulary word food item on their tray (e.g., matching "Showing great attention to detail" with a dish named Meticulous) to serve them before their patience bar runs
+
+AI GAME BUILDER
+自訂 Gem
+Welcome! "Vocabulary Diner" sounds like an awesome concept! A Diner Dash-style game where hungry patrons ask for food described by their definitions is a fantastic way to master high school level vocabulary.
+
+Since you're in 11th Grade, I have selected 7 advanced, grade-appropriate vocabulary words for your diner menu (or you can easily swap them for your own list in the code!).
+
+Here is your complete, self-contained Vocabulary Diner game.
+
+How to Save and Play Your Game:
+Copy all the code inside the code box below.
+
+Open a text editor like Notepad (Windows) or TextEdit (Mac).
+
+Paste the code into a new file.
+
+Save the file with the name vocabulary_diner.html (make sure the extension is .html, not .txt).
+
+Double-click the saved file to open it in any web browser and play!
+
+HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Vocabulary Diner</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #2c3e50;
+      color: #fff;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 {
+      margin-bottom: 5px;
+      color: #f1c40f;
+    }
+
+    .instructions {
+      margin-bottom: 15px;
+      color: #bdc3c7;
+      text-align: center;
+      max-width: 600px;
+    }
+
+    #stats {
+      display: flex;
+      gap: 30px;
+      font-size: 1.2rem;
+      margin-bottom: 15px;
+      background: #34495e;
+      padding: 10px 20px;
+      border-radius: 8px;
+    }
+
+    #diner-floor {
+      width: 100%;
+      max-width: 700px;
+      height: 220px;
+      background: #ecf0f1;
+      border-radius: 12px;
+      border: 4px solid #e67e22;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      position: relative;
+      margin-bottom: 20px;
+      color: #333;
+    }
+
+    .customer {
+      background: #ffffff;
+      border: 2px solid #34495e;
+      border-radius: 10px;
+      padding: 15px;
+      width: 180px;
+      text-align: center;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      position: relative;
+    }
+
+    .speech-bubble {
+      font-size: 0.9rem;
+      font-style: italic;
+      margin-bottom: 10px;
+      min-height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .patience-container {
+      width: 100%;
+      background-color: #ddd;
+      border-radius: 5px;
+      height: 10px;
+      overflow: hidden;
+    }
+
+    .patience-bar {
+      height: 100%;
+      width: 100%;
+      background-color: #2ecc71;
+      transition: width 0.1s linear, background-color 0.3s;
+    }
+
+    #kitchen {
+      width: 100%;
+      max-width: 700px;
+      background: #34495e;
+      padding: 15px;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+      text-align: center;
+    }
+
+    #kitchen h2 {
+      margin-top: 0;
+      color: #e67e22;
+    }
+
+    .tray-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    .food-item {
+      background: #e67e22;
+      color: white;
+      border: none;
+      padding: 12px 18px;
+      font-size: 1rem;
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: transform 0.1s, background-color 0.2s;
+    }
+
+    .food-item:hover {
+      background: #d35400;
+      transform: scale(1.05);
+    }
+
+    .food-item:active {
+      transform: scale(0.95);
+    }
+
+    #game-over-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8);
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+
+    #game-over-modal div {
+      background: #2c3e50;
+      padding: 30px;
+      border-radius: 10px;
+      text-align: center;
+      border: 2px solid #f1c40f;
+    }
+
+    button.btn {
+      background: #2ecc71;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      font-size: 1rem;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 15px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🍳 Vocabulary Diner 🍳</h1>
+  <p class="instructions">
+    Patrons arrive asking for dishes described by their definitions! Click the correct word on your tray to serve them before their patience bar runs out!
+  </p>
+
+  <div id="stats">
+    <div>Score: <span id="score">0</span></div>
+    <div>Customers Served: <span id="served">0</span></div>
+  </div>
+
+  <div id="diner-floor">
+    <!-- Customers will be dynamically generated here -->
+  </div>
+
+  <div id="kitchen">
+    <h2>Chef's Tray (Select the matching word):</h2>
+    <div class="tray-grid" id="tray">
+      <!-- Food options will be generated here -->
+    </div>
+  </div>
+
+  <div id="game-over-modal">
+    <div>
+      <h2>Game Over!</h2>
+      <p id="final-stats"></p>
+      <button class="btn" onclick="restartGame()">Play Again</button>
+    </div>
+  </div>
+
+  <script>
+    // 11th Grade Vocabulary List with Definitions
+    const vocabList = [
+      { word: "Meticulous", def: "Showing great attention to detail; very careful and precise." },
+      { word: "Pragmatic", def: "Dealing with things sensibly and realistically based on practical considerations." },
+      { word: "Ephemeral", def: "Lasting for a very short time; fleeting." },
+      { word: "Ubiquitous", def: "Present, appearing, or found everywhere." },
+      { word: "Anachronistic", def: "Belonging or appropriate to a period other than that in which it exists." },
+      { word: "Aesthetic", def: "Concerned with beauty or the appreciation of beauty." },
+      { word: "Superfluous", def: "Unnecessary, especially through being more than enough." }
+    ];
+
+    let score = 0;
+    let servedCount = 0;
+    let activeCustomers = [];
+    const maxCustomers = 3;
+    let gameInterval;
+    let isGameOver = false;
+
+    function initGame() {
+      score = 0;
+      servedCount = 0;
+      isGameOver = false;
+      document.getElementById("score").innerText = score;
+      document.getElementById("served").innerText = servedCount;
+      document.getElementById("game-over-modal").style.display = "none";
+      document.getElementById("diner-floor").innerHTML = "";
+      
+      setupTray();
+      
+      // Spawn initial customer
+      spawnCustomer();
+      
+      // Game loop to update patience and spawn customers
+      if (gameInterval) clearInterval(gameInterval);
+      gameInterval = setInterval(gameLoop, 100);
+    }
+
+    function setupTray() {
+      const tray = document.getElementById("tray");
+      tray.innerHTML = "";
+      
+      // Shuffle menu items
+      let shuffled = [...vocabList].sort(() => 0.5 - Math.random());
+      
+      shuffled.forEach(item => {
+        const btn = document.createElement("button");
+        btn.className = "food-item";
+        btn.innerText = item.word;
+        btn.onclick = () => serveFood(item.word);
+        tray.appendChild(btn);
+      });
+    }
+
+    function spawnCustomer() {
+      if (activeCustomers.length >= maxCustomers || isGameOver) return;
+
+      // Pick a random word definition
+      const randomVocab = vocabList[Math.floor(Math.random() * vocabList.length)];
+
+      const customerId = Date.now();
+      const customer = {
+        id: customerId,
+        word: randomVocab.word,
+        def: randomVocab.def,
+        patience: 100, // percentage
+        decayRate: 0.2 + Math.random() * 0.15 // speed patience drops
+      };
+
+      activeCustomers.push(customer);
+      renderCustomers();
+    }
+
+    function renderCustomers() {
+      const floor = document.getElementById("diner-floor");
+      floor.innerHTML = "";
+
+      activeCustomers.forEach(c => {
+        const div = document.createElement("div");
+        div.className = "customer";
+        div.id = `customer-${c.id}`;
+
+        let color = "#2ecc71";
+        if (c.patience < 50) color = "#f1c40f";
+        if (c.patience < 25) color = "#e74c3c";
+
+        div.innerHTML = `
+          <div class="speech-bubble">"${c.def}"</div>
+          <div class="patience-container">
+            <div class="patience-bar" style="width: ${c.patience}%; background-color: ${color};"></div>
+          </div>
+        `;
+        floor.appendChild(div);
+      });
+    }
+
+    function gameLoop() {
+      if (isGameOver) return;
+
+      // Random chance to spawn customer
+      if (Math.random() < 0.02 && activeCustomers.length < maxCustomers) {
+        spawnCustomer();
+      }
+
+      // Update patience
+      for (let i = activeCustomers.length - 1; i >= 0; i--) {
+        let c = activeCustomers[i];
+        c.patience -= c.decayRate;
+
+        if (c.patience <= 0) {
+          // Customer left angry - Game Over condition
+          endGame();
+          return;
+        }
+      }
+
+      renderCustomers();
+    }
+
+    function serveFood(word) {
+      if (isGameOver || activeCustomers.length === 0) return;
+
+      // Match selected word with the oldest customer asking for it
+      const index = activeCustomers.findIndex(c => c.word === word);
+
+      if (index !== -1) {
+        // Correct match!
+        score += Math.round(activeCustomers[index].patience);
+        servedCount++;
+        document.getElementById("score").innerText = score;
+        document.getElementById("served").innerText = servedCount;
+
+        // Remove served customer
+        activeCustomers.splice(index, 1);
+        renderCustomers();
+
+        // Spawn a new customer immediately to keep the pace up
+        setTimeout(spawnCustomer, 500);
+      } else {
+        // Penalty for wrong food item
+        score = Math.max(0, score - 20);
+        document.getElementById("score").innerText = score;
+      }
+    }
+
+    function endGame() {
+      isGameOver = true;
+      clearInterval(gameInterval);
+      document.getElementById("game-over-modal").style.display = "flex";
+      document.getElementById("final-stats").innerText = 
+        `A customer lost their patience and left! \n Final Score: ${score} | Customers Served: ${servedCount}`;
+    }
+
+    function restartGame() {
+      activeCustomers = [];
+      initGame();
+    }
+
+    // Start game on page load
+    window.onload = initGame;
+  </script>
+</body>
+</html>
+3 Creative Ideas to Upgrade Your Game:
+Once you've tested the code, here are a few ways you can expand it:
+
+Add Sound Effects: Integrate web audio (using the HTML5 Audio API) to play a chime when food is served correctly or a sizzle sound when patience runs out.
+
+Add Special Power-Ups: Create a "Coffee Refill" button that restores 25% patience to all active customers once per round.
+
+Difficulty Levels: Increase the speed at which customer patience decreases as your total servedCount gets higher to simulate a busy lunch rush!
+
+recipe pasta variation combination ultimately generation deserve dishes culture tagliatelle
+
+AI GAME BUILDER
+自訂 Gem
+Awesome selection! You've provided a fantastic list of 10 words focused on culinary culture and cooking: recipe, pasta, variation, combination, ultimately, generation, deserve, dishes, culture, and tagliatelle.
+
+I've integrated all 10 of your words directly into the Vocabulary Diner game code below. Now, your diner patrons will order items based on the exact definitions of these 10 words!
+
+Here is your updated, self-contained HTML game code:
+
+HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Vocabulary Diner - Culinary Edition</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #2c3e50;
+      color: #fff;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 {
+      margin-bottom: 5px;
+      color: #f1c40f;
+    }
+
+    .instructions {
+      margin-bottom: 15px;
+      color: #bdc3c7;
+      text-align: center;
+      max-width: 650px;
+    }
+
+    #stats {
+      display: flex;
+      gap: 30px;
+      font-size: 1.2rem;
+      margin-bottom: 15px;
+      background: #34495e;
+      padding: 10px 20px;
+      border-radius: 8px;
+    }
+
+    #diner-floor {
+      width: 100%;
+      max-width: 750px;
+      height: 230px;
+      background: #ecf0f1;
+      border-radius: 12px;
+      border: 4px solid #e67e22;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      position: relative;
+      margin-bottom: 20px;
+      color: #333;
+    }
+
+    .customer {
+      background: #ffffff;
+      border: 2px solid #34495e;
+      border-radius: 10px;
+      padding: 12px;
+      width: 210px;
+      text-align: center;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      position: relative;
+    }
+
+    .speech-bubble {
+      font-size: 0.85rem;
+      font-style: italic;
+      margin-bottom: 10px;
+      min-height: 55px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1.2;
+    }
+
+    .patience-container {
+      width: 100%;
+      background-color: #ddd;
+      border-radius: 5px;
+      height: 10px;
+      overflow: hidden;
+    }
+
+    .patience-bar {
+      height: 100%;
+      width: 100%;
+      background-color: #2ecc71;
+      transition: width 0.1s linear, background-color 0.3s;
+    }
+
+    #kitchen {
+      width: 100%;
+      max-width: 750px;
+      background: #34495e;
+      padding: 15px;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+      text-align: center;
+    }
+
+    #kitchen h2 {
+      margin-top: 0;
+      color: #e67e22;
+    }
+
+    .tray-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    .food-item {
+      background: #e67e22;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      font-size: 0.95rem;
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: transform 0.1s, background-color 0.2s;
+    }
+
+    .food-item:hover {
+      background: #d35400;
+      transform: scale(1.05);
+    }
+
+    .food-item:active {
+      transform: scale(0.95);
+    }
+
+    #game-over-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8);
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+
+    #game-over-modal div {
+      background: #2c3e50;
+      padding: 30px;
+      border-radius: 10px;
+      text-align: center;
+      border: 2px solid #f1c40f;
+    }
+
+    button.btn {
+      background: #2ecc71;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      font-size: 1rem;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 15px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🍝 Vocabulary Diner: Culinary Edition 🍝</h1>
+  <p class="instructions">
+    Patrons arrive asking for food described by their definitions! Match each customer's order with the correct vocabulary word dish from your tray before their patience runs out!
+  </p>
+
+  <div id="stats">
+    <div>Score: <span id="score">0</span></div>
+    <div>Customers Served: <span id="served">0</span></div>
+  </div>
+
+  <div id="diner-floor">
+    <!-- Customers dynamic spawn -->
+  </div>
+
+  <div id="kitchen">
+    <h2>Chef's Tray (Select the matching word):</h2>
+    <div class="tray-grid" id="tray">
+      <!-- Food options generated here -->
+    </div>
+  </div>
+
+  <div id="game-over-modal">
+    <div>
+      <h2>Game Over!</h2>
+      <p id="final-stats"></p>
+      <button class="btn" onclick="restartGame()">Play Again</button>
+    </div>
+  </div>
+
+  <script>
+    // Student's 10 Vocabulary Words with Definitions
+    const vocabList = [
+      { word: "Recipe", def: "A set of instructions for preparing a particular dish, including required ingredients." },
+      { word: "Pasta", def: "A dish originally from Italy consisting of dough made from durum wheat and water, extruded or shaped into sheets or other shapes." },
+      { word: "Variation", def: "A change or slight difference in condition, amount, or level, typically within certain limits." },
+      { word: "Combination", def: "A joining or merging of different parts or qualities in which the component elements are individually distinct." },
+      { word: "Ultimately", def: "At the end of a process, period of time, or series of events; in the end." },
+      { word: "Generation", def: "All of the people born and living at about the same time, regarded collectively." },
+      { word: "Deserve", def: "Do something or have or show qualities worthy of a reaction which rewards or punishes." },
+      { word: "Dishes", def: "Specific prepared items of food, or containers used for serving meals." },
+      { word: "Culture", def: "The customs, arts, social institutions, and achievements of a particular nation, people, or social group." },
+      { word: "Tagliatelle", def: "Pasta in the form of long, flat ribbons, traditional to Emilia-Romagna and Marche regions of Italy." }
+    ];
+
+    let score = 0;
+    let servedCount = 0;
+    let activeCustomers = [];
+    const maxCustomers = 3;
+    let gameInterval;
+    let isGameOver = false;
+
+    function initGame() {
+      score = 0;
+      servedCount = 0;
+      isGameOver = false;
+      document.getElementById("score").innerText = score;
+      document.getElementById("served").innerText = servedCount;
+      document.getElementById("game-over-modal").style.display = "none";
+      document.getElementById("diner-floor").innerHTML = "";
+      
+      setupTray();
+      spawnCustomer();
+      
+      if (gameInterval) clearInterval(gameInterval);
+      gameInterval = setInterval(gameLoop, 100);
+    }
+
+    function setupTray() {
+      const tray = document.getElementById("tray");
+      tray.innerHTML = "";
+      
+      let shuffled = [...vocabList].sort(() => 0.5 - Math.random());
+      
+      shuffled.forEach(item => {
+        const btn = document.createElement("button");
+        btn.className = "food-item";
+        btn.innerText = item.word;
+        btn.onclick = () => serveFood(item.word);
+        tray.appendChild(btn);
+      });
+    }
+
+    function spawnCustomer() {
+      if (activeCustomers.length >= maxCustomers || isGameOver) return;
+
+      const randomVocab = vocabList[Math.floor(Math.random() * vocabList.length)];
+
+      const customerId = Date.now() + Math.random();
+      const customer = {
+        id: customerId,
+        word: randomVocab.word,
+        def: randomVocab.def,
+        patience: 100,
+        decayRate: 0.18 + Math.random() * 0.12
+      };
+
+      activeCustomers.push(customer);
+      renderCustomers();
+    }
+
+    function renderCustomers() {
+      const floor = document.getElementById("diner-floor");
+      floor.innerHTML = "";
+
+      activeCustomers.forEach(c => {
+        const div = document.createElement("div");
+        div.className = "customer";
+        div.id = `customer-${c.id}`;
+
+        let color = "#2ecc71";
+        if (c.patience < 50) color = "#f1c40f";
+        if (c.patience < 25) color = "#e74c3c";
+
+        div.innerHTML = `
+          <div class="speech-bubble">"${c.def}"</div>
+          <div class="patience-container">
+            <div class="patience-bar" style="width: ${c.patience}%; background-color: ${color};"></div>
+          </div>
+        `;
+        floor.appendChild(div);
+      });
+    }
+
+    function gameLoop() {
+      if (isGameOver) return;
+
+      if (Math.random() < 0.025 && activeCustomers.length < maxCustomers) {
+        spawnCustomer();
+      }
+
+      for (let i = activeCustomers.length - 1; i >= 0; i--) {
+        let c = activeCustomers[i];
+        c.patience -= c.decayRate;
+
+        if (c.patience <= 0) {
+          endGame();
+          return;
+        }
+      }
+
+      renderCustomers();
+    }
+
+    function serveFood(word) {
+      if (isGameOver || activeCustomers.length === 0) return;
+
+      const index = activeCustomers.findIndex(c => c.word === word);
+
+      if (index !== -1) {
+        score += Math.round(activeCustomers[index].patience);
+        servedCount++;
+        document.getElementById("score").innerText = score;
+        document.getElementById("served").innerText = servedCount;
+
+        activeCustomers.splice(index, 1);
+        renderCustomers();
+
+        setTimeout(spawnCustomer, 400);
+      } else {
+        score = Math.max(0, score - 15);
+        document.getElementById("score").innerText = score;
+      }
+    }
+
+    function endGame() {
+      isGameOver = true;
+      clearInterval(gameInterval);
+      document.getElementById("game-over-modal").style.display = "flex";
+      document.getElementById("final-stats").innerText = 
+        `A patron left unsatisfied! \n Final Score: ${score} | Customers Served: ${servedCount}`;
+    }
+
+    function restartGame() {
+      activeCustomers = [];
+      initGame();
+    }
+
+    window.onload = initGame;
+  </script>
+</body>
+</html>

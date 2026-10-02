@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flashcard Memory Matrix</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background: linear-gradient(135deg, #0f172a, #1e293b);
+      color: #f8fafc;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 8px;
+      color: #38bdf8;
+      text-align: center;
+    }
+
+    p.subtitle {
+      font-size: 0.95rem;
+      color: #94a3b8;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .stats-container {
+      display: flex;
+      gap: 24px;
+      background: #334155;
+      padding: 12px 28px;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+      margin-bottom: 24px;
+    }
+
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .stat-value {
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: #f1f5f9;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      width: 100%;
+      max-width: 680px;
+      perspective: 1000px;
+    }
+
+    .card {
+      height: 110px;
+      background-color: transparent;
+      cursor: pointer;
+      perspective: 1000px;
+    }
+
+    .card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      text-align: center;
+      transition: transform 0.5s ease;
+      transform-style: preserve-3d;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .card.flipped .card-inner,
+    .card.matched .card-inner {
+      transform: rotateY(180deg);
+    }
+
+    .card-front, .card-back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px;
+      user-select: none;
+    }
+
+    .card-front {
+      background: linear-gradient(135deg, #0284c7, #0369a1);
+      color: #ffffff;
+      font-size: 1.8rem;
+      font-weight: bold;
+      border: 2px solid #38bdf8;
+    }
+
+    .card-back {
+      background-color: #f8fafc;
+      color: #0f172a;
+      transform: rotateY(180deg);
+      border: 2px solid #cbd5e1;
+      font-size: 0.85rem;
+      font-weight: 600;
+      line-height: 1.3;
+      word-break: break-word;
+    }
+
+    .card.matched .card-back {
+      background-color: #dcfce7;
+      border-color: #22c55e;
+      color: #15803d;
+    }
+
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(15, 23, 42, 0.85);
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .modal-content {
+      background: #1e293b;
+      padding: 30px;
+      border-radius: 16px;
+      text-align: center;
+      max-width: 420px;
+      width: 90%;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      border: 1px solid #334155;
+    }
+
+    .modal-title {
+      font-size: 1.8rem;
+      color: #38bdf8;
+      margin-bottom: 15px;
+    }
+
+    .efficiency-rating {
+      font-size: 2.2rem;
+      font-weight: bold;
+      color: #facc15;
+      margin: 15px 0;
+    }
+
+    .btn {
+      background: #0284c7;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+      margin-top: 15px;
+    }
+
+    .btn:hover {
+      background: #0369a1;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Flashcard Memory Matrix</h1>
+  <p class="subtitle">Match all 8 vocabulary words with their correct definitions!</p>
+
+  <div class="stats-container">
+    <div class="stat-item">
+      <span class="stat-label">Time Remaining</span>
+      <span class="stat-value" id="timer">90s</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">Move Counter</span>
+      <span class="stat-value" id="move-counter">0</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">Matches</span>
+      <span class="stat-value" id="match-counter">0 / 8</span>
+    </div>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <div class="modal-overlay" id="modal">
+    <div class="modal-content">
+      <h2 class="modal-title" id="modal-title">Victory!</h2>
+      <p id="modal-desc">You successfully matched all words and definitions!</p>
+      <div class="efficiency-rating" id="rating">S Grade</div>
+      <p id="modal-stats" style="color: #94a3b8; font-size: 0.9rem;"></p>
+      <button class="btn" onclick="initGame()">Play Again</button>
+    </div>
+  </div>
+
+  <script>
+    const vocabularyPairs = [
+      { id: 1, word: "Presentation", def: "A speech or talk in which a new product, idea, or work is shown and explained." },
+      { id: 2, word: "Boost", def: "To help or encourage something to increase, improve, or become better." },
+      { id: 3, word: "Accomplish", def: "To achieve or complete something successfully." },
+      { id: 4, word: "Purchase", def: "The action of buying something with money." },
+      { id: 5, word: "Trigger", def: "To cause an event, reaction, or process to happen." },
+      { id: 6, word: "Psychology", def: "The scientific study of the human mind and its functions." },
+      { id: 7, word: "Stability", def: "The state of being stable, firm, and not easily changed." },
+      { id: 8, word: "Furry", def: "Covered with or consisting of dense, soft hair or fur." }
+    ];
+
+    let flippedCards = [];
+    let matchedPairs = 0;
+    let moves = 0;
+    let timeLeft = 90;
+    let timerInterval = null;
+    let isBoardLocked = false;
+    let gameStarted = false;
+
+    const gridEl = document.getElementById("grid");
+    const timerEl = document.getElementById("timer");
+    const moveCounterEl = document.getElementById("move-counter");
+    const matchCounterEl = document.getElementById("match-counter");
+    const modalEl = document.getElementById("modal");
+
+    function initGame() {
+      gridEl.innerHTML = "";
+      flippedCards = [];
+      matchedPairs = 0;
+      moves = 0;
+      timeLeft = 90;
+      isBoardLocked = false;
+      gameStarted = false;
+
+      clearInterval(timerInterval);
+      timerEl.textContent = `${timeLeft}s`;
+      moveCounterEl.textContent = moves;
+      matchCounterEl.textContent = `${matchedPairs} / 8`;
+      modalEl.style.display = "none";
+
+      let cardDeck = [];
+      vocabularyPairs.forEach(pair => {
+        cardDeck.push({ pairId: pair.id, text: pair.word, type: "word" });
+        cardDeck.push({ pairId: pair.id, text: pair.def, type: "def" });
+      });
+
+      cardDeck.sort(() => Math.random() - 0.5);
+
+      cardDeck.forEach((cardData, index) => {
+        const cardEl = document.createElement("div");
+        cardEl.classList.add("card");
+        cardEl.dataset.pairId = cardData.pairId;
+
+        cardEl.innerHTML = `
+          <div class="card-inner">
+            <div class="card-front">?</div>
+            <div class="card-back">${cardData.text}</div>
+          </div>
+        `;
+
+        cardEl.addEventListener("click", () => flipCard(cardEl));
+        gridEl.appendChild(cardEl);
+      });
+    }
+
+    function startTimer() {
+      gameStarted = true;
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        timerEl.textContent = `${timeLeft}s`;
+
+        if (timeLeft <= 0) {
+          clearInterval(timerInterval);
+          endGame(false);
+        }
+      }, 1000);
+    }
+
+    function flipCard(card) {
+      if (isBoardLocked) return;
+      if (card.classList.contains("flipped") || card.classList.contains("matched")) return;
+
+      if (!gameStarted) {
+        startTimer();
+      }
+
+      card.classList.add("flipped");
+      flippedCards.push(card);
+
+      if (flippedCards.length === 2) {
+        moves++;
+        moveCounterEl.textContent = moves;
+        checkMatch();
+      }
+    }
+
+    function checkMatch() {
+      const [card1, card2] = flippedCards;
+      const isMatch = card1.dataset.pairId === card2.dataset.pairId;
+
+      if (isMatch) {
+        card1.classList.add("matched");
+        card2.classList.add("matched");
+        matchedPairs++;
+        matchCounterEl.textContent = `${matchedPairs} / 8`;
+        flippedCards = [];
+
+        if (matchedPairs === 8) {
+          clearInterval(timerInterval);
+          endGame(true);
+        }
+      } else {
+        isBoardLocked = true;
+        setTimeout(() => {
+          card1.classList.remove("flipped");
+          card2.classList.remove("flipped");
+          flippedCards = [];
+          isBoardLocked = false;
+        }, 1000);
+      }
+    }
+
+    function endGame(isWin) {
+      modalEl.style.display = "flex";
+      const modalTitle = document.getElementById("modal-title");
+      const modalDesc = document.getElementById("modal-desc");
+      const ratingEl = document.getElementById("rating");
+      const modalStats = document.getElementById("modal-stats");
+
+      if (isWin) {
+        modalTitle.textContent = "Victory Complete!";
+        modalDesc.textContent = "You matched all vocabulary words and definitions!";
+
+        let rating = "C Grade";
+        if (moves <= 10) rating = "S+ Grade (Master Memory)";
+        else if (moves <= 14) rating = "S Grade (Exceptional)";
+        else if (moves <= 18) rating = "A Grade (Great)";
+        else if (moves <= 24) rating = "B Grade (Good)";
+
+        ratingEl.textContent = rating;
+        modalStats.textContent = `Time Taken: ${90 - timeLeft}s | Attempts: ${moves} moves`;
+      } else {
+        modalTitle.textContent = "Time's Up!";
+        modalDesc.textContent = "You ran out of time before completing all matches.";
+        ratingEl.textContent = "Incomplete";
+        modalStats.textContent = `Matched Pairs: ${matchedPairs} / 8`;
+      }
+    }
+
+    initGame();
+  </script>
+</body>
+</html>

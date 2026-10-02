@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word-Chain Miner: Vocabulary Edition</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #0f172a;
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        #game-container {
+            position: relative;
+            box-shadow: 0 0 25px rgba(56, 189, 248, 0.4);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        canvas {
+            background: linear-gradient(to bottom, #1e293b 0%, #0f172a 40%, #020617 100%);
+            display: block;
+        }
+        .instructions {
+            margin-top: 15px;
+            color: #94a3b8;
+            font-size: 14px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+</div>
+<div class="instructions">
+    按下 <b>向下鍵 (Down Arrow)</b> 發射機械爪！抓取目標定義對應的單字金塊！
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// 玩家提供的 7 個核心單字與定義
+const vocabList = [
+    { word: "Aerospace", def: "The branch of technology and industry concerned with aviation and spaceflight." },
+    { word: "Surgeon", def: "A medical practitioner qualified to practice surgery." },
+    { word: "Candidate", def: "A person who applies for a job or nominated for election." },
+    { word: "Applicant", def: "A person who formally applies for something, such as a job." },
+    { word: "Immune", def: "Resistant to a particular infection or toxin." },
+    { word: "Commander", def: "A person in authority who gives orders, especially in the military." },
+    { word: "Colleague", def: "A person with whom one works in a profession or business." }
+];
+
+// 遊戲狀態變數
+let score = 0;
+let timeLeft = 60;
+let gameOver = false;
+let currentTarget = null;
+
+// 機械爪屬性
+const clawBase = { x: canvas.width / 2, y: 80 };
+let angle = 0;
+let angleSpeed = 0.03;
+let angleDir = 1;
+let length = 40;
+let state = "SWING"; // SWING, EXTEND, RETRACT
+let extendedSpeed = 8;
+let retractSpeed = 8;
+let caughtNugget = null;
+
+// 金塊清單
+let nuggets = [];
+
+function initNuggets() {
+    nuggets = [];
+    // 隨機取出 6 個單字做為畫面上的金塊
+    let shuffled = [...vocabList].sort(() => 0.5 - Math.random()).slice(0, 6);
+    
+    // 設定當前目標單字
+    currentTarget = shuffled[Math.floor(Math.random() * shuffled.length)];
+
+    let rows = 2;
+    let cols = 3;
+    let index = 0;
+
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            if (index >= shuffled.length) break;
+            
+            let x = 120 + c * 260 + (Math.random() * 40 - 20);
+            let y = 220 + r * 150 + (Math.random() * 40 - 20);
+            let radius = 38 + Math.floor(y / 15);
+
+            nuggets.push({
+                x: x,
+                y: y,
+                radius: radius,
+                word: shuffled[index].word,
+                def: shuffled[index].def,
+                depth: Math.floor(y),
+                points: Math.floor(y / 2)
+            });
+            index++;
+        }
+    }
+}
+
+// 監聽鍵盤事件
+window.addEventListener('keydown', (e) => {
+    if (e.key === "ArrowDown" && state === "SWING" && !gameOver) {
+        state = "EXTEND";
+    }
+});
+
+// 倒數計時器
+let timerInterval = setInterval(() => {
+    if (!gameOver) {
+        timeLeft--;
+        if (timeLeft <= 0) {
+            timeLeft = 0;
+            gameOver = true;
+            clearInterval(timerInterval);
+        }
+    }
+}, 1000);
+
+// 更新遊戲邏輯
+function update() {
+    if (gameOver) return;
+
+    if (state === "SWING") {
+        angle += angleSpeed * angleDir;
+        if (angle > Math.PI / 3 || angle < -Math.PI / 3) {
+            angleDir *= -1;
+        }
+    } else if (state === "EXTEND") {
+        length += extendedSpeed;
+        let clawX = clawBase.x + Math.sin(angle) * length;
+        let clawY = clawBase.y + Math.cos(angle) * length;
+
+        // 碰撞邊界
+        if (clawX < 0 || clawX > canvas.width || clawY > canvas.height) {
+            state = "RETRACT";
+            retractSpeed = 8;
+        }
+
+        // 碰撞金塊
+        for (let i = 0; i < nuggets.length; i++) {
+            let n = nuggets[i];
+            let dist = Math.hypot(clawX - n.x, clawY - n.y);
+            if (dist < n.radius) {
+                caughtNugget = nuggets.splice(i, 1)[0];
+                state = "RETRACT";
+
+                // 判斷抓對或抓錯 (觸發重物減速效應)
+                if (caughtNugget.word === currentTarget.word) {
+                    retractSpeed = 6;
+                    score += caughtNugget.points;
+                } else {
+                    retractSpeed = 2; // 重物效應：3倍慢
+                    score = Math.max(0, score - 50);
+                }
+                break;
+            }
+        }
+    } else if (state === "RETRACT") {
+        length -= retractSpeed;
+        if (caughtNugget) {
+            caughtNugget.x = clawBase.x + Math.sin(angle) * length;
+            caughtNugget.y = clawBase.y + Math.cos(angle) * length;
+        }
+
+        if (length <= 40) {
+            length = 40;
+            state = "SWING";
+
+            if (caughtNugget) {
+                if (caughtNugget.word === currentTarget.word) {
+                    refreshTarget();
+                }
+                caughtNugget = null;
+            }
+        }
+    }
+}
+
+// 刷新目標單字與畫面金塊
+function refreshTarget() {
+    if (nuggets.length === 0) {
+        initNuggets();
+        return;
+    }
+    let randomNugget = nuggets[Math.floor(Math.random() * nuggets.length)];
+    currentTarget = { word: randomNugget.word, def: randomNugget.def };
+}
+
+// 繪製畫面
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 頂部 UI 面板
+    ctx.fillStyle = "#0f172a";
+    ctx.fillRect(0, 0, canvas.width, 100);
+    ctx.strokeStyle = "#38bdf8";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, 100);
+    ctx.lineTo(canvas.width, 100);
+    ctx.stroke();
+
+    // 分數與時間
+    ctx.fillStyle = "#38bdf8";
+    ctx.font = "bold 18px sans-serif";
+    ctx.fillText(`SCORE: ${score}`, 20, 35);
+    ctx.fillStyle = timeLeft < 10 ? "#f87171" : "#facc15";
+    ctx.fillText(`TIME: ${timeLeft}s`, 20, 70);
+
+    // 當前目標定義
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 13px sans-serif";
+    ctx.fillText("TARGET VOCABULARY DEFINITION:", 180, 30);
+    ctx.fillStyle = "#7dd3fc";
+    ctx.font = "italic 14px sans-serif";
+    
+    let defText = currentTarget ? currentTarget.def : "Loading...";
+    ctx.fillText(defText, 180, 60);
+
+    // 繩索與機械爪
+    let clawX = clawBase.x + Math.sin(angle) * length;
+    let clawY = clawBase.y + Math.cos(angle) * length;
+
+    ctx.strokeStyle = "#e2e8f0";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(clawBase.x, clawBase.y);
+    ctx.lineTo(clawX, clawY);
+    ctx.stroke();
+
+    // 繪製爪子
+    ctx.save();
+    ctx.translate(clawX, clawY);
+    ctx.rotate(-angle);
+    ctx.fillStyle = "#64748b";
+    ctx.fillRect(-10, 0, 20, 10);
+    ctx.beginPath();
+    ctx.arc(-10, 15, 10, Math.PI, Math.PI * 0.5, true);
+    ctx.arc(10, 15, 10, Math.PI * 0.5, 0, true);
+    ctx.strokeStyle = "#cbd5e1";
+    ctx.lineWidth = 4;
+    ctx.stroke();
+    ctx.restore();
+
+    // 繪製金塊
+    nuggets.forEach(n => drawNugget(n));
+    if (caughtNugget) drawNugget(caughtNugget);
+
+    // 遊戲結束
+    if (gameOver) {
+        ctx.fillStyle = "rgba(15, 23, 42, 0.9)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#38bdf8";
+        ctx.font = "bold 40px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("TIME'S UP!", canvas.width / 2, canvas.height / 2 - 20);
+        ctx.fillStyle = "#fff";
+        ctx.font = "24px sans-serif";
+        ctx.fillText(`Final Score: ${score}`, canvas.width / 2, canvas.height / 2 + 30);
+    }
+
+    requestAnimationFrame(gameLoop);
+}
+
+function drawNugget(n) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, n.radius, 0, Math.PI * 2);
+    ctx.fillStyle = "#fbbf24";
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "#d97706";
+    ctx.stroke();
+
+    ctx.fillStyle = "#1e293b";
+    ctx.font = "bold 13px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(n.word, n.x, n.y);
+    ctx.restore();
+}
+
+function gameLoop() {
+    update();
+    draw();
+}
+
+initNuggets();
+gameLoop();
+</script>
+
+</body>
+</html>

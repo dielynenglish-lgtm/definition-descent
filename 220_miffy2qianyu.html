@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocabulary Money Ladder Game Show</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+        body {
+            background-color: #050b14;
+            color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .game-container {
+            width: 100%;
+            max-width: 900px;
+            background: radial-gradient(circle, #0a192f 0%, #020c1b 100%);
+            border: 4px solid #ffd700;
+            border-radius: 15px;
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.4);
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #ffd700;
+            padding-bottom: 15px;
+        }
+        .title {
+            color: #ffd700;
+            font-size: 28px;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+        .timer-box {
+            font-size: 22px;
+            background-color: #112240;
+            padding: 8px 18px;
+            border-radius: 20px;
+            border: 2px solid #ffd700;
+            color: #ffd700;
+            font-weight: bold;
+        }
+        .main-content {
+            display: flex;
+            gap: 20px;
+        }
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column-reverse;
+            }
+        }
+        .quiz-section {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .ladder-section {
+            flex: 1;
+            background-color: #0b1d3a;
+            border: 2px solid #ffd700;
+            border-radius: 10px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column-reverse;
+            gap: 8px;
+        }
+        .ladder-step {
+            padding: 8px 12px;
+            background-color: #172a45;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            color: #8892b0;
+            border: 1px solid #233554;
+        }
+        .ladder-step.active {
+            background: linear-gradient(90deg, #ffd700 0%, #ffae00 100%);
+            color: #0a192f;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.8);
+            border: 1px solid #fff;
+        }
+        .ladder-step.passed {
+            color: #ffd700;
+        }
+        .question-box {
+            background-color: #112240;
+            border: 2px solid #233554;
+            border-radius: 10px;
+            padding: 25px;
+            font-size: 22px;
+            text-align: center;
+            min-height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+        }
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        @media (max-width: 500px) {
+            .options-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        .btn-option {
+            background: linear-gradient(180deg, #1d3557 0%, #0d1b2a 100%);
+            border: 2px solid #48cae4;
+            border-radius: 8px;
+            padding: 15px;
+            color: #fff;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: left;
+        }
+        .btn-option:hover {
+            background: linear-gradient(180deg, #ffd700 0%, #d4af37 100%);
+            color: #000;
+            border-color: #fff;
+            transform: translateY(-2px);
+        }
+        .game-over-screen {
+            text-align: center;
+            padding: 40px;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        .game-over-screen h2 {
+            font-size: 36px;
+            color: #ffd700;
+            margin: 0;
+        }
+        .btn-restart {
+            background: linear-gradient(90deg, #ffd700 0%, #ffae00 100%);
+            color: #0a192f;
+            border: none;
+            padding: 15px 40px;
+            font-size: 20px;
+            font-weight: bold;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+            transition: transform 0.2s;
+        }
+        .btn-restart:hover {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+
+<div class="game-container">
+    <div class="header">
+        <div class="title">🏆 MONEY LADDER</div>
+        <div class="timer-box" id="timer">⏱️ 60 秒</div>
+    </div>
+
+    <div class="main-content" id="play-area">
+        <div class="quiz-section">
+            <div class="question-box" id="question">題目加載中...</div>
+            <div class="options-grid" id="options"></div>
+        </div>
+        <div class="ladder-section" id="ladder"></div>
+    </div>
+
+    <div class="game-over-screen" id="game-over">
+        <h2 id="game-over-title">GAME OVER</h2>
+        <p id="game-over-msg" style="font-size: 20px;"></p>
+        <button class="btn-restart" onclick="startGame()">再試一次 (Play Again)</button>
+    </div>
+</div>
+
+<script>
+    // 學生提供的 7 個單字與定義
+    const vocabularyList = [
+        { word: "coincidence", definition: "A remarkable concurrence of events or circumstances without apparent causal connection (巧合)", options: ["coincidence", "invasion", "labor", "noble"] },
+        { word: "invade", definition: "To enter a country or region with an armed force to occupy it (入侵)", options: ["overthrow", "invade", "rigid", "peasant"] },
+        { word: "overthrow", definition: "To remove a government or leader from power by force (推翻)", options: ["noble", "coincidence", "overthrow", "labor"] },
+        { word: "rigid", definition: "Not able to be changed or adapted; stiff and unyielding (僵硬的/嚴格的)", options: ["peasant", "rigid", "invade", "overthrow"] },
+        { word: "labor", definition: "Work, especially hard physical work (勞工/辛苦的工作)", options: ["labor", "coincidence", "rigid", "noble"] },
+        { word: "peasant", definition: "A poor farmer of low social status (農民)", options: ["invade", "overthrow", "peasant", "labor"] },
+        { word: "noble", definition: "Belonging to a high social class; aristocratic (貴族的/高尚的)", options: ["noble", "rigid", "coincidence", "peasant"] }
+    ];
+
+    const prizeMoney = ["$1,000", "$5,000", "$10,000", "$50,000", "$100,000", "$500,000", "🏆 $1,000,000"];
+    
+    let currentQuestions = [];
+    let currentStep = 0;
+    let timer;
+    let timeLeft = 60;
+
+    function shuffle(array) {
+        return array.sort(() => Math.random() - 0.5);
+    }
+
+    function startGame() {
+        document.getElementById("play-area").style.display = "flex";
+        document.getElementById("game-over").style.display = "none";
+        
+        // 隨機打亂題目順序
+        currentQuestions = shuffle([...vocabularyList]);
+        currentStep = 0;
+        timeLeft = 60;
+
+        renderLadder();
+        startTimer();
+        loadQuestion();
+    }
+
+    function startTimer() {
+        clearInterval(timer);
+        document.getElementById("timer").innerText = `⏱️ ${timeLeft} 秒`;
+        timer = setInterval(() => {
+            timeLeft--;
+            document.getElementById("timer").innerText = `⏱️ ${timeLeft} 秒`;
+            if (timeLeft <= 0) {
+                clearInterval(timer);
+                endGame(false, "時間到！很遺憾，你沒有完成挑戰。");
+            }
+        }, 1000);
+    }
+
+    function renderLadder() {
+        const ladderEl = document.getElementById("ladder");
+        ladderEl.innerHTML = "";
+        prizeMoney.forEach((money, idx) => {
+            const step = document.createElement("div");
+            step.className = `ladder-step ${idx === currentStep ? 'active' : ''} ${idx < currentStep ? 'passed' : ''}`;
+            step.innerHTML = `<span>第 ${idx + 1} 關</span> <span>${money}</span>`;
+            ladderEl.appendChild(step);
+        });
+    }
+
+    function loadQuestion() {
+        renderLadder();
+        const q = currentQuestions[currentStep];
+        document.getElementById("question").innerText = `請問下列何者代表：\n"${q.definition}"？`;
+
+        const optionsEl = document.getElementById("options");
+        optionsEl.innerHTML = "";
+
+        // 隨機排列選項
+        const shuffledOptions = shuffle([...q.options]);
+
+        shuffledOptions.forEach((opt, index) => {
+            const btn = document.createElement("button");
+            btn.className = "btn-option";
+            btn.innerText = `${String.fromCharCode(65 + index)}: ${opt}`;
+            btn.onclick = () => checkAnswer(opt);
+            optionsEl.appendChild(btn);
+        });
+    }
+
+    function checkAnswer(selectedOption) {
+        const q = currentQuestions[currentStep];
+        if (selectedOption === q.word) {
+            currentStep++;
+            if (currentStep >= currentQuestions.length) {
+                clearInterval(timer);
+                endGame(true, "太棒了！你答對了所有題目，贏得了 $1,000,000 大獎！");
+            } else {
+                loadQuestion();
+            }
+        } else {
+            clearInterval(timer);
+            endGame(false, `答錯囉！正確答案是 "${q.word}"。`);
+        }
+    }
+
+    function endGame(isWin, message) {
+        document.getElementById("play-area").style.display = "none";
+        document.getElementById("game-over").style.display = "flex";
+        document.getElementById("game-over-title").innerText = isWin ? "🎉 恭喜獲勝！" : "💥 遊戲結束！";
+        document.getElementById("game-over-msg").innerText = message;
+    }
+
+    // 初始化遊戲
+    startGame();
+</script>
+
+</body>
+</html>

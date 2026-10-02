@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory Matrix - Card Flip Matching Game</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a252f;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        h1 {
+            margin-bottom: 8px;
+            color: #f39c12;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.6);
+        }
+
+        p.instructions {
+            margin-bottom: 20px;
+            font-size: 1rem;
+            color: #bdc3c7;
+            text-align: center;
+            max-width: 600px;
+        }
+
+        /* The Game Container holds the grid and displays the hidden background illustration */
+        .game-container {
+            position: relative;
+            width: 720px;
+            min-height: 480px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            /* Scenic Australia Landscape Background image */
+            background-image: url('https://images.unsplash.com/photo-1529108190281-9a4f620bc2d8?q=80&w=1000&auto=format&fit=crop');
+            background-size: cover;
+            background-position: center;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            width: 100%;
+            height: 100%;
+        }
+
+        .card {
+            background-color: #3498db;
+            border: 2px solid #2980b9;
+            border-radius: 8px;
+            height: 100px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 10px;
+            font-size: 0.95rem;
+            font-weight: bold;
+            color: #ffffff;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.2s, background-color 0.3s, opacity 0.5s, visibility 0.5s;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .card:hover {
+            transform: scale(1.03);
+            background-color: #2980b9;
+        }
+
+        .card.flipped {
+            background-color: #ffffff;
+            color: #2c3e50;
+            border-color: #bdc3c7;
+        }
+
+        /* Matched card pairs disappear to reveal the hidden illustration beneath */
+        .card.matched {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .win-overlay {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-radius: 12px;
+        }
+
+        .win-message {
+            background: #2c3e50;
+            padding: 30px 40px;
+            border-radius: 10px;
+            text-align: center;
+            border: 2px solid #f39c12;
+            box-shadow: 0 0 20px rgba(243, 156, 18, 0.4);
+        }
+
+        .win-message h2 {
+            color: #2ecc71;
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .win-message p {
+            margin-bottom: 20px;
+            color: #ecf0f1;
+        }
+
+        .btn-reset {
+            padding: 10px 24px;
+            font-size: 1rem;
+            font-weight: bold;
+            background-color: #e67e22;
+            color: #ffffff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .btn-reset:hover {
+            background-color: #d35400;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Memory Matrix</h1>
+    <p class="instructions">
+        Flip two cards at a time to match Grade 11 vocabulary words with their definitions. Matched pairs disappear, revealing the hidden landscape illustration underneath!
+    </p>
+
+    <div class="game-container">
+        <div class="grid" id="grid"></div>
+
+        <div class="win-overlay" id="winOverlay">
+            <div class="win-message">
+                <h2>🎉 Outstanding Work!</h2>
+                <p>You matched all pairs and fully revealed the hidden illustration!</p>
+                <button class="btn-reset" onclick="initGame()">Play Again</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Vocabulary dataset using the Grade 11 word list provided
+        const vocabList = [
+            { word: "version", def: "A form of something that differs in details from other forms" },
+            { word: "vast", def: "Of very great extent or quantity; immense" },
+            { word: "undertake", def: "To commit oneself to and begin a task or responsibility" },
+            { word: "extraordinary", def: "Very unusual or remarkable; remarkable" },
+            { word: "landscape", def: "All the visible features of an area of countryside or land" },
+            { word: "dusty", def: "Covered with, full of, or resembling dust" },
+            { word: "diverse", def: "Showing a great deal of variety; very different" }
+        ];
+
+        let flippedCards = [];
+        let matchedPairs = 0;
+        let canFlip = true;
+
+        function initGame() {
+            const grid = document.getElementById('grid');
+            const winOverlay = document.getElementById('winOverlay');
+            
+            grid.innerHTML = '';
+            winOverlay.style.display = 'none';
+            flippedCards = [];
+            matchedPairs = 0;
+            canFlip = true;
+
+            // Prepare cards array containing words and definitions
+            let deck = [];
+            vocabList.forEach((item, index) => {
+                deck.push({ id: index, text: item.word });
+                deck.push({ id: index, text: item.def });
+            });
+
+            // Fisher-Yates shuffle algorithm to randomize card layout
+            for (let i = deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [deck[i], deck[j]] = [deck[j], deck[i]];
+            }
+
+            // Create card elements dynamically
+            deck.forEach(cardData => {
+                const card = document.createElement('div');
+                card.classList.add('card');
+                card.dataset.id = cardData.id;
+                card.dataset.text = cardData.text;
+
+                card.addEventListener('click', () => onCardClick(card));
+                grid.appendChild(card);
+            });
+        }
+
+        function onCardClick(card) {
+            if (!canFlip || card.classList.contains('flipped') || card.classList.contains('matched')) {
+                return;
+            }
+
+            // Flip card and display text
+            card.classList.add('flipped');
+            card.textContent = card.dataset.text;
+            flippedCards.push(card);
+
+            if (flippedCards.length === 2) {
+                checkMatch();
+            }
+        }
+
+        function checkMatch() {
+            canFlip = false;
+            const [card1, card2] = flippedCards;
+
+            // Check if both cards share the same dataset ID (Word + Definition pair)
+            if (card1.dataset.id === card2.dataset.id) {
+                setTimeout(() => {
+                    card1.classList.add('matched');
+                    card2.classList.add('matched');
+                    flippedCards = [];
+                    matchedPairs++;
+                    canFlip = true;
+
+                    // Check for victory condition
+                    if (matchedPairs === vocabList.length) {
+                        setTimeout(() => {
+                            document.getElementById('winOverlay').style.display = 'flex';
+                        }, 400);
+                    }
+                }, 500);
+            } else {
+                // Not a match: flip back over after brief delay
+                setTimeout(() => {
+                    card1.classList.remove('flipped');
+                    card2.classList.remove('flipped');
+                    card1.textContent = '';
+                    card2.textContent = '';
+                    flippedCards = [];
+                    canFlip = true;
+                }, 1000);
+            }
+        }
+
+        // Initialize game board when script loads
+        initGame();
+    </script>
+</body>
+</html>
