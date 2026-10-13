@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Reading Challenge: Learning to Let Go</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&display=swap">
+<style>
+:root{--paper:#d8c19c;--ink:#1c1a17;--panel:rgba(28,26,23,.92);--panel-ink:#f5ecd9;--accent:#e9c46a;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--paper:#cdb590;--ink:#1c1a17}}
+:root[data-theme="dark"]{--paper:#cdb590;--ink:#1c1a17}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+*{box-sizing:border-box}
+body{margin:0;height:100%;overflow:hidden;background:var(--paper);color:var(--ink);font-family:"Libre Baskerville",Georgia,"Times New Roman",serif;
+background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' seed='4'/><feColorMatrix values='0 0 0 0 .45  0 0 0 0 .33  0 0 0 0 .18  0 0 0 .35 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
+#stage{position:fixed;inset:0;overflow:hidden}
+#text{position:absolute;left:0;right:0;top:0;padding:0 8vw;text-align:center;font-size:clamp(22px,6vw,32px);line-height:1.85;font-weight:700;letter-spacing:.02em;word-spacing:.12em;will-change:transform;max-width:640px;margin:0 auto}
+#text h1{font-size:1.05em;margin:0 0 2em;line-height:1.4}
+#text h1 small{display:block;font-weight:700;font-size:.9em}
+#text h2{font-size:1.45em;margin:0 0 1.1em;line-height:1.3;letter-spacing:.04em}
+#text p{margin:0 0 1.9em}
+#text.b1{font-weight:700;line-height:1.8;padding:0 7vw}
+#text.b1 h1 small{font-weight:700}
+#text.b1 p{margin:0 0 2em}
+#count{position:fixed;inset:0;display:none;align-items:center;justify-content:center;font-size:30vw;font-weight:700;pointer-events:none}
+#panel{position:fixed;left:0;right:0;bottom:0;background:var(--panel);color:var(--panel-ink);padding:14px 16px calc(14px + env(safe-area-inset-bottom,0px));font-family:system-ui,-apple-system,"Segoe UI",sans-serif;font-size:15px;transition:transform .25s}
+#panel.hidden{transform:translateY(110%)}
+.row{display:flex;gap:8px;align-items:center;justify-content:center;margin:6px 0;flex-wrap:wrap}
+button{font:inherit;color:inherit;background:transparent;border:1.5px solid rgba(245,236,217,.5);border-radius:10px;padding:10px 16px;min-height:44px;cursor:pointer}
+button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+button.on{background:var(--accent);color:#1c1a17;border-color:var(--accent);font-weight:700}
+#go{min-width:110px}
+#reveal{position:fixed;right:0;bottom:0;width:64px;height:64px;opacity:0;border:0;display:none}
+#info{min-width:92px;text-align:center}
+</style>
+</head>
+<body>
+<div id="stage"><div id="text"></div></div>
+<div id="count" aria-live="polite"></div>
+<button id="reveal" aria-label="Show controls"></button>
+<div id="panel">
+  <div class="row"><button id="a1">A1</button><button id="a2" class="on">A2</button><button id="b1">B1</button></div>
+  <div class="row"><button id="slow" aria-label="Slower">Slower</button><span id="info">60 sec</span><button id="fast" aria-label="Faster">Faster</button></div>
+  <div class="row"><button id="mus" class="on">Music: On</button><input id="vol" type="range" min="0" max="100" value="25" aria-label="Music volume" style="width:140px"></div>
+  <div class="row"><button id="go" class="on">Start</button><button id="reset">Restart</button><button id="hide">Hide controls</button></div>
+</div>
+<script>
+var T={
+A1:{title:"Reading Challenge!",level:"(A1 Level)",p:[
+["Some people keep many things.","Old paper. Broken cups. Empty boxes.","The house is full.","It is hard to walk."],
+["A collector is different.","A collector keeps special things.","Books. Cards. Old coins.","The things are clean."],
+["Some people keep everything.","It is hard to let go.","But it is possible."]]},
+A2:{title:"Reading Challenge!",level:"(A2 Level)",p:[
+["Do you know someone who cannot throw things away?","Old papers, broken cups, and empty boxes keep piling up.","Soon, the house is full of things.","It is hard to walk. It can even be dangerous."],
+["This is not the same as collecting.","A collector keeps special things, like old books or trading cards.","Their things are clean and in order.","But some people keep everything, even things they do not need."],
+["These people often feel safe with their things.","It is not easy to change.","But with help, time, and love, they can learn to let go.","Letting go is hard.","But it is possible."]]},
+B1:{title:"Reading Challenge!",level:"(B1 Level)",p:[
+["Do you have a friend or family member who can't throw anything away? Old newspapers, broken cups, and empty boxes keep piling up year after year. Slowly, the home fills with clutter, and even walking around becomes dangerous."],
+["This is different from collecting. Collectors usually focus on special objects, such as trading cards, antiques, or old books. Although they may own many things, their collections are highly organized. Hoarders, on the other hand, struggle to throw anything away."],
+["Experts believe that about 2.5 percent of people have this problem, and it often gets worse with age. Treatment is difficult because hoarders feel comforted by their possessions. However, with patience, therapy, and a lot of support, they can learn to control the habit."],
+["Letting go is hard, but it is possible."]]}};
+var level="A2",secs=60,pos=0,running=false,last=0,raf=0,tx=document.getElementById("text");
+var $=function(i){return document.getElementById(i)};
+function render(){
+  var d=T[level];tx.className=level.toLowerCase();
+  tx.innerHTML="<h2>LEARNING TO LET GO</h2><h1>"+d.title+"<small>"+d.level+"</small></h1>"+d.p.map(function(p){return "<p>"+p.join("<br>")+"</p>"}).join("");
+  reset();
+}
+function dist(){return window.innerHeight*0.9+tx.offsetHeight}
+function place(){tx.style.transform="translateY("+(window.innerHeight*0.9-pos)+"px)"}
+function reset(){running=false;cancelAnimationFrame(raf);stopMusic();pos=0;place();$("go").textContent="Start";$("go").classList.add("on")}
+function tick(t){
+  if(!running)return;
+  var dt=(t-last)/1000;last=t;
+  pos+=dist()/secs*dt;
+  if(pos>=dist()){pos=dist();running=false;stopMusic();$("go").textContent="Start";place();return}
+  place();raf=requestAnimationFrame(tick);
+}
+function run(){running=true;startMusic();$("go").textContent="Pause";last=performance.now();raf=requestAnimationFrame(tick)}
+function countdown(cb){
+  var n=3,c=$("count");c.style.display="flex";c.textContent=n;
+  var iv=setInterval(function(){n--;if(n<=0){clearInterval(iv);c.style.display="none";cb()}else c.textContent=n},800);
+}
+var ac=null,master=null,musOn=true,mt=null,step=0;
+var nextT=0,CH=[{r:130.81,n:[523.25,659.25,783.99,1046.5]},{r:98,n:[392,493.88,587.33,783.99]},{r:110,n:[440,523.25,659.25,880]},{r:87.31,n:[349.23,440,523.25,698.46]}],AR=[0,1,2,3,2,1,2,1];
+function setVol(){if(master)master.gain.setTargetAtTime($("vol").value/100*0.5,ac.currentTime,0.05)}
+function note(f,t,d,v,ty){var o=ac.createOscillator(),g=ac.createGain();o.type=ty||"sine";o.frequency.value=f;g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(v,t+0.02);g.gain.exponentialRampToValueAtTime(0.0001,t+d);o.connect(g);g.connect(master);o.start(t);o.stop(t+d+0.05)}
+function pad(f,t,d,v){var o=ac.createOscillator(),g=ac.createGain();o.type="sine";o.frequency.value=f;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+0.6);g.gain.linearRampToValueAtTime(0,t+d);o.connect(g);g.connect(master);o.start(t);o.stop(t+d+0.05)}
+function hat(t,v){var b=ac.createBuffer(1,1200,ac.sampleRate),d=b.getChannelData(0),i;for(i=0;i<1200;i++)d[i]=(Math.random()*2-1)*(1-i/1200);var s=ac.createBufferSource(),g=ac.createGain(),h=ac.createBiquadFilter();h.type="highpass";h.frequency.value=6000;s.buffer=b;g.gain.value=v;s.connect(h);h.connect(g);g.connect(master);s.start(t)}
+function bar(t){var c=CH[step%4],i;step++;
+  note(c.r,t,3.6,0.4,"sine");
+  c.n.forEach(function(f){pad(f/2,t,4.4,0.1)});
+  AR.forEach(function(k,j){note(c.n[k],t+j*0.5,1.6,0.15,"sine")});
+  }
+function sched(){if(nextT<ac.currentTime)nextT=ac.currentTime+0.05;while(nextT<ac.currentTime+3){bar(nextT);nextT+=4}}
+function startMusic(){if(!musOn)return;if(!ac){var A=window.AudioContext||window.webkitAudioContext;if(!A)return;ac=new A()}
+  if(ac.state==="suspended")ac.resume();if(!master){master=ac.createGain();master.gain.value=0;master.connect(ac.destination)}setVol();if(!mt){nextT=0;sched();mt=setInterval(sched,1000)}}
+function stopMusic(){if(mt){clearInterval(mt);mt=null}if(master){master.disconnect();master=null}}
+$("vol").oninput=setVol;
+$("mus").onclick=function(){musOn=!musOn;$("mus").textContent=musOn?"Music: On":"Music: Off";$("mus").classList.toggle("on",musOn);if(!musOn)stopMusic();else if(running)startMusic()};
+$("go").onclick=function(){
+  if(running){running=false;cancelAnimationFrame(raf);stopMusic();$("go").textContent="Resume";return}
+  if(pos===0||pos>=dist()){pos=0;place();countdown(run)}else run();
+};
+$("reset").onclick=reset;
+function setLevel(l){level=l;$("a1").classList.toggle("on",l==="A1");$("a2").classList.toggle("on",l==="A2");$("b1").classList.toggle("on",l==="B1");render()}
+$("a1").onclick=function(){setLevel("A1")};
+$("a2").onclick=function(){setLevel("A2")};
+$("b1").onclick=function(){setLevel("B1")};
+function setSecs(s){secs=Math.max(30,Math.min(120,s));$("info").textContent=secs+" sec"}
+$("slow").onclick=function(){setSecs(secs+10)};
+$("fast").onclick=function(){setSecs(secs-10)};
+$("hide").onclick=function(){$("panel").classList.add("hidden");$("reveal").style.display="block"};
+$("reveal").onclick=function(){$("panel").classList.remove("hidden");$("reveal").style.display="none"};
+window.addEventListener("resize",place);
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(function(){place()});
+render();
+</script>
+</body>
+</html>
