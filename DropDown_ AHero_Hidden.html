@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Drop Down: A Hero, Hidden</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&display=swap">
+<style>
+:root{--bg:#f1e6cf;--card:#fbf5e6;--ink:#2a2118;--muted:#6f5f4a;--line:#cdb893;--blank:#fff;--accent:#1f6f5c;--ok:#2e7d32;--okbg:#dff0d8;--bad:#b3261e;--badbg:#f8d9d6;--chip:#e8d9b8;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#201a13;--card:#2d251b;--ink:#f3e8d0;--muted:#c2b393;--line:#5a4b36;--blank:#1a150f;--accent:#6fcfb4;--ok:#8bd48f;--okbg:#25402a;--bad:#ff9a92;--badbg:#4a2421;--chip:#403525}}
+:root[data-theme="dark"]{--bg:#201a13;--card:#2d251b;--ink:#f3e8d0;--muted:#c2b393;--line:#5a4b36;--blank:#1a150f;--accent:#6fcfb4;--ok:#8bd48f;--okbg:#25402a;--bad:#ff9a92;--badbg:#4a2421;--chip:#403525}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh}
+main{max-width:720px;margin:0 auto;padding:20px 16px 48px}
+h1{font-family:"Libre Baskerville",Georgia,serif;font-size:clamp(28px,7vw,40px);margin:0 0 4px}
+.sub{margin:0 0 16px;color:var(--muted)}
+.bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.stat{background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:8px 14px;font-weight:700}
+.prog{flex:1;min-width:120px;height:12px;background:var(--chip);border-radius:8px;overflow:hidden}
+.prog i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+.bank{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}
+.bank span{background:var(--chip);border-radius:20px;padding:6px 14px;font-weight:700}
+.bank span.used{opacity:.35;text-decoration:line-through}
+.hint{margin:0 0 14px;color:var(--muted)}
+.card{background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:18px 18px 6px;margin-bottom:14px}
+.card p{font-family:"Libre Baskerville",Georgia,serif;font-size:clamp(18px,4.6vw,22px);line-height:2.1;margin:0 0 14px}
+.blank{font:inherit;font-weight:700;min-width:7.5em;margin:0 2px;padding:2px 12px;border:2px dashed var(--accent);border-radius:10px;background:var(--blank);color:var(--accent);cursor:pointer;min-height:44px;vertical-align:middle}
+.blank:focus-visible,.opt:focus-visible,.go:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.blank.ok{border-style:solid;border-color:var(--ok);background:var(--okbg);color:var(--ok);cursor:default}
+.blank.bad{border-style:solid;border-color:var(--bad);background:var(--badbg);color:var(--bad);animation:shake .35s}
+@keyframes shake{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+@media (prefers-reduced-motion:reduce){.blank.bad{animation:none}}
+#menu{position:fixed;z-index:10;display:none;grid-template-columns:1fr 1fr;gap:8px;width:min(300px,92vw);padding:12px;background:var(--card);border:2px solid var(--accent);border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.opt{font:inherit;font-weight:700;padding:10px 8px;min-height:46px;border:1.5px solid var(--line);border-radius:10px;background:var(--blank);color:var(--ink);cursor:pointer}
+.opt:hover{border-color:var(--accent)}
+#msg{min-height:1.6em;font-weight:700;margin:0 0 8px}
+#end{display:none;text-align:center;background:var(--card);border:2px solid var(--accent);border-radius:14px;padding:20px}
+#end h2{font-family:"Libre Baskerville",Georgia,serif;margin:0 0 6px}
+.stars{font-size:36px;letter-spacing:6px}
+.go{font:inherit;font-weight:700;background:var(--accent);color:var(--bg);border:0;border-radius:12px;padding:12px 22px;min-height:46px;cursor:pointer}
+.snd{font:inherit;font-weight:700;background:var(--card);color:var(--ink);border:1.5px solid var(--line);border-radius:12px;padding:8px 14px;min-height:44px;cursor:pointer}
+#start{text-align:center;background:var(--card);border:2px solid var(--accent);border-radius:14px;padding:18px;margin-bottom:14px}
+#game.locked{filter:blur(7px);pointer-events:none;user-select:none}
+#game.over{pointer-events:none}
+#tbox.low{color:var(--bad);border-color:var(--bad)}
+.blank.miss{border-style:solid;border-color:var(--muted);color:var(--muted);cursor:default}
+</style>
+</head>
+<body>
+<main>
+  <h1>Drop Down</h1>
+  <p class="sub">A Hero, Hidden</p>
+  <p class="hint">Tap a blank space. Choose the correct word.</p>
+  <div class="bar"><div class="stat">Score: <span id="score">0</span></div><div class="stat" id="tbox">Time: <span id="time">60</span>s</div><div class="stat"><span id="done">0</span> / 6</div><button class="snd" id="snd">Sound: On</button><button class="snd" id="mus">Music: On</button><div class="prog"><i id="pb"></i></div></div>
+  <p id="msg" aria-live="polite"></p>
+  <div id="start"><p>You have 60 seconds. Tap a blank, then choose the correct word. One word in the list does not belong anywhere!</p><button class="go" id="startBtn">Start</button></div>
+  <div id="game"></div>
+  <div id="end"><h2 id="eh">Great job!</h2><div class="stars" id="stars"></div><p id="final"></p><button class="go" id="again">Play again</button></div>
+  <div id="menu" role="listbox" aria-label="Choose a word"></div>
+</main>
+<script>
+var WORDS=["myths","legendary","warrior","disguised","devised","shield"];
+var CHOICES=WORDS.concat(["treasure"]);
+var P=[
+["The story of the Trojan War is one of the most famous Greek ",{a:"myths"},". Many ",{a:"legendary"}," heroes fought in it, and people still tell their stories today."],
+["Achilles was the greatest ",{a:"warrior"}," of his time. His mother was afraid for him, so she hid him on an island. There he lived ",{a:"disguised"}," as a young woman."],
+["The clever Odysseus ",{a:"devised"}," a plan to find him. He gave the king's daughters many gifts, including a sword and a ",{a:"shield"},". Then he sat back and waited."]];
+var $=function(i){return document.getElementById(i)};
+var score,done,tries,placed,cur,secs=60,tm,running=false,sndOn=true,ac=null;
+function cap(w,c){return c?w.charAt(0).toUpperCase()+w.slice(1):w}
+function build(){
+  score=0;done=0;tries={};placed={};cur=null;
+  $("end").style.display="none";$("game").style.display="block";$("msg").textContent="";
+  clearInterval(tm);stopMusic();running=false;secs=60;$("time").textContent=60;$("tbox").className="stat";$("game").className="locked";$("start").style.display="block";
+  var h="",n=0;
+  P.forEach(function(p){h+='<div class="card"><p>';
+    p.forEach(function(t){
+      if(typeof t==="string")h+=t;
+      else{h+='<button class="blank" data-i="'+n+'" data-a="'+t.a+'" data-c="'+(t.cap?1:0)+'" aria-label="Blank space, choose a word">Tap here</button>';n++}
+    });h+="</p></div>"});
+  $("game").innerHTML=h;
+  upd();
+}
+function upd(){$("score").textContent=score;$("done").textContent=done;$("pb").style.width=(done/6*100)+"%"}
+function closeMenu(){$("menu").style.display="none";cur=null}
+function openMenu(b){
+  cur=b;var m=$("menu"),free=CHOICES.slice();
+  free.sort(function(){return Math.random()-.5});
+  m.innerHTML=free.map(function(w){return '<button class="opt" role="option">'+w+'</button>'}).join("");
+  m.style.display="grid";
+  var r=b.getBoundingClientRect(),mw=m.offsetWidth,mh=m.offsetHeight;
+  var left=Math.max(8,Math.min(r.left,window.innerWidth-mw-8));
+  var top=r.bottom+8;if(top+mh>window.innerHeight-8)top=Math.max(8,r.top-mh-8);
+  m.style.left=left+"px";m.style.top=top+"px";
+  if(m.firstChild)m.firstChild.focus({preventScroll:true});
+}
+function pick(w){
+  var b=cur,a=b.dataset.a,i=b.dataset.i;closeMenu();
+  if(w===a){
+    var first=!tries[i];score+=first?10:5;done++;placed[w]=1;
+    b.textContent=cap(w,b.dataset.c==="1");b.className="blank ok";b.disabled=true;
+    $("msg").textContent=first?"Correct! +10":"Correct! +5";sfx("ok");upd();
+    if(done===6)finish(true);
+  }else{
+    tries[i]=1;b.className="blank bad";b.textContent=cap(w,b.dataset.c==="1");
+    $("msg").textContent="Not this one. Try again!";sfx("bad");
+    setTimeout(function(){if(!b.disabled){b.className="blank";b.textContent="Tap here"}},800);
+  }
+}
+function finish(all){
+  clearInterval(tm);running=false;closeMenu();stopMusic();$("game").className="over";
+  $("eh").textContent=all?"Great job!":"Time's up!";sfx(all?"win":"end");
+  var st=score>=50?3:score>=35?2:1;
+  $("stars").textContent="\u2605".repeat(st)+"\u2606".repeat(3-st);
+  $("final").textContent="You scored "+score+" out of 60. Time left: "+secs+" seconds.";
+  if(!all)document.querySelectorAll(".blank").forEach(function(b){if(!b.disabled){b.disabled=true;b.className="blank miss";b.textContent=cap(b.dataset.a,b.dataset.c==="1")}});
+  $("end").style.display="block";$("msg").textContent="";
+  $("end").scrollIntoView({behavior:"smooth",block:"center"});
+}
+$("game").addEventListener("click",function(e){
+  var b=e.target.closest(".blank");if(!b||b.disabled)return;
+  e.stopPropagation();openMenu(b);
+});
+$("menu").addEventListener("click",function(e){var o=e.target.closest(".opt");if(o)pick(o.textContent)});
+document.addEventListener("click",function(e){if(!e.target.closest("#menu"))closeMenu()});
+document.addEventListener("keydown",function(e){if(e.key==="Escape")closeMenu()});
+window.addEventListener("scroll",closeMenu,{passive:true});
+$("again").onclick=function(){build();window.scrollTo({top:0})};
+function beep(f,t,d,ty,v){var n=ac.currentTime+t,o=ac.createOscillator(),g=ac.createGain();o.type=ty||"sine";o.frequency.value=f;g.gain.setValueAtTime(0.0001,n);g.gain.exponentialRampToValueAtTime(v||0.2,n+0.02);g.gain.exponentialRampToValueAtTime(0.0001,n+d);o.connect(g);g.connect(ac.destination);o.start(n);o.stop(n+d+0.05)}
+function sfx(k){if(!sndOn||!ac)return;if(ac.state==="suspended")ac.resume();
+  if(k==="ok"){beep(660,0,0.12);beep(880,0.1,0.18)}
+  else if(k==="bad"){beep(180,0,0.25,"sawtooth",0.12)}
+  else if(k==="tick"){beep(1000,0,0.05,"square",0.06)}
+  else if(k==="win"){[523,659,784,1047].forEach(function(f,i){beep(f,i*0.12,0.25,"triangle",0.2)})}
+  else if(k==="end"){beep(400,0,0.25,"triangle");beep(300,0.25,0.4,"triangle")}}
+var mm=null,mt=null,mstep=0,nextT=0,musOn=true;
+var CH=[{r:130.81,n:[523.25,659.25,783.99,1046.5]},{r:98,n:[392,493.88,587.33,783.99]},{r:110,n:[440,523.25,659.25,880]},{r:87.31,n:[349.23,440,523.25,698.46]}],AR=[0,1,2,3,2,1,2,1];
+function mn(f,t,d,v,ty){var o=ac.createOscillator(),g=ac.createGain();o.type=ty||"sine";o.frequency.value=f;g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(v,t+0.02);g.gain.exponentialRampToValueAtTime(0.0001,t+d);o.connect(g);g.connect(mm);o.start(t);o.stop(t+d+0.05)}
+function mbar(t){var c=CH[mstep%4];mstep++;mn(c.r,t,1.1,0.5,"triangle");mn(c.r,t+1.2,0.5,0.35,"triangle");mn(c.r,t+1.8,0.5,0.3,"triangle");c.n.slice(0,3).forEach(function(f){mn(f/2,t,2.4,0.12)});AR.forEach(function(k,j){mn(c.n[k],t+j*0.3,0.55,0.2,"triangle")})}
+function msched(){if(nextT<ac.currentTime)nextT=ac.currentTime+0.05;while(nextT<ac.currentTime+1.8){mbar(nextT);nextT+=2.4}}
+function startMusic(){if(!musOn||!ac||mt)return;mm=ac.createGain();mm.gain.value=0.1;mm.connect(ac.destination);nextT=0;msched();mt=setInterval(msched,1000)}
+function stopMusic(){if(mt){clearInterval(mt);mt=null}if(mm){mm.disconnect();mm=null}}
+$("mus").onclick=function(){musOn=!musOn;$("mus").textContent=musOn?"Music: On":"Music: Off";if(!musOn)stopMusic();else if(running)startMusic()};
+function startGame(){var A=window.AudioContext||window.webkitAudioContext;if(!ac&&A)ac=new A();if(ac&&ac.state==="suspended")ac.resume();
+  $("start").style.display="none";$("game").className="";running=true;secs=60;$("time").textContent=60;startMusic();
+  tm=setInterval(function(){secs--;$("time").textContent=secs;if(secs<=10){$("tbox").className="stat low";if(secs>0)sfx("tick")}if(secs<=0)finish(false)},1000)}
+$("startBtn").onclick=startGame;
+$("snd").onclick=function(){sndOn=!sndOn;$("snd").textContent=sndOn?"Sound: On":"Sound: Off"};
+build();
+</script>
+</body>
+</html>
