@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Article Vocabulary Quiz: Cultural Symbols</title>
+<style>
+:root{--bg:#f3f5f9;--card:#fff;--ink:#1b2440;--mute:#5b6682;--line:#d6dbe8;--accent:#b3261e;--accent-ink:#fff;--ok:#1f7a4d;--okbg:#e2f4ea;--bad:#b3261e;--badbg:#fbe5e3;--navy:#1b2440;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10162b;--card:#192140;--ink:#eef1fa;--mute:#a4aecb;--line:#2e3a63;--accent:#ff6b5e;--accent-ink:#10162b;--ok:#6fdca4;--okbg:#17382b;--bad:#ff8f86;--badbg:#44211f;--navy:#eef1fa}}
+:root[data-theme="dark"]{--bg:#10162b;--card:#192140;--ink:#eef1fa;--mute:#a4aecb;--line:#2e3a63;--accent:#ff6b5e;--accent-ink:#10162b;--ok:#6fdca4;--okbg:#17382b;--bad:#ff8f86;--badbg:#44211f;--navy:#eef1fa}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Segoe UI",system-ui,-apple-system,"Noto Sans TC","PingFang TC",sans-serif;line-height:1.5}
+main{max-width:640px;margin:0 auto;padding:20px 16px 40px}
+h1{font-family:Georgia,"Noto Serif TC",serif;font-size:2rem;line-height:1.15;margin:8px 0 12px}
+p{margin:0 0 12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px}
+.mute{color:var(--mute);font-size:.95rem}
+button{font:inherit;cursor:pointer}
+.btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:10px;padding:12px 22px;font-weight:600;font-size:1.05rem}
+.btn.ghost{background:transparent;color:var(--ink);border:2px solid var(--line)}
+.btn:focus-visible,.opt:focus-visible{outline:3px solid var(--navy);outline-offset:2px}
+.bar{height:8px;background:var(--line);border-radius:99px;overflow:hidden;margin:6px 0 4px}
+.bar>i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+.top{display:flex;justify-content:space-between;font-size:.95rem;color:var(--mute)}
+.q{font-family:Georgia,"Noto Serif TC",serif;font-size:1.45rem;line-height:1.4;margin:18px 0}
+.blank{display:inline-block;min-width:5.5em;border-bottom:3px solid var(--accent);text-align:center;font-weight:700}
+.opts{display:grid;gap:10px}
+.opt{text-align:left;background:var(--card);color:var(--ink);border:2px solid var(--line);border-radius:10px;padding:12px 14px;font-size:1.1rem}
+.opt:hover:not(:disabled){border-color:var(--accent)}
+.opt.ok{background:var(--okbg);border-color:var(--ok)}
+.opt.bad{background:var(--badbg);border-color:var(--bad)}
+.opt:disabled{cursor:default}
+.fb{margin-top:14px;padding:12px 14px;border-radius:10px;background:var(--bg);border:1px solid var(--line)}
+.fb b{display:block;margin-bottom:2px}
+.hide{display:none}
+.score{font-family:Georgia,serif;font-size:3.2rem;margin:4px 0}
+.miss{margin:8px 0 16px;padding:0;list-style:none}
+.miss li{padding:8px 0;border-bottom:1px solid var(--line)}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+</style>
+</head>
+<body>
+<main>
+<section id="start" class="card">
+  <h1>Article Vocabulary Quiz: Cultural Symbols</h1>
+  <p>Words from “When Musical Instruments Become Cultural Symbols”: the bagpipe and the sanshin. Pick the word or phrase that fits each sentence.</p>
+  <p class="mute">21 questions. You get feedback after each answer.</p>
+  <button class="btn" id="go">Start quiz</button>
+</section>
+
+<section id="play" class="hide">
+  <div class="top"><span id="num"></span><span id="sc"></span></div>
+  <div class="bar"><i id="pb"></i></div>
+  <div class="card">
+    <div class="q" id="q"></div>
+    <div class="opts" id="opts"></div>
+    <div class="fb hide" id="fb"></div>
+    <div class="row"><button class="btn hide" id="next">Next question</button></div>
+  </div>
+</section>
+
+<section id="end" class="card hide">
+  <h1>Quiz finished</h1>
+  <div class="score" id="final"></div>
+  <p id="msg"></p>
+  <div id="missbox" class="hide"><p><b>Review these words:</b></p><ul class="miss" id="miss"></ul></div>
+  <div class="row">
+    <button class="btn" id="retry">Practice missed words</button>
+    <button class="btn ghost" id="again">Play again</button>
+  </div>
+</section>
+</main>
+
+<script>
+const BANK=[
+{c:"n",w:"entertainment",zh:"娛樂",s:"Musical instruments are more than tools for ___."},
+{c:"n",w:"hardship",zh:"艱苦、困難",s:"The Okinawan sanshin tells a story of music surviving through ___."},
+{c:"n",w:"ceremony",zh:"典禮、儀式",s:"The bagpipe was played at festivals, ___, and military events."},
+{c:"n",w:"resistance",zh:"反抗、抵抗",s:"Officials believed bagpipes encouraged Scottish ___."},
+{c:"v",w:"ban",zh:"禁止",s:"The British government decided to ___ the bagpipe."},
+{c:"v",w:"declare",zh:"宣布、宣稱",s:"Officials even ___ the bagpipe an “instrument of war.”"},
+{w:"profound",zh:"深刻的",s:"The sanshin tells a ___ story of music surviving through hardship.",o:["profound","homemade","crowded","lazy"]},
+{c:"v",w:"accompany",zh:"為……伴奏",s:"For over 500 years, the sanshin was used to ___ local songs and dances."},
+{c:"n",w:"celebration",zh:"慶典、慶祝活動",s:"Families played the sanshin at every family ___."},
+{c:"n",w:"significance",zh:"重要性、意義",s:"The sanshin’s ___ grew even greater after the Battle of Okinawa."},
+{c:"n",w:"recovery",zh:"復原、恢復",s:"The kankara sanshin became a symbol of hope and ___."},
+{c:"n",w:"cord",zh:"細繩、電線",s:"Okinawans made new strings from parachute ___."},
+{c:"n",w:"parachute",zh:"降落傘",s:"Okinawans built sanshin from tin cans, scrap wood, and ___ cords."},
+{c:"v",w:"originated",zh:"起源、發源（originate）",s:"The bagpipe probably ___ in the Middle East."},
+{c:"n",w:"uprising",zh:"起義、暴動",s:"The British government tried to weaken Highland culture after a series of ___."},
+{c:"n",w:"python",zh:"巨蟒",s:"Traditionally, the body of the sanshin is covered with ___ skin."},
+{w:"homemade",zh:"自製的",s:"These ___ versions became known as kankara sanshin.",o:["homemade","profound","crowded","silent"]},
+{c:"p",w:"hold together",zh:"維持團結",s:"Music helped communities ___ through war and hardship.",o:["hold together","weather the storm","due to","so long as"]},
+{c:"p",w:"due to",zh:"因為、由於",s:"The sanshin became more important ___ the Battle of Okinawa.",o:["due to","so long as","hold together","weather the storm"]},
+{c:"p",w:"weather the storm",zh:"度過難關",s:"By offering comfort, the kankara sanshin helped people ___.",o:["weather the storm","hold together","due to","so long as"]},
+{c:"p",w:"so long as",zh:"只要",s:"Culture can survive the hardest times ___ people share it with future generations.",o:["so long as","due to","hold together","weather the storm"]}
+];
+const $=id=>document.getElementById(id);
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+const POOL=c=>BANK.filter(x=>x.c===c).map(x=>x.w);
+let qs=[],i=0,score=0,missed=[];
+
+function show(id){["start","play","end"].forEach(s=>$(s).classList.toggle("hide",s!==id))}
+function begin(list){qs=shuffle(list);i=0;score=0;missed=[];show("play");ask()}
+function ask(){
+  const x=qs[i];
+  $("num").textContent="Question "+(i+1)+" of "+qs.length;
+  $("sc").textContent="Score: "+score;
+  $("pb").style.width=(i/qs.length*100)+"%";
+  $("q").innerHTML=x.s.replace("___",'<span class="blank">&nbsp;</span>');
+  const opts=x.o?shuffle(x.o):shuffle([x.w,...shuffle(POOL(x.c).filter(p=>p!==x.w)).slice(0,3)]);
+  $("opts").innerHTML="";
+  opts.forEach(o=>{const b=document.createElement("button");b.className="opt";b.textContent=o;b.onclick=()=>pick(b,o);$("opts").appendChild(b)});
+  $("fb").classList.add("hide");$("next").classList.add("hide");
+}
+function pick(btn,o){
+  const x=qs[i],right=o===x.w;
+  document.querySelectorAll(".opt").forEach(b=>{b.disabled=true;if(b.textContent===x.w)b.classList.add("ok")});
+  if(right){score++}else{btn.classList.add("bad");missed.push(x)}
+  $("q").innerHTML=x.s.replace("___",'<span class="blank">'+x.w+'</span>');
+  $("sc").textContent="Score: "+score;
+  $("fb").innerHTML="<b>"+(right?"Correct!":"Not quite.")+"</b>Answer: "+x.w+" ("+x.zh+")";
+  $("fb").classList.remove("hide");
+  $("next").textContent=i===qs.length-1?"See my score":"Next question";
+  $("next").classList.remove("hide");$("next").focus();
+}
+function finish(){
+  show("end");
+  $("final").textContent=score+" / "+qs.length;
+  const p=score/qs.length;
+  $("msg").textContent=p===1?"Perfect score. Great work!":p>=.7?"Well done! Review the words below and try again.":"Good effort. Practice the missed words and try again.";
+  $("miss").innerHTML=missed.map(m=>"<li><b>"+m.w+"</b> – "+m.zh+"<br><span class='mute'>"+m.s.replace("___",m.w)+"</span></li>").join("");
+  $("missbox").classList.toggle("hide",!missed.length);
+  $("retry").classList.toggle("hide",!missed.length);
+}
+$("go").onclick=()=>begin(BANK);
+$("next").onclick=()=>{i++;i<qs.length?ask():finish()};
+$("again").onclick=()=>begin(BANK);
+$("retry").onclick=()=>begin(missed.slice());
+</script>
+</body>
+</html>
