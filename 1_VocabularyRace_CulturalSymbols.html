@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vocabulary Race: Cultural Symbols</title>
+<style>
+:root{--bg:#f3f5f9;--card:#fff;--ink:#1b2440;--mute:#5b6682;--line:#d6dbe8;--accent:#b3261e;--accent-ink:#fff;--ok:#1f7a4d;--okbg:#e2f4ea;--bad:#b3261e;--badbg:#fbe5e3;--gold:#e8a800;--navy:#1b2440;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10162b;--card:#192140;--ink:#eef1fa;--mute:#a4aecb;--line:#2e3a63;--accent:#ff6b5e;--accent-ink:#10162b;--ok:#6fdca4;--okbg:#17382b;--bad:#ff8f86;--badbg:#44211f;--gold:#ffd04d;--navy:#eef1fa}}
+:root[data-theme="dark"]{--bg:#10162b;--card:#192140;--ink:#eef1fa;--mute:#a4aecb;--line:#2e3a63;--accent:#ff6b5e;--accent-ink:#10162b;--ok:#6fdca4;--okbg:#17382b;--bad:#ff8f86;--badbg:#44211f;--gold:#ffd04d;--navy:#eef1fa}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Segoe UI",system-ui,-apple-system,"Noto Sans TC","PingFang TC",sans-serif;line-height:1.5}
+main{max-width:680px;margin:0 auto;padding:16px 16px 40px}
+h1{font-family:Georgia,"Noto Serif TC",serif;font-size:2rem;line-height:1.15;margin:8px 0 12px}
+p{margin:0 0 12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px}
+.mute{color:var(--mute);font-size:.95rem}
+button{font:inherit;cursor:pointer}
+.btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:10px;padding:12px 20px;font-weight:700;font-size:1.05rem}
+.btn.ghost{background:transparent;color:var(--ink);border:2px solid var(--line)}
+.btn:focus-visible,.opt:focus-visible,.snd:focus-visible{outline:3px solid var(--navy);outline-offset:2px}
+.modes{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 16px}
+.modes .btn{flex:1 1 90px}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:.95rem;color:var(--mute)}
+.snd{background:var(--card);color:var(--ink);border:2px solid var(--line);border-radius:99px;padding:4px 12px}
+.board{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.chip{flex:1 1 80px;border:2px solid var(--line);border-radius:10px;padding:6px 10px;background:var(--card);font-size:.9rem}
+.chip b{display:block;font-size:1.25rem;font-family:Georgia,serif;color:var(--ink)}
+.chip.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.tbar{height:12px;background:var(--line);border-radius:99px;overflow:hidden;margin:6px 0 4px}
+.tbar>i{display:block;height:100%;width:100%;background:var(--ok);transition:width .1s linear,background .3s}
+.tbar.low>i{background:var(--bad)}
+.turn{font-weight:700;color:var(--ink);margin:6px 0 0}
+.combo{min-height:1.6em;font-weight:700;color:var(--accent)}
+.q{font-family:Georgia,"Noto Serif TC",serif;font-size:1.4rem;line-height:1.4;margin:12px 0 16px}
+.blank{display:inline-block;min-width:5.5em;border-bottom:3px solid var(--accent);text-align:center;font-weight:700}
+.opts{display:grid;gap:10px}
+.opt{text-align:left;background:var(--card);color:var(--ink);border:2px solid var(--line);border-radius:10px;padding:12px 14px;font-size:1.1rem}
+.opt kbd{display:inline-block;min-width:1.6em;margin-right:8px;text-align:center;border:1px solid var(--line);border-radius:6px;font-size:.85rem;color:var(--mute)}
+.opt:hover:not(:disabled){border-color:var(--accent)}
+.opt.ok{background:var(--okbg);border-color:var(--ok)}
+.opt.bad{background:var(--badbg);border-color:var(--bad)}
+.opt.gone{visibility:hidden}
+.opt:disabled{cursor:default}
+.fb{margin-top:14px;padding:12px 14px;border-radius:10px;background:var(--bg);border:1px solid var(--line)}
+.fb b{display:block}
+.hide{display:none}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.score{font-family:Georgia,serif;font-size:3rem;margin:4px 0}
+.rank{list-style:none;padding:0;margin:8px 0 14px}
+.rank li{padding:8px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}
+.miss{margin:8px 0 16px;padding:0;list-style:none}
+.miss li{padding:8px 0;border-bottom:1px solid var(--line)}
+@keyframes shake{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+@keyframes pop{50%{transform:scale(1.03)}}
+@keyframes fall{to{transform:translateY(105vh) rotate(360deg);opacity:.8}}
+.shake{animation:shake .35s}.pop{animation:pop .3s}
+.conf{position:fixed;top:-30px;font-size:1.6rem;pointer-events:none;animation:fall 3s linear forwards;z-index:9}
+@media(prefers-reduced-motion:reduce){.shake,.pop{animation:none}.conf{display:none}}
+
+.track{display:grid;gap:6px;margin:10px 0}
+.lane{display:flex;align-items:center;gap:8px;height:46px;padding:0 8px;border-radius:10px;background:var(--card);border:2px solid var(--line)}
+.lane.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.lane .nm{flex:0 0 64px;font-size:.85rem;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rail{position:relative;flex:1;height:100%;background:repeating-linear-gradient(90deg,var(--line) 0 8px,transparent 8px 16px) center/100% 2px no-repeat}
+.runner{position:absolute;top:50%;margin-top:-17px;font-size:1.7rem;line-height:34px;width:34px;text-align:center;transition:left .7s cubic-bezier(.3,1.4,.5,1)}
+.flag{position:absolute;right:0;top:50%;margin-top:-14px;font-size:1.4rem;line-height:28px}
+.cd{position:fixed;inset:0;display:grid;place-items:center;font:700 6rem Georgia,serif;color:#fff;background:rgba(16,22,43,.6);z-index:20}
+</style>
+</head>
+<body>
+<main>
+<section id="start" class="card">
+  <h1>Vocabulary Race 🏁</h1>
+  <p>Words from “When Musical Instruments Become Cultural Symbols.” Answer correctly to move your character toward the finish line. Answer fast for a Dash (+2 steps), and get 3 right in a row for a Turbo (+1 step).</p>
+  <p><b>Solo race against the computer.</b> Pick your character:</p>
+  <div class="modes" id="chars"></div>
+  <p><b>Team race.</b> Teams take turns on one screen:</p>
+  <div class="modes" id="modes"></div>
+  <p class="mute">Turn your sound on. Keys 1–4 choose an answer and Enter moves on. Each question has 15 seconds.</p>
+</section>
+
+<section id="play" class="hide">
+  <div class="hud"><span id="num"></span><button class="snd" id="mute" aria-label="Toggle sound">🔊 Sound on</button></div>
+  <div class="track" id="track"></div>
+  <div class="tbar" id="tbar"><i id="tfill"></i></div>
+  <div class="hud"><span id="turn" class="turn"></span><span id="tl"></span></div>
+  <div class="card" id="card">
+    <div class="combo" id="combo"></div>
+    <div class="q" id="q"></div>
+    <div class="opts" id="opts"></div>
+    <div class="fb hide" id="fb"></div>
+    <div class="row"><button class="btn ghost" id="ll"></button><button class="btn hide" id="next">Next question</button></div>
+  </div>
+  <div class="cd hide" id="cd"></div>
+</section>
+
+<section id="end" class="card hide">
+  <h1 id="title"></h1>
+  <ol class="rank" id="rank"></ol>
+  <div id="missbox" class="hide"><p><b>Review these words:</b></p><ul class="miss" id="miss"></ul></div>
+  <div class="row"><button class="btn" id="retry">Practice missed words</button><button class="btn ghost" id="again">Race again</button></div>
+</section>
+</main>
+
+<script>
+const BANK=[
+{c:"n",w:"entertainment",zh:"娛樂",s:"Musical instruments are more than tools for ___."},
+{c:"n",w:"hardship",zh:"艱苦、困難",s:"The Okinawan sanshin tells a story of music surviving through ___."},
+{c:"n",w:"ceremony",zh:"典禮、儀式",s:"The bagpipe was played at festivals, ___, and military events."},
+{c:"n",w:"resistance",zh:"反抗、抵抗",s:"Officials believed bagpipes encouraged Scottish ___."},
+{c:"v",w:"ban",zh:"禁止",s:"The British government decided to ___ the bagpipe."},
+{c:"v",w:"declare",zh:"宣布、宣稱",s:"Officials even ___ the bagpipe an “instrument of war.”"},
+{w:"profound",zh:"深刻的",s:"The sanshin tells a ___ story of music surviving through hardship.",o:["profound","homemade","crowded","lazy"]},
+{c:"v",w:"accompany",zh:"為……伴奏",s:"For over 500 years, the sanshin was used to ___ local songs and dances."},
+{c:"n",w:"celebration",zh:"慶典、慶祝活動",s:"Families played the sanshin at every family ___."},
+{c:"n",w:"significance",zh:"重要性、意義",s:"The sanshin’s ___ grew even greater after the Battle of Okinawa."},
+{c:"n",w:"recovery",zh:"復原、恢復",s:"The kankara sanshin became a symbol of hope and ___."},
+{c:"n",w:"cord",zh:"細繩、電線",s:"Okinawans made new strings from parachute ___."},
+{c:"n",w:"parachute",zh:"降落傘",s:"Okinawans built sanshin from tin cans, scrap wood, and ___ cords."},
+{c:"v",w:"originated",zh:"起源、發源（originate）",s:"The bagpipe probably ___ in the Middle East."},
+{c:"n",w:"uprising",zh:"起義、暴動",s:"The British government tried to weaken Highland culture after a series of ___."},
+{c:"n",w:"python",zh:"巨蟒",s:"Traditionally, the body of the sanshin is covered with ___ skin."},
+{w:"homemade",zh:"自製的",s:"These ___ versions became known as kankara sanshin.",o:["homemade","profound","crowded","silent"]},
+{c:"p",w:"hold together",zh:"維持團結",s:"Music helped communities ___ through war and hardship.",o:["hold together","weather the storm","due to","so long as"]},
+{c:"p",w:"due to",zh:"因為、由於",s:"The sanshin became more important ___ the Battle of Okinawa.",o:["due to","so long as","hold together","weather the storm"]},
+{c:"p",w:"weather the storm",zh:"度過難關",s:"By offering comfort, the kankara sanshin helped people ___.",o:["weather the storm","hold together","due to","so long as"]},
+{c:"p",w:"so long as",zh:"只要",s:"Culture can survive the hardest times ___ people share it with future generations.",o:["so long as","due to","hold together","weather the storm"]}
+];
+const $=id=>document.getElementById(id);
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+const POOL=c=>BANK.filter(x=>x.c===c).map(x=>x.w);
+
+/* ---- sound: synthesized, nothing to download ---- */
+let AC=null,muted=false;
+function ac(){if(!AC){try{AC=new(window.AudioContext||window.webkitAudioContext)()}catch(e){}}if(AC&&AC.state==="suspended")AC.resume();return AC}
+function tone(f,d,type,v,at,f2){if(muted)return;const a=ac();if(!a)return;const t=a.currentTime+(at||0),o=a.createOscillator(),g=a.createGain();o.type=type||"triangle";o.frequency.setValueAtTime(f,t);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+d);g.gain.setValueAtTime(v||.2,t);g.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+d+.05)}
+const PENT=[261.6,293.7,329.6,392,440,523.3,587.3,659.3,784,880];
+const sfx={
+ ok(s){const f=PENT[Math.min(s,9)];tone(f,.7,"triangle",.28);tone(f*2,.45,"sine",.08)},
+ bad(){tone(160,.45,"sawtooth",.14,0,70);tone(120,.45,"square",.07,.05,60)},
+ tick(){tone(950,.05,"square",.05)},
+ click(){tone(520,.07,"sine",.12)},
+ help(){tone(660,.15,"sine",.16);tone(990,.25,"sine",.16,.1)},
+ win(){[0,2,4,5,7,9].forEach((n,k)=>tone(PENT[n],.55,"triangle",.24,k*.13))}
+};
+
+/* ---- race game ---- */
+sfx.dash=s=>{const f=PENT[Math.min(s>>1,9)];tone(f,.25,"sawtooth",.1,0,f*2);tone(f*2,.55,"triangle",.22,.12)};
+sfx.bot=()=>tone(300,.08,"sine",.06);
+sfx.cd=()=>tone(440,.15,"square",.1);
+sfx.go=()=>{tone(880,.5,"square",.12);tone(1320,.5,"triangle",.12,.1)};
+const CH=[["🐯","Tiger"],["🐼","Panda"],["🦊","Fox"],["🐸","Frog"],["🐧","Penguin"],["🐰","Bunny"]];
+const TL=15;
+let T=1,TR=12,L=[],qs=[],i=0,missed=[],left=TL,timer=null,locked=true,pool=BANK,over=false,lastCh=0;
+const cur=()=>T>1?i%T:0;
+
+$("chars").innerHTML=CH.map((c,k)=>'<button class="btn ghost" data-c="'+k+'">'+c[0]+" "+c[1]+"</button>").join("");
+$("chars").onclick=e=>{const b=e.target.closest("[data-c]");if(b){ac();sfx.click();begin(1,BANK,+b.dataset.c)}};
+$("modes").innerHTML=[2,3,4,5,6].map(n=>'<button class="btn ghost" data-n="'+n+'">'+n+" teams</button>").join("");
+$("modes").onclick=e=>{const b=e.target.closest("[data-n]");if(b){ac();sfx.click();begin(+b.dataset.n,BANK)}};
+$("mute").onclick=()=>{muted=!muted;$("mute").textContent=muted?"🔇 Sound off":"🔊 Sound on";if(!muted)sfx.click()};
+function show(id){["start","play","end"].forEach(s=>$(s).classList.toggle("hide",s!==id))}
+
+function begin(n,list,ch){
+  T=n;pool=list;TR=n===1?12:n<=3?10:8;over=false;
+  if(n===1){lastCh=ch;const rest=shuffle(CH.filter((_,k)=>k!==ch)).slice(0,3);
+    L=[{e:CH[ch][0],n:"You"},...rest.map((c,k)=>({e:c[0],n:c[1],bot:1,p:[.6,.7,.8][k]}))];}
+  else L=Array.from({length:n},(_,k)=>({e:CH[k][0],n:"Team "+(k+1)}));
+  L.forEach(l=>{l.pos=0;l.st=0;l.ll=n===1?2:1;l.ok=0});
+  qs=shuffle(list);i=0;missed=[];
+  $("track").innerHTML=L.map(l=>'<div class="lane"><span class="nm">'+l.n+'</span><div class="rail"><span class="runner">'+l.e+'</span><span class="flag">🏁</span></div></div>').join("");
+  move();show("play");$("opts").innerHTML="";$("q").textContent="Get ready…";$("fb").classList.add("hide");$("next").classList.add("hide");$("ll").classList.add("hide");$("combo").textContent="";$("turn").textContent="";$("tl").textContent="";
+  $("num").textContent="First to "+TR+" steps wins";
+  let c=3;const cd=$("cd");cd.classList.remove("hide");cd.textContent=c;sfx.cd();
+  const iv=setInterval(()=>{c--;if(c>0){cd.textContent=c;sfx.cd()}else{clearInterval(iv);cd.textContent="GO!";sfx.go();setTimeout(()=>{cd.classList.add("hide");ask()},600)}},800);
+}
+function move(){
+  document.querySelectorAll(".lane").forEach((el,k)=>{
+    el.querySelector(".runner").style.left="calc("+(L[k].pos/TR)+" * (100% - 34px))";
+    el.classList.toggle("on",T>1&&!over&&k===cur());
+  });
+}
+function ask(){
+  const x=qs[i],t=cur(),l=L[t];locked=false;
+  $("turn").textContent=T>1?l.e+" "+l.n+"’s turn":"Your turn";
+  $("combo").textContent=l.st%3===2?"🔥 One more correct answer for a Turbo step!":l.st>0?"🔥 "+l.st+" in a row":"";
+  $("q").innerHTML=x.s.replace("___",'<span class="blank">&nbsp;</span>');
+  const opts=x.o?shuffle(x.o):shuffle([x.w,...shuffle(POOL(x.c).filter(p=>p!==x.w)).slice(0,3)]);
+  $("opts").innerHTML="";
+  opts.forEach((o,k)=>{const b=document.createElement("button");b.className="opt";b.innerHTML="<kbd>"+(k+1)+"</kbd>"+o;b.dataset.v=o;b.onclick=()=>pick(o);$("opts").appendChild(b)});
+  $("fb").classList.add("hide");$("next").classList.add("hide");
+  $("ll").textContent="50:50 ("+l.ll+")";$("ll").disabled=l.ll<1;$("ll").classList.remove("hide");
+  $("card").classList.remove("shake","pop");move();
+  left=TL;clearInterval(timer);paint();
+  timer=setInterval(()=>{left-=.1;if(left<=0){left=0;paint();clearInterval(timer);pick(null)}else{paint();if(left<=5&&Math.abs(left-Math.round(left))<.05)sfx.tick()}},100);
+}
+function paint(){$("tfill").style.width=(left/TL*100)+"%";$("tbar").classList.toggle("low",left<=5);$("tl").textContent=Math.ceil(left)+" s"}
+function pick(o){
+  if(locked)return;locked=true;clearInterval(timer);
+  const x=qs[i],t=cur(),l=L[t],right=o===x.w;
+  document.querySelectorAll(".opt").forEach(b=>{b.disabled=true;if(b.dataset.v===x.w)b.classList.add("ok");else if(b.dataset.v===o)b.classList.add("bad")});
+  let msg;
+  if(right){
+    let step=1,tag="Correct! +1 step";
+    if(left>=10){step=2;tag="⚡ Dash! +2 steps"}
+    l.st++;l.ok++;
+    if(l.st%3===0){step++;tag+=" · 🔥 Turbo +1"}
+    l.pos=Math.min(TR,l.pos+step);
+    step>1?sfx.dash(l.pos):sfx.ok(l.pos);$("card").classList.add("pop");
+    msg="<b>"+tag+"</b>";
+  }else{
+    l.st=0;missed.push(x);sfx.bad();$("card").classList.add("shake");
+    msg="<b>"+(o===null?"Time’s up!":"Not quite.")+" No move.</b>";
+  }
+  let bots="";
+  if(T===1){L.forEach(b=>{if(b.bot&&b.pos<TR&&Math.random()<b.p){b.pos++;bots+=b.e+" "}});if(bots)setTimeout(sfx.bot,500);}
+  over=L.some(z=>z.pos>=TR);
+  $("q").innerHTML=x.s.replace("___",'<span class="blank">'+x.w+'</span>');
+  $("fb").innerHTML=msg+"Answer: "+x.w+" ("+x.zh+")"+(bots?"<br><span class='mute'>Moved ahead: "+bots+"</span>":"");$("fb").classList.remove("hide");
+  $("ll").classList.add("hide");move();
+  $("next").textContent=over?"See results":"Next question";$("next").classList.remove("hide");$("next").focus();
+}
+$("ll").onclick=()=>{
+  if(locked)return;const l=L[cur()],x=qs[i];if(l.ll<1)return;l.ll--;sfx.help();
+  shuffle([...document.querySelectorAll(".opt")].filter(b=>b.dataset.v!==x.w)).slice(0,2).forEach(b=>{b.disabled=true;b.classList.add("gone")});
+  $("ll").textContent="50:50 ("+l.ll+")";$("ll").disabled=true;
+};
+$("next").onclick=()=>{sfx.click();if(over)return finish();i++;if(i>=qs.length)qs=qs.concat(shuffle(pool));ask()};
+document.addEventListener("keydown",e=>{
+  if($("play").classList.contains("hide"))return;
+  if(e.key>="1"&&e.key<="4"&&!locked){const b=document.querySelectorAll(".opt")[+e.key-1];if(b&&!b.disabled)pick(b.dataset.v)}
+  else if(e.key==="Enter"&&locked&&!$("next").classList.contains("hide")){e.preventDefault();$("next").click()}
+});
+
+function finish(){
+  clearInterval(timer);show("end");sfx.win();
+  const win=T===1?(L[0].pos>=TR?L[0]:L.find(z=>z.pos>=TR)):L.find(z=>z.pos>=TR);
+  const order=[win,...L.filter(z=>z!==win).sort((a,b)=>b.pos-a.pos)];
+  $("title").textContent=T===1?(win===L[0]?"🏆 You win the race!":"🏁 "+win.e+" "+win.n+" won. Race again!"):"🏆 "+win.e+" "+win.n+" wins!";
+  $("rank").innerHTML=order.map((z,k)=>"<li><span>"+(k+1)+". "+z.e+" "+z.n+"</span><b>"+z.pos+" / "+TR+" · "+z.ok+" correct</b></li>").join("");
+  const seen={};missed=missed.filter(m=>seen[m.w]?false:(seen[m.w]=1));
+  $("miss").innerHTML=missed.map(m=>"<li><b>"+m.w+"</b> – "+m.zh+"<br><span class='mute'>"+m.s.replace("___",m.w)+"</span></li>").join("");
+  $("missbox").classList.toggle("hide",!missed.length);$("retry").classList.toggle("hide",!missed.length);
+  for(let k=0;k<28;k++){const s=document.createElement("span");s.className="conf";s.textContent=["🎵","🎶","🎉","⭐"][k%4];s.style.left=Math.random()*100+"vw";s.style.animationDelay=Math.random()*1.2+"s";document.body.appendChild(s);setTimeout(()=>s.remove(),5000)}
+}
+$("again").onclick=()=>{sfx.click();show("start")};
+$("retry").onclick=()=>{sfx.click();begin(T,missed.slice(),lastCh)};
+</script>
+</body>
+</html>
