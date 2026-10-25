@@ -1,0 +1,187 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mood Detectives Quiz Bee</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&display=swap">
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--ink:#14122b;--joy:#ffcf3f;--sad:#4aa3ff;--ang:#ff5a4d;--fear:#a07bff;--dis:#55c98a;--tx:#fff8e7}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:var(--ink);color:var(--tx);font-family:"Fredoka","Trebuchet MS",system-ui,sans-serif;text-align:center}
+header{display:flex;align-items:center;justify-content:space-between;padding:12px 18px}
+h1{margin:0;font-size:clamp(20px,4vw,34px);color:var(--joy)}
+button{font:inherit;cursor:pointer;border:0;border-radius:14px;padding:12px 24px;font-weight:700;font-size:20px;color:var(--ink);background:var(--joy);box-shadow:0 5px 0 #b58f00}
+button:active{transform:translateY(4px);box-shadow:0 1px 0 #b58f00}button:disabled{opacity:.4;cursor:default}
+#mute{font-size:16px;padding:8px 14px}
+#score{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:0 12px 10px}
+.sc{background:#ffffff18;border-top:5px solid var(--c);border-radius:12px;padding:6px 8px;width:118px}
+.sc input{width:100%;background:transparent;border:0;border-bottom:1px dashed #ffffff55;color:var(--tx);font:inherit;font-size:15px;text-align:center;padding:2px}
+.sc b{display:block;font-size:34px;line-height:1.1;color:var(--joy)}
+.sc button{font-size:16px;padding:0;width:34px;height:28px;border-radius:8px;box-shadow:none;margin:0 3px}
+.sc.hi{outline:3px solid #fff}
+main{max-width:980px;margin:0 auto;padding:10px 16px 30px}
+h2{font-size:clamp(20px,3.5vw,30px);margin:8px 0 16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:12px}
+.tile{border-radius:18px;padding:22px 6px;font-size:clamp(20px,4vw,34px);font-weight:700;color:var(--ink);background:var(--c);transition:transform .1s,opacity .2s}
+.tile.on{transform:scale(1.12);outline:6px solid #fff;box-shadow:0 0 30px var(--c)}
+.tile.done{opacity:.2}button.tile{box-shadow:none}
+.qbox{background:#ffffff14;border:3px solid var(--joy);border-radius:22px;padding:26px 18px;margin:12px 0;font-size:clamp(24px,5vw,46px);line-height:1.25;animation:pop .5s}
+@keyframes pop{from{transform:scale(.3) rotate(-4deg);opacity:0}to{transform:none;opacity:1}}
+#num{font-size:clamp(70px,16vw,140px);font-weight:700;line-height:1;color:var(--joy)}
+#num.low{color:var(--ang)}
+.bar{height:14px;border-radius:9px;background:#ffffff22;overflow:hidden;margin:8px 0 14px}
+#fill{height:100%;width:100%;background:var(--dis);transition:width 1s linear,background .3s}
+.ans{background:var(--dis);color:var(--ink);border-radius:22px;padding:20px;font-size:clamp(22px,4vw,36px);font-weight:700;animation:pop .5s}
+.row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:16px}
+.ok{background:var(--dis);box-shadow:0 5px 0 #2f8a58}.no{background:var(--ang);box-shadow:0 5px 0 #a3271d}
+.hide{display:none}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style></head><body>
+<header><h1>🕵️ Mood Detectives Quiz Bee</h1><button id="mute" onclick="toggleMute()">🔊 Sound on</button></header>
+<div id="score"></div>
+<main>
+<section id="s1"><h2>Who will play next?</h2><div class="grid" id="players"></div>
+<div class="row"><button id="spin" onclick="spin()">🎲 Pick a player</button><button id="resetBtn" style="background:transparent;box-shadow:none;color:var(--tx);opacity:.7;font-size:14px" onclick="clearState();location.reload()">↺ Reset game</button></div>
+<div class="row"><button style="background:transparent;box-shadow:none;color:var(--tx);opacity:.7;font-size:14px" onclick="downloadResults()">⬇ Download all games so far</button></div></section>
+
+<section id="s2" class="hide"><h2 id="who"></h2><p>Choose a question number</p><div class="grid" id="qs"></div></section>
+
+<section id="s3" class="hide"><h2 id="who2"></h2>
+<div id="phase" style="font-size:clamp(20px,4vw,32px);font-weight:700;min-height:1.3em"></div><div id="num">15</div><div class="bar"><div id="fill"></div></div>
+<div class="qbox" id="qtext"></div>
+<div id="ans" class="ans hide"></div>
+<div class="row"><button id="rev" onclick="reveal()">👀 Reveal answer</button></div>
+<div class="row hide" id="judge"><button class="ok" onclick="award(true)">✔ Correct +2</button><button class="no" onclick="award(false)">✘ Wrong +0</button></div></section>
+
+<section id="s4" class="hide"><h2>🏆 Final results</h2><div class="qbox" id="final"></div><div class="row"><button id="dlBtn" onclick="downloadResults()">⬇ Download results</button><button onclick="clearState();location.reload()">Play again</button></div></section>
+</main>
+<script>
+const Q=[
+["What is dopamine dressing?","choosing clothes for their mood-boosting powers (line 10)"],
+["What is dopamine’s nickname?","the “happiness hormone” (line 16)"],
+["What color shows calmness?","blue (line 27-28)"],
+["What color shows creativity?","green (line 31)"],
+["What is enclothed cognition?","what we wear shapes our mindset (line 33)"],
+["In the lab coat study, what did coats scored better on?","attention tests (line 39)"],
+["What should you wear for an interview or presentation?","a more polished outfit (line 46)"],
+["Why did lab coat wearers do better on attention tests?","associated the coats with focus and precision (lines 40-41)"],
+["What can switching from pajamas to workwear do to your mood?","shift it from relaxed to energetic (lines 35-37)"],
+["What should you do instead of relying on casual clothing for focus?","dress for the task at hand (lines 44-45)"]];
+const C=["var(--joy)","var(--sad)","var(--ang)","var(--fear)","var(--dis)","var(--sad)","var(--joy)","var(--fear)","var(--dis)","var(--ang)"];
+const $=id=>document.getElementById(id);
+let names=[1,2,3,4,5,6,7].map(n=>"Team "+n),scores=Array(7).fill(0),played=[],used=[],cur=-1,curQ=-1,timer=null,mute=false,ac=null,busy=false;
+
+/* ---------- sound (Web Audio, no files) ---------- */
+function A(){try{if(!ac)ac=new (window.AudioContext||window.webkitAudioContext)();if(ac.state==="suspended")ac.resume()}catch(e){}return ac}
+function tone(f,d,type="sine",v=.2,t0=0,f2){if(mute)return;const c=A();if(!c)return;const o=c.createOscillator(),g=c.createGain(),t=c.currentTime+t0;
+o.type=type;o.frequency.setValueAtTime(f,t);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+d);
+g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(g);g.connect(c.destination);o.start(t);o.stop(t+d+.02)}
+const sfx={
+ spinTick:n=>tone(350+(n%8)*70,.07,"triangle",.25),
+ picked:()=>{[523,659,784,1047,1319,1568].forEach((f,i)=>tone(f,.28,"square",.14,i*.08));tone(130,.6,"sawtooth",.15,.1)},
+ choose:()=>{tone(300,.18,"sawtooth",.15,0,900);tone(900,.2,"square",.12,.15)},
+ flash:()=>{tone(180,.5,"sawtooth",.14,0,1800);[660,880,1320].forEach((f,i)=>tone(f,.18,"square",.14,.35+i*.11))},
+ tick:()=>tone(1000,.05,"square",.11),
+ urgent:()=>tone(1600,.09,"square",.2),
+ phase:()=>{[880,1175,1568].forEach((f,i)=>tone(f,.25,"triangle",.25,i*.09));tone(600,.4,"sine",.15,.3,1800)},
+ buzz:()=>{tone(150,1,"sawtooth",.28);tone(110,1,"square",.2)},
+ reveal:()=>{for(let i=0;i<8;i++)tone(200,.05,"square",.08,i*.06);[784,988,1175,1568].forEach((f,i)=>tone(f,.45,"sine",.25,.5+i*.1))},
+ good:()=>[523,659,784,1047].forEach((f,i)=>tone(f,.3,"triangle",.22,i*.1)),
+ bad:()=>[400,330,260,190].forEach((f,i)=>tone(f,.3,"sawtooth",.15,i*.14))};
+function toggleMute(){mute=!mute;$("mute").textContent=mute?"🔇 Sound off":"🔊 Sound on";A()}
+
+/* ---------- screens ---------- */
+function show(id){["s1","s2","s3","s4"].forEach(s=>$(s).classList.toggle("hide",s!==id))}
+function drawScore(){$("score").innerHTML=scores.map((s,i)=>`<div class="sc ${i===cur?"hi":""}" style="--c:${C[i]}"><input value="${names[i]}" maxlength="14" aria-label="Team ${i+1} name" oninput="renameTeam(${i},this.value)"><b>${s}</b><button onclick="adj(${i},-1)" aria-label="minus 1">−</button><button onclick="adj(${i},1)" aria-label="plus 1">+</button></div>`).join("")}
+function adj(i,d){scores[i]+=d;saveState();drawScore();d>0?sfx.good():sfx.tick()}
+function renameTeam(i,v){names[i]=v||"Team "+(i+1);saveState();drawPlayers(-1)}
+function drawPlayers(hl){$("players").innerHTML=scores.map((_,i)=>`<div class="tile ${played.includes(i)?"done":""} ${i===hl?"on":""}" style="--c:${C[i]}">Player No.${i+1}</div>`).join("")}
+function drawQs(){$("qs").innerHTML=Q.map((_,i)=>`<button class="tile ${used.includes(i)?"done":""}" style="--c:${C[i]}" ${used.includes(i)?"disabled":""} onclick="pickQ(${i})">${i+1}</button>`).join("")}
+
+/* ---------- game flow ---------- */
+function spin(){
+ if(busy)return;A();busy=true;$("spin").disabled=true;
+ const avail=[...Array(7).keys()].filter(i=>!played.includes(i));
+ const total=20+Math.floor(Math.random()*avail.length*2);let n=0;
+ (function step(){
+  const i=avail[n%avail.length];drawPlayers(i);sfx.spinTick(n);n++;
+  if(n<total)setTimeout(step,50+n*n*.55);
+  else{cur=i;sfx.picked();setTimeout(()=>{busy=false;$("spin").disabled=false;$("who").textContent="🎉 Player No."+(cur+1)+", pick a question!";drawScore();drawQs();show("s2")},1500)}
+ })();
+}
+function pickQ(i){
+ A();curQ=i;sfx.choose();
+ setTimeout(()=>{
+  $("who2").textContent="Player No."+(cur+1)+" • Question "+(i+1);
+  $("qtext").textContent=Q[i][0];$("qtext").style.animation="none";void $("qtext").offsetWidth;$("qtext").style.animation="";
+  $("ans").classList.add("hide");$("judge").classList.add("hide");$("rev").classList.remove("hide");
+  show("s3");sfx.flash();startTimer();
+ },500);
+}
+const T_THINK=15,T_WRITE=15; /* seconds: change here */
+function startTimer(){clearTimeout(timer);run(1,T_THINK,1900)}
+function run(ph,t,delay){
+ const num=$("num"),fill=$("fill"),low=ph===1?5:3,base=ph===1?"var(--dis)":"var(--sad)",total=t;
+ $("phase").textContent=ph===1?"📖 Read and think of the answer":"✍️ Write it on your whiteboard!";
+ num.textContent=t;num.classList.remove("low");fill.style.transition="none";fill.style.width="100%";fill.style.background=base;
+ setTimeout(()=>{fill.style.transition="width 1s linear, background .3s"},50);
+ timer=setTimeout(function go(){
+  t--;num.textContent=t;fill.style.width=(t/total*100)+"%";
+  if(t<=low){num.classList.add("low");fill.style.background="var(--ang)"}
+  if(t>0){t<=low?sfx.urgent():sfx.tick();timer=setTimeout(go,1000)}
+  else if(ph===1){sfx.phase();run(2,T_WRITE,700)}
+  else{sfx.buzz();num.textContent="⏰";$("phase").textContent="Pens down! Boards up!"}
+ },delay);
+}
+function reveal(){
+ clearTimeout(timer);$("num").textContent="✅";$("phase").textContent="Answer time!";$("num").classList.remove("low");
+ $("ans").textContent=Q[curQ][1];$("ans").classList.remove("hide");
+ $("rev").classList.add("hide");$("judge").classList.remove("hide");sfx.reveal();
+}
+const SAVE_KEY="mdqb_save_v1",HIST_KEY="mdqb_history_v1";
+function confirmReset(btn){
+ if(btn.dataset.armed){clearState();location.reload();return}
+ btn.dataset.armed="1";const old=btn.textContent;btn.textContent="Tap again to confirm reset";btn.style.opacity="1";btn.style.color="var(--ang)";
+ setTimeout(()=>{if(btn.dataset.armed){delete btn.dataset.armed;btn.textContent=old;btn.style.opacity=".7";btn.style.color="var(--tx)"}},3000);
+}
+function saveState(){try{localStorage.setItem(SAVE_KEY,JSON.stringify({names,scores,played,used}))}catch(e){}}
+function getHistory(){try{return JSON.parse(localStorage.getItem(HIST_KEY)||"[]")}catch(e){return[]}}
+function recordGame(){try{const h=getHistory();h.push({ts:new Date().toISOString(),names:[...names],scores:[...scores]});localStorage.setItem(HIST_KEY,JSON.stringify(h))}catch(e){}}
+async function downloadResults(){
+ const games=getHistory();
+ if(games.length===0)games.push({ts:new Date().toISOString(),names,scores}); // fallback: nothing recorded yet, use current
+ let csv="Game,Date,Team,Score\n";
+ games.forEach((g,gi)=>{
+  const d=new Date(g.ts);const date=isNaN(d)?g.ts:d.toLocaleString();
+  g.names.forEach((n,i)=>{csv+=`${gi+1},${date},${n},${g.scores[i]}\n`});
+ });
+ const stamp=new Date().toISOString().slice(0,16).replace("T","_").replace(":","-");
+ const btn=document.getElementById("dlBtn"),old=btn?btn.textContent:null;
+ try{
+  const downloads=await claude.use("downloads");
+  if(downloads){await downloads.save({filename:`mood-detectives-results_all-games_${stamp}.csv`,data:csv});return}
+ }catch(e){}
+ try{
+  const blob=new Blob([csv],{type:"text/csv"}),url=URL.createObjectURL(blob),a=document.createElement("a");
+  a.href=url;a.download=`mood-detectives-results_all-games_${stamp}.csv`;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
+ }catch(e){
+  if(btn){btn.textContent="Download not available";setTimeout(()=>{btn.textContent=old},2500)}
+ }
+}
+function loadState(){try{const raw=localStorage.getItem(SAVE_KEY);if(!raw)return;const d=JSON.parse(raw);
+ if(d&&Array.isArray(d.scores)&&d.scores.length===scores.length){names=d.names||names;scores=d.scores;played=d.played||[];used=d.used||[]}}catch(e){}}
+function clearState(){try{localStorage.removeItem(SAVE_KEY)}catch(e){}}
+function award(ok){
+ if(ok){scores[cur]+=2;sfx.good()}else sfx.bad();
+ played.push(cur);used.push(curQ);if(played.length===7)played=[];
+ saveState();
+ drawScore();
+ if(used.length===Q.length){
+  recordGame();
+  const max=Math.max(...scores),w=scores.map((s,i)=>s===max?names[i]:null).filter(Boolean).join(" & ");
+  $("final").innerHTML=`<div style="font-size:1.4em;color:var(--joy)">🥇 ${w}</div><div style="font-size:.6em;margin-top:10px">${scores.map((s,i)=>`${names[i]}: ${s}`).join(" &nbsp;•&nbsp; ")}</div>`;
+  show("s4");setTimeout(sfx.picked,400);return;
+ }
+ drawPlayers(-1);show("s1");
+}
+loadState();drawScore();drawPlayers(-1);
+</script></body></html>
