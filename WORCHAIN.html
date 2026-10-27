@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Word Chain: When Musical Instruments Become Cultural Symbols</title>
+<style>
+:root{--bg:#eef0ea;--ink:#1c2420;--muted:#5d6862;--pink:#f1c9d0;--card:#fff;--line:#1c2420;--ok:#2f7d4f;--bad:#b3362f;--accent:#1c2420;--accent-ink:#fff;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#171c19;--ink:#eef0ea;--muted:#a3ada7;--pink:#5a3a42;--card:#222a26;--line:#eef0ea;--ok:#6fcf97;--bad:#ff8a80;--accent:#eef0ea;--accent-ink:#171c19}}
+:root[data-theme="dark"]{--bg:#171c19;--ink:#eef0ea;--muted:#a3ada7;--pink:#5a3a42;--card:#222a26;--line:#eef0ea;--ok:#6fcf97;--bad:#ff8a80;--accent:#eef0ea;--accent-ink:#171c19}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif}
+body{padding:16px 14px 40px}
+main{max-width:520px;margin:0 auto}
+h1{font-family:Georgia,"Times New Roman",serif;font-size:clamp(34px,10vw,52px);line-height:1;margin:6px 0 6px;font-weight:900;letter-spacing:-1px}
+.sub{color:var(--muted);margin:0 0 14px;font-size:15px;line-height:1.4}
+.tabs{display:flex;gap:8px;margin-bottom:12px}
+.tab{flex:1;padding:10px 6px;border:2px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);font:inherit;font-weight:700;font-size:14px;cursor:pointer}
+.tab[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
+.bar{display:flex;justify-content:space-between;font-size:14px;color:var(--muted);margin:4px 2px 12px}
+.step{display:flex;flex-direction:column;align-items:center}
+.card{width:100%;box-sizing:border-box;border:2px solid var(--line);border-radius:16px;background:var(--card);padding:12px 14px;text-align:center;transition:opacity .2s}
+.card.pink{background:var(--pink)}
+.card.locked{opacity:.4}
+.card.done{border-color:var(--ok)}
+.phrase{font-size:clamp(20px,6vw,28px);font-weight:900;display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:center;min-height:42px}
+.phrase input{font:inherit;font-weight:900;text-transform:uppercase;width:7.5em;max-width:60vw;text-align:center;border:0;border-bottom:3px solid var(--line);background:transparent;color:var(--ink);padding:2px 4px;border-radius:0}
+.phrase input:focus{outline:3px solid var(--ok);outline-offset:2px}
+.phrase input.wrong{border-color:var(--bad);animation:shake .3s}
+.ans{color:var(--ok);border-bottom:3px solid var(--ok);padding:0 6px}
+.clue{font-size:14px;color:var(--muted);margin:6px 0 0;line-height:1.4}
+.row{display:flex;gap:8px;justify-content:center;margin-top:8px}
+button.sm{font:inherit;font-size:13px;font-weight:700;padding:7px 12px;border-radius:10px;border:2px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button.main{background:var(--accent);color:var(--accent-ink)}
+button:focus-visible{outline:3px solid var(--ok);outline-offset:2px}
+.msg{min-height:18px;font-size:13px;margin-top:6px;font-weight:700}
+.arrow{font-size:20px;line-height:1;color:var(--muted);height:22px}
+.end{margin-top:16px;border:2px solid var(--ok);border-radius:16px;padding:16px;text-align:center;background:var(--card);display:none}
+.end.show{display:block}
+.end h2{margin:0 0 6px;font-family:Georgia,serif;font-size:24px}
+.stars{font-size:28px;letter-spacing:4px}
+@keyframes shake{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+<h1>WORD CHAIN</h1>
+<p class="sub">Each word connects to the next to make a familiar word or phrase. Use words from “When Musical Instruments Become Cultural Symbols.”</p>
+<div class="tabs" role="tablist" id="tabs"></div>
+<div class="bar"><span id="prog"></span><span id="hints"></span></div>
+<div id="chain"></div>
+<div class="end" id="end"></div>
+<div class="row" style="margin-top:14px"><button class="sm" id="restart">Restart this level</button></div>
+</main>
+<script>
+var LEVELS=[
+{name:"Level 1: Compound chain",start:"SCRAP",steps:[
+{p:"SCRAP ___",a:["wood"],c:"The Okinawans made instruments from tin cans, ___ and parachute cords."},
+{p:"WOOD ___",a:["wind"],c:"One word: flutes and clarinets are ___wind instruments (woodwind)."},
+{p:"WIND ___",a:["instrument","instruments"],c:"Something you play to make music, like a bagpipe or sanshin."},
+{p:"___ OF WAR",a:["instrument"],c:"The government declared the bagpipe an “___ of war.”",pre:"INSTRUMENT",post:"OF WAR",hide:"instrument"},
+{p:"WAR ___",a:["time"],c:"One word: music gave people hope in ___time (wartime)."}
+]},
+{name:"Level 2: Phrase chain",start:"HOLD",steps:[
+{p:"HOLD ___",a:["together"],c:"Music helped communities hold ___ through war and hardship."},
+{p:"WEATHER THE ___",a:["storm"],c:"The kankara sanshin helped people weather the ___."},
+{p:"DUE ___",a:["to"],c:"The sanshin’s significance grew greater ___ the Battle of Okinawa."},
+{p:"SO LONG ___",a:["as"],c:"Culture can survive ___ long ___ people keep sharing it."},
+{p:"IN ___",a:["secret"],c:"Many Scots kept playing bagpipes in ___ when they were banned."},
+{p:"LEFT ___",a:["behind"],c:"They used materials left ___ by American military camps."}
+]}
+];
+var cur=0,idx=0,hints=0,wrongs=0,done=[];
+var $=function(i){return document.getElementById(i)};
+function el(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!==undefined)e.textContent=x;return e}
+function tabs(){var t=$("tabs");t.innerHTML="";LEVELS.forEach(function(l,i){var b=el("button","tab",l.name);b.setAttribute("role","tab");b.setAttribute("aria-selected",i===cur);b.onclick=function(){cur=i;start()};t.appendChild(b)})}
+function start(){idx=0;hints=0;wrongs=0;done=[];$("end").className="end";tabs();render()}
+function render(){
+ var L=LEVELS[cur],ch=$("chain");ch.innerHTML="";
+ $("prog").textContent="Solved "+idx+" of "+L.steps.length;$("hints").textContent="Hints used: "+hints;
+ var s0=el("div","step");var c0=el("div","card pink");c0.appendChild(el("div","phrase",L.start));s0.appendChild(c0);ch.appendChild(s0);
+ L.steps.forEach(function(s,i){
+  var st=el("div","step");st.appendChild(el("div","arrow","↓"));
+  var solved=i<idx,active=i===idx;
+  var card=el("div","card"+(i%2===0?"":" pink")+(solved?" done":"")+(!solved&&!active?" locked":""));
+  var ph=el("div","phrase");
+  var parts=s.p.split("___");
+  if(parts[0].trim())ph.appendChild(el("span","",parts[0].trim()));
+  if(solved){ph.appendChild(el("span","ans",(s.a[0]).toUpperCase()))}
+  else{var inp=el("input");inp.type="text";inp.autocomplete="off";inp.autocapitalize="off";inp.spellcheck=false;inp.disabled=!active;inp.setAttribute("aria-label","Answer for box "+(i+1));inp.id="in"+i;
+   inp.onkeydown=function(e){if(e.key==="Enter")check(i)};ph.appendChild(inp)}
+  if(parts[1]&&parts[1].trim())ph.appendChild(el("span","",parts[1].trim()));
+  card.appendChild(ph);
+  if(solved||active)card.appendChild(el("p","clue",s.c));
+  if(active){
+   var r=el("div","row");var b1=el("button","sm main","Check");b1.onclick=function(){check(i)};
+   var b2=el("button","sm","Hint");b2.onclick=function(){hint(i)};r.appendChild(b1);r.appendChild(b2);card.appendChild(r);
+   var m=el("div","msg");m.id="msg";m.setAttribute("aria-live","polite");card.appendChild(m)}
+  st.appendChild(card);ch.appendChild(st)});
+ var a=document.getElementById("in"+idx);if(a)a.focus({preventScroll:false});
+ if(idx>=L.steps.length)finish();
+}
+function check(i){
+ var v=$("in"+i).value.trim().toLowerCase(),s=LEVELS[cur].steps[i];
+ if(!v){$("msg").textContent="Type a word first.";return}
+ if(s.a.indexOf(v)>-1){idx++;render()}
+ else{wrongs++;var inp=$("in"+i);inp.classList.remove("wrong");void inp.offsetWidth;inp.classList.add("wrong");$("msg").style.color="var(--bad)";$("msg").textContent="Not quite. Try again or use a hint."}
+}
+function hint(i){
+ var s=LEVELS[cur].steps[i],w=s.a[0],inp=$("in"+i);hints++;
+ var n=Math.min(w.length,Math.max(1,Math.ceil(inp.value.length>0&&w.indexOf(inp.value.toLowerCase())===0?inp.value.length+1:1)));
+ inp.value=w.slice(0,n);$("hints").textContent="Hints used: "+hints;
+ $("msg").style.color="var(--muted)";$("msg").textContent="Starts with “"+w.slice(0,n).toUpperCase()+"” ("+w.length+" letters)";inp.focus();
+}
+function finish(){
+ var e=$("end");e.innerHTML="";var pts=Math.max(0,3-Math.floor((hints+wrongs)/3));
+ e.appendChild(el("div","stars","★".repeat(pts)+"☆".repeat(3-pts)));
+ e.appendChild(el("h2","","Chain complete!"));
+ e.appendChild(el("p","clue","Hints: "+hints+" · Wrong tries: "+wrongs+". Now try the other level, or write your own chain for a partner."));
+ e.className="end show";
+}
+$("restart").onclick=start;
+start();
+</script>
+</body>
+</html>
