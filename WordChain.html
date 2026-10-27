@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Word Chain: Musical Instruments &amp; Culture</title>
+<style>
+:root{--bg:#faf6ef;--card:#fff;--ink:#2b2420;--mute:#7a6e64;--accent:#b3261e;--acc2:#1f6f8b;--ok:#2e7d32;--line:#e4dccf;--chip:#f1e9da;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1b1815;--card:#26221e;--ink:#f1ebe2;--mute:#a79c90;--accent:#ff8a80;--acc2:#6cc4e0;--ok:#81c784;--line:#3a342e;--chip:#332d27;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#1b1815;--card:#26221e;--ink:#f1ebe2;--mute:#a79c90;--accent:#ff8a80;--acc2:#6cc4e0;--ok:#81c784;--line:#3a342e;--chip:#332d27;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Georgia,"Noto Serif TC",serif;line-height:1.45}
+main{max-width:720px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin:.2em 0;color:var(--accent)}
+.sub{color:var(--mute);margin:0 0 12px;font-size:.95rem}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:6px 12px;font-family:system-ui,sans-serif;font-size:.9rem}
+.stat b{font-size:1.1rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
+#chain{display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto}
+.w{padding:8px 12px;border-radius:10px;font-family:system-ui,sans-serif;max-width:88%}
+.w.cpu{background:var(--chip);align-self:flex-start}
+.w.me{background:var(--acc2);color:#fff;align-self:flex-end}
+.w b{font-size:1.05rem}.w small{display:block;opacity:.85}
+.w .l{color:var(--accent);font-weight:700}.w.me .l{color:#fff;text-decoration:underline}
+.prompt{font-family:system-ui,sans-serif;margin:0 0 8px}
+.prompt .big{display:inline-block;background:var(--accent);color:#fff;border-radius:8px;padding:0 10px;font-size:1.3rem;font-weight:700;text-transform:uppercase}
+.row{display:flex;gap:8px}
+input{flex:1;font-size:1.1rem;padding:10px 12px;border:2px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);min-width:0}
+input:focus{outline:none;border-color:var(--acc2)}
+button{font-family:system-ui,sans-serif;font-size:1rem;border:0;border-radius:10px;padding:10px 14px;background:var(--acc2);color:#fff;cursor:pointer}
+button.alt{background:var(--chip);color:var(--ink);border:1px solid var(--line)}
+button:disabled{opacity:.5}
+#msg{min-height:1.5em;font-family:system-ui,sans-serif;margin:8px 0 0;font-size:.95rem}
+.bad{color:var(--accent)}.good{color:var(--ok)}
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+#timer{height:6px;background:var(--line);border-radius:4px;overflow:hidden;margin-bottom:10px}
+#timer i{display:block;height:100%;background:var(--ok);width:100%;transition:width 1s linear}
+#bank{display:none}
+#bank.on{display:block}
+.grp{margin-bottom:8px;font-family:system-ui,sans-serif;font-size:.9rem}
+.grp b{color:var(--accent);text-transform:uppercase;margin-right:6px}
+.grp span{display:inline-block;background:var(--chip);border-radius:6px;padding:2px 8px;margin:2px}
+.grp span.used{text-decoration:line-through;opacity:.45}
+#over{display:none;text-align:center}
+#over.on{display:block}
+#over h2{margin:.2em 0;color:var(--accent)}
+</style>
+</head>
+<body>
+<main>
+<h1>Word Chain 單字接龍</h1>
+<p class="sub">Words from “When Musical Instruments Become Cultural Symbols”. Start your word with the <b>last letter</b> of the previous word.</p>
+
+<div class="bar">
+  <div class="stat">Score <b id="score">0</b></div>
+  <div class="stat">Lives <b id="lives">♥♥♥</b></div>
+  <div class="stat">Chain <b id="len">0</b></div>
+  <div class="stat">Best <b id="best">0</b></div>
+</div>
+
+<div class="card" id="play">
+  <div id="timer"><i></i></div>
+  <div id="chain" aria-live="polite"></div>
+</div>
+
+<div class="card" id="input">
+  <p class="prompt">Your word must start with <span class="big" id="need">?</span></p>
+  <div class="row">
+    <input id="ans" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type a word from the article…">
+    <button id="go">Go</button>
+  </div>
+  <div id="msg"></div>
+  <div class="tools">
+    <button class="alt" id="hint">💡 Hint (−5)</button>
+    <button class="alt" id="skip">Skip (−1 life)</button>
+    <button class="alt" id="bankBtn">📖 Word bank</button>
+  </div>
+</div>
+
+<div class="card" id="bank"></div>
+
+<div class="card" id="over">
+  <h2>Game over</h2>
+  <p id="final"></p>
+  <p id="usedList" class="sub"></p>
+  <button id="again">Play again</button>
+</div>
+
+<p class="sub">Rules: each word can be used once · 30 seconds per turn · +10 points per word, plus 1 per letter · If the computer can’t answer, you win the round (+20).</p>
+</main>
+
+<script>
+const W=[
+["accompany","伴奏；伴隨","to go with or play along with"],
+["bagpipe","風笛","a Scottish instrument with a bag and pipes"],
+["banned","被禁止的","not allowed by law"],
+["battle","戰役","a fight between armies"],
+["britain","英國","the island that includes Scotland"],
+["celebration","慶祝活動","a party for a special event"],
+["century","世紀","one hundred years"],
+["ceremony","典禮","a formal public event"],
+["comfort","安慰","a feeling of relief and calm"],
+["community","社群","a group of people living together"],
+["connected","有關聯的","joined or related to something"],
+["cord","繩子","a thin strong rope"],
+["culture","文化","the shared way of life of a people"],
+["declared","宣告","said officially"],
+["determination","決心","a strong will not to give up"],
+["entertainment","娛樂","things that amuse people"],
+["festival","節慶","a special event with music and food"],
+["generation","世代","people born around the same time"],
+["government","政府","the group that rules a country"],
+["hardship","艱困","a time of suffering"],
+["highland","高地","a mountainous area"],
+["homemade","自製的","made at home, not in a store"],
+["hope","希望","a wish for something good"],
+["identity","身分認同","who a person or group is"],
+["instrument","樂器","something used to make music"],
+["leather","皮革","material made from animal skin"],
+["loss","失去","the state of no longer having something"],
+["loud","大聲的","making a lot of noise"],
+["military","軍事的","related to soldiers or armies"],
+["neck","琴頸；頸","the long narrow part of an instrument"],
+["official","官員","a person with a position of power"],
+["okinawa","沖繩","a Japanese island"],
+["originated","起源於","began in a place"],
+["parachute","降落傘","cloth that slows a fall from the sky"],
+["pipe","管子","a tube; part of a bagpipe"],
+["powerful","強大的","very strong"],
+["preserve","保存","to keep safe from loss"],
+["profound","深刻的","very deep in meaning"],
+["proud","驕傲的","feeling pleased about something"],
+["python","蟒蛇","a large snake"],
+["recovery","復原","getting better after trouble"],
+["resistance","抵抗","fighting against something"],
+["roman","羅馬的","from ancient Rome"],
+["sanshin","三線琴","a three-string Okinawan instrument"],
+["scotland","蘇格蘭","a country in the UK"],
+["scottish","蘇格蘭的","from Scotland"],
+["scrap","廢料","a small leftover piece"],
+["secret","祕密","something hidden from others"],
+["significance","重要性","importance or meaning"],
+["simple","簡單的","easy; not complicated"],
+["soldier","士兵","a person in an army"],
+["storm","風暴","very bad weather"],
+["string","弦；線","a thin line on an instrument"],
+["survive","存活","to stay alive through danger"],
+["symbol","象徵","a thing that stands for an idea"],
+["tin","錫；鐵皮","a soft silver metal"],
+["traditionally","傳統上","in the usual old way"],
+["treasured","珍貴的","loved and valued"],
+["uprising","起義","a fight against those in power"],
+["weaken","削弱","to make less strong"],
+["wooden","木製的","made of wood"]
+];
+const $=id=>document.getElementById(id);
+let used,last,score,lives,timeLeft,tm,over,best=0;
+const avail=l=>W.filter(x=>x[0][0]===l&&!used.includes(x[0]));
+const endL=w=>w[w.length-1];
+function esc(s){return s.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]))}
+function add(w,who){
+  const x=W.find(a=>a[0]===w);
+  const d=document.createElement("div");d.className="w "+who;
+  d.innerHTML="<b>"+esc(w.slice(0,-1))+"<span class='l'>"+esc(endL(w))+"</span></b><small>"+x[1]+" · "+x[2]+"</small>";
+  $("chain").appendChild(d);$("chain").scrollTop=1e5;
+  used.push(w);last=w;$("len").textContent=used.length;renderBank();
+}
+function say(t,c){$("msg").textContent=t;$("msg").className=c||""}
+function hearts(){$("lives").textContent="♥".repeat(lives)+"♡".repeat(3-lives)}
+function pick(l){
+  const a=avail(l);if(!a.length)return null;
+  const safe=a.filter(x=>avail(endL(x[0])).filter(y=>y[0]!==x[0]).length>0);
+  const pool=safe.length?safe:a;
+  return pool[Math.floor(Math.random()*pool.length)][0];
+}
+function startTimer(){
+  clearInterval(tm);timeLeft=30;const b=$("timer").firstElementChild;
+  b.style.transition="none";b.style.width="100%";void b.offsetWidth;b.style.transition="width 1s linear";
+  tm=setInterval(()=>{timeLeft--;b.style.width=(timeLeft/30*100)+"%";
+    if(timeLeft<=0){say("Time’s up! −1 life","bad");loseLife()}},1000);
+}
+function loseLife(){lives--;hearts();if(lives<=0)return end();startTimer()}
+function newRound(msg){
+  const w=W[Math.floor(Math.random()*W.length)][0];
+  const first=used.length?[...W].filter(x=>!used.includes(x[0])):W;
+  if(!first.length)return end();
+  const s=first[Math.floor(Math.random()*first.length)][0];
+  add(s,"cpu");setNeed();startTimer();
+  if(msg)say(msg,"good");
+}
+function setNeed(){$("need").textContent=endL(last);$("ans").value="";$("ans").focus()}
+function start(){
+  used=[];last="";score=0;lives=3;over=false;
+  $("chain").innerHTML="";$("score").textContent=0;$("len").textContent=0;hearts();
+  $("over").classList.remove("on");$("input").style.display="";$("play").style.display="";
+  say("");newRound();renderBank();
+}
+function submit(){
+  if(over)return;
+  const w=$("ans").value.trim().toLowerCase();if(!w)return;
+  const need=endL(last);
+  if(w[0]!==need)return say("It must start with “"+need.toUpperCase()+"”.","bad");
+  if(!W.some(x=>x[0]===w))return say("That word isn’t in the article list. Try the Word bank or a hint.","bad");
+  if(used.includes(w))return say("Already used! Pick another word.","bad");
+  add(w,"me");score+=10+w.length;$("score").textContent=score;
+  const reply=pick(endL(w));
+  if(!reply){score+=20;$("score").textContent=score;
+    say("The computer is stuck! +20 — new round","good");
+    clearInterval(tm);setTimeout(()=>newRound("You beat the computer! +20"),900);return}
+  clearInterval(tm);
+  setTimeout(()=>{add(reply,"cpu");
+    if(!avail(endL(reply)).length){newRound("Dead end — new round, no penalty.");return}
+    setNeed();startTimer();say("Good one! ✔","good")},500);
+}
+function hint(){
+  if(over)return;const a=avail(endL(last));
+  if(!a.length)return say("No words left for this letter.");
+  const x=a[Math.floor(Math.random()*a.length)];
+  score=Math.max(0,score-5);$("score").textContent=score;
+  say("Hint: "+x[1]+" — "+x[2]+" ("+x[0].length+" letters)");
+}
+function end(){
+  over=true;clearInterval(tm);best=Math.max(best,score);$("best").textContent=best;
+  $("input").style.display="none";$("over").classList.add("on");
+  $("final").textContent="Final score: "+score+" · Chain length: "+used.length;
+  $("usedList").textContent="Words: "+used.join(" → ");
+}
+function renderBank(){
+  const g={};W.forEach(x=>(g[x[0][0]]=g[x[0][0]]||[]).push(x));
+  $("bank").innerHTML=Object.keys(g).sort().map(l=>"<div class='grp'><b>"+l+"</b>"+g[l].map(x=>"<span class='"+(used&&used.includes(x[0])?"used":"")+"' title='"+x[2]+"'>"+x[0]+" "+x[1].split("；")[0]+"</span>").join("")+"</div>").join("");
+}
+$("go").onclick=submit;
+$("ans").addEventListener("keydown",e=>{if(e.key==="Enter")submit()});
+$("hint").onclick=hint;
+$("skip").onclick=()=>{if(!over){say("Skipped.","bad");loseLife()}};
+$("bankBtn").onclick=()=>$("bank").classList.toggle("on");
+$("again").onclick=start;
+start();
+</script>
+</body>
+</html>
