@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Culture Quest: Reading and Vocabulary</title>
+<style>
+:root{--bg:#eef0ea;--ink:#1c2420;--muted:#5d6862;--pink:#f1c9d0;--card:#fff;--line:#1c2420;--ok:#2f7d4f;--okbg:#dcefe2;--bad:#b3362f;--badbg:#f6dcda;--gold:#e0a100;--accent:#1c2420;--accent-ink:#fff;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#171c19;--ink:#eef0ea;--muted:#a3ada7;--pink:#5a3a42;--card:#222a26;--line:#eef0ea;--ok:#6fcf97;--okbg:#25382c;--bad:#ff8a80;--badbg:#412826;--gold:#ffd24d;--accent:#eef0ea;--accent-ink:#171c19}}
+:root[data-theme="dark"]{--bg:#171c19;--ink:#eef0ea;--muted:#a3ada7;--pink:#5a3a42;--card:#222a26;--line:#eef0ea;--ok:#6fcf97;--okbg:#25382c;--bad:#ff8a80;--badbg:#412826;--gold:#ffd24d;--accent:#eef0ea;--accent-ink:#171c19}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif}
+body{padding:14px 14px 40px}
+main{max-width:560px;margin:0 auto}
+h1{font-family:Georgia,"Times New Roman",serif;font-size:clamp(34px,10vw,52px);line-height:1;margin:8px 0 6px;font-weight:900;letter-spacing:-1px}
+.sub{color:var(--muted);margin:0 0 14px;font-size:14px;line-height:1.45}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:800;font-size:15px;margin-bottom:8px}
+.hud .pill{border:2px solid var(--line);background:var(--card);border-radius:999px;padding:4px 12px}
+.hud .fire{color:var(--gold)}
+button.snd{font:inherit;font-size:18px;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;width:40px;height:36px;cursor:pointer;padding:0}
+.dots{display:flex;gap:4px;margin-bottom:10px}
+.dot{flex:1;height:8px;border-radius:4px;background:var(--card);border:1.5px solid var(--line)}
+.dot.now{background:var(--pink)}.dot.ok{background:var(--ok);border-color:var(--ok)}.dot.no{background:var(--bad);border-color:var(--bad)}
+.tbar{height:10px;border:2px solid var(--line);border-radius:8px;background:var(--card);overflow:hidden;margin-bottom:10px}
+.tbar i{display:block;height:100%;width:100%;background:var(--ok);transition:width .1s linear}
+.tbar.low i{background:var(--bad)}
+.card{border:2px solid var(--line);border-radius:16px;background:var(--card);padding:16px 14px;position:relative}
+.badge{display:inline-block;background:var(--pink);border:2px solid var(--line);border-radius:999px;padding:3px 12px;font-size:12px;font-weight:800;margin-bottom:10px}
+.q{font-size:clamp(18px,5vw,22px);font-weight:800;line-height:1.4;margin:0 0 12px}
+.blank{display:inline-block;min-width:3.5em;border-bottom:3px solid var(--line);text-align:center;color:var(--ok)}
+.opts{display:flex;flex-direction:column;gap:8px}
+.opt{display:flex;gap:10px;align-items:center;text-align:left;font:inherit;font-size:17px;line-height:1.35;padding:12px;border-radius:14px;border:2px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;transition:transform .1s}
+.opt:hover:not(:disabled){transform:translateY(-2px)}
+.opt .L{flex:none;width:28px;height:28px;border-radius:50%;background:var(--pink);border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800}
+.opt:disabled{cursor:default}
+.opt.wrong{border-color:var(--bad);background:var(--badbg);animation:shake .35s}
+.opt.right{border-color:var(--ok);background:var(--okbg);animation:pulse .5s}
+.opt.gone{opacity:.25;text-decoration:line-through}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center}
+button.sm{font:inherit;font-size:14px;font-weight:800;padding:9px 14px;border-radius:10px;border:2px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button.main{background:var(--accent);color:var(--accent-ink);font-size:16px;padding:12px 20px}
+button.sm:disabled{opacity:.4;cursor:default}
+button:focus-visible,.opt:focus-visible{outline:3px solid var(--ok);outline-offset:2px}
+.fb{margin-top:10px;padding:10px 12px;border-radius:12px;font-size:14px;line-height:1.45}
+.fb.ok{background:var(--okbg);border:2px solid var(--ok)}.fb.no{background:var(--badbg);border:2px solid var(--bad)}
+.pop{position:absolute;right:14px;top:10px;font-weight:900;font-size:22px;color:var(--ok);animation:rise 1s forwards;pointer-events:none}
+.modes{display:flex;flex-direction:column;gap:10px;margin:12px 0}
+.mode{font:inherit;text-align:left;border:2px solid var(--line);border-radius:16px;background:var(--card);color:var(--ink);padding:14px;cursor:pointer;font-weight:800;font-size:18px}
+.mode small{display:block;font-weight:400;color:var(--muted);font-size:14px;margin-top:3px}
+.mode:hover{background:var(--pink)}
+label.o{display:flex;gap:10px;align-items:center;font-size:15px;margin:6px 0}
+label.o input{width:20px;height:20px}
+.end{text-align:center}.end h2{font-family:Georgia,serif;font-size:28px;margin:0 0 4px}
+.stars{font-size:34px;letter-spacing:5px}.big{font-size:22px;font-weight:900;margin:6px 0}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+.stat{border:2px solid var(--line);border-radius:12px;padding:8px 4px;font-size:13px}.stat b{display:block;font-size:20px}
+.miss{text-align:left;font-size:14px;line-height:1.45;margin:6px 0;padding:8px 10px;border:2px solid var(--bad);border-radius:10px;background:var(--badbg)}
+.cf{position:fixed;top:-20px;width:10px;height:14px;z-index:50;pointer-events:none;animation:fall 1.4s ease-in forwards}
+@keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+@keyframes pulse{50%{transform:scale(1.03)}}
+@keyframes rise{to{transform:translateY(-30px);opacity:0}}
+@keyframes fall{to{transform:translateY(110vh) rotate(540deg);opacity:.8}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<script>
+/* ---------- Questions (first option = correct) ---------- */
+var RD=[
+{t:"Reading · Paragraph 1",q:"What is the main idea of paragraph 1?",o:["Instruments can do more than entertain; they can keep a people’s history and identity alive.","Instruments are mainly used to calm people down during stressful times.","Only the bagpipe and the sanshin are important instruments in the world.","Governments use music to control people during wars."],e:"The writer says instruments are more than entertainment: they preserve history and identity through hard times."},
+{t:"Reading · Paragraph 1",q:"The two examples in the article are the Scottish bagpipe and the Okinawan ___.",o:["sanshin","kankara","python","shamisen"],e:"The sanshin is the Okinawan instrument named in paragraph 1."},
+{t:"Reading · Paragraph 2",q:"According to paragraph 2, where did the bagpipe probably begin?",o:["In the Middle East","In Scotland","In Rome","In Okinawa"],e:"It probably began in the Middle East. Roman soldiers later brought it to Britain."},
+{t:"Reading · Paragraph 2",q:"A bagpipe makes its sound when the player blows air into a ___ bag connected to several pipes.",o:["leather","python","cotton","plastic"],e:"The air goes into a leather bag, which is connected to the pipes."},
+{t:"Reading · Paragraph 3",q:"Why did British officials ban the bagpipe?",o:["They thought it encouraged Scottish resistance.","They thought it sounded too loud for towns.","They wanted to protect old Roman traditions.","They believed it came from the Middle East."],e:"Officials thought it encouraged resistance, so they tried to weaken Highland culture by banning it."},
+{t:"Reading · Paragraph 3",q:"Now the bagpipe is seen as a proud ___ of Scottish history and culture.",o:["symbol","weapon","rule","decoration"],e:"The article says the bagpipe remains a proud symbol of Scotland."},
+{t:"Reading · Paragraph 4",q:"Which description matches the traditional sanshin?",o:["Three strings, a long wooden neck, and a body covered with python skin","Four strings, a short neck, and a body made from tin cans","Three strings and a leather bag connected to pipes","Two strings and a body covered with parachute cloth"],e:"The traditional sanshin has three strings, a long wooden neck, and a python-skin body."},
+{t:"Reading · Paragraph 4",q:"For more than 500 years, the sanshin was used to ___ local songs and dances.",o:["accompany","record","teach","copy"],e:"Accompany means to play along with songs and dances."},
+{t:"Reading · Paragraph 5",q:"What did Okinawans do to keep their music alive after the battle?",o:["They built simple instruments from materials left by American military camps.","They copied the Scottish bagpipe.","They stopped playing until new sanshin could be imported.","They hid their instruments until the government allowed music again."],e:"They refused to let their music disappear and built homemade instruments from leftover materials."},
+{t:"Reading · Paragraph 5",q:"The sanshin became even more significant because of the Battle of Okinawa in ___.",o:["1945","1845","1939","1965"],e:"The battle took place in 1945."},
+{t:"Reading · Paragraph 6",q:"According to the last paragraph, how did the kankara sanshin help people?",o:["It comforted them during a time of loss and became a symbol of hope.","It helped them win the battle.","It earned money for their families.","It replaced the traditional sanshin in all ceremonies."],e:"The kankara sanshin brought comfort and became a symbol of hope and recovery."},
+{t:"Reading · Paragraph 6",q:"Okinawans believe culture can survive hard times as long as people ___ it with future generations.",o:["share","keep","sell","forget"],e:"The final idea: culture survives when people keep sharing it."}
+];
+var VC=[
+{t:"Vocabulary · Meaning",q:"What does “hardship” mean?",o:["a time when life is very difficult","a type of old musical instrument","a strong feeling of pride","a big public celebration"],e:"Hardship = a difficult time, such as war."},
+{t:"Vocabulary · Meaning",q:"What does “resistance” mean?",o:["refusing to accept something and fighting against it","a way of making music louder","a feeling of being very tired","the act of coming back home"],e:"Resistance = fighting against something, like a ban or a government."},
+{t:"Vocabulary · Meaning",q:"What does “banned” mean?",o:["officially not allowed","officially recorded","carefully copied","loudly praised"],e:"If something is banned, the law says you cannot do it."},
+{t:"Vocabulary · Meaning",q:"What does “accompany” mean?",o:["play or sing along with someone","teach someone to play","move to another country","play music alone in secret"],e:"The sanshin accompanies songs: it plays along with them."},
+{t:"Vocabulary · Meaning",q:"What does “significance” mean?",o:["how important or meaningful something is","how loud something is","how old something is","how much something costs"],e:"Significance = importance or meaning."},
+{t:"Vocabulary · Meaning",q:"What does “recovery” mean?",o:["getting better after a problem","making something louder","forgetting something painful","winning a competition"],e:"Recovery = becoming strong or normal again after trouble."},
+{t:"Vocabulary · In context",q:"Many Scots kept playing bagpipes ___ even after the ban.",o:["in secret","in public","on time","by heart"],e:"In secret = without other people (or officials) knowing."},
+{t:"Vocabulary · In context",q:"They built new instruments from materials ___ by the American military.",o:["left behind","taken apart","sold out","given up"],e:"Left behind = not taken away; remaining after people leave."},
+{t:"Vocabulary · In context",q:"The sanshin’s importance grew ___ the Battle of Okinawa.",o:["due to","in spite of","instead of","as well as"],e:"Due to = because of."},
+{t:"Vocabulary · In context",q:"Culture can survive hard times ___ people keep sharing it.",o:["so long as","as soon as","even though","as well as"],e:"So long as = on the condition that."},
+{t:"Vocabulary · In context",q:"Music helped communities ___ through war and hardship.",o:["hold together","hold back","fall apart","give away"],e:"Hold together = stay united and strong."},
+{t:"Vocabulary · In context",q:"The kankara sanshin helped people ___ the storm of loss.",o:["weather","whether","climate","season"],e:"Weather the storm = get through a very hard time."}
+];
+/* ---------- Helpers ---------- */
+var $=function(x){return document.getElementById(x)};
+function el(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!==undefined)e.textContent=x;return e}
+function shuf(a){a=a.slice();for(var k=a.length-1;k>0;k--){var j=Math.floor(Math.random()*(k+1)),t=a[k];a[k]=a[j];a[j]=t}return a}
+var cfg={timer:true,sound:true,voice:true},G=null,tmr=null,AC=null;
+/* ---------- Sound (Web Audio) ---------- */
+function ac(){if(!AC){try{AC=new(window.AudioContext||window.webkitAudioContext)()}catch(e){}}if(AC&&AC.state==="suspended")try{AC.resume()}catch(e){}return AC}
+function tone(f,t,d,ty,v){if(!cfg.sound)return;var c=ac();if(!c)return;try{var o=c.createOscillator(),g=c.createGain(),s=c.currentTime+t;o.type=ty||"sine";o.frequency.value=f;g.gain.setValueAtTime(v||.16,s);g.gain.exponentialRampToValueAtTime(.001,s+d);o.connect(g);g.connect(c.destination);o.start(s);o.stop(s+d)}catch(e){}}
+var SFX={
+ click:function(){tone(520,0,.06,"triangle",.1)},
+ ok:function(){tone(660,0,.12);tone(880,.1,.22)},
+ bad:function(){tone(190,0,.25,"sawtooth",.1);tone(140,.14,.32,"sawtooth",.1)},
+ streak:function(){[523,659,784,1047,1319].forEach(function(f,k){tone(f,k*.08,.22)})},
+ tick:function(){tone(1100,0,.04,"square",.05)},
+ win:function(){[523,659,784,659,784,1047].forEach(function(f,k){tone(f,k*.13,.3,"triangle",.18)})}
+};
+function say(text){if(!cfg.voice||!window.speechSynthesis)return;try{speechSynthesis.cancel();var u=new SpeechSynthesisUtterance(text.replace(/___/g,"blank"));u.lang="en-US";u.rate=.9;speechSynthesis.speak(u)}catch(e){}}
+function confetti(n){if(window.matchMedia&&matchMedia("(prefers-reduced-motion:reduce)").matches)return;var cols=["#e0a100","#2f7d4f","#d9507a","#3b7dd8","#8a5cd0"];for(var k=0;k<n;k++){var s=el("span","cf");s.style.left=Math.random()*100+"vw";s.style.background=cols[k%5];s.style.animationDelay=Math.random()*.4+"s";document.body.appendChild(s);(function(x){setTimeout(function(){x.remove()},2000)})(s)}}
+/* ---------- Home ---------- */
+function home(){
+ stopT();if(window.speechSynthesis)try{speechSynthesis.cancel()}catch(e){}
+ var a=$("app");a.innerHTML="";
+ a.appendChild(el("h1","","Culture Quest"));
+ a.appendChild(el("p","sub","Reading and vocabulary practice for “When Musical Instruments Become Cultural Symbols.” Earn points, build streaks, and beat your best score!"));
+ var m=el("div","modes");
+ [["📖 Reading Quest","12 questions, 2 for each paragraph",function(){return RD}],["🔤 Vocab Quest","12 questions: meanings and words in context",function(){return VC}],["🎵 Mega Mix","All 24 questions in random order",function(){return shuf(RD.concat(VC))}]].forEach(function(x){
+  var b=el("button","mode",x[0]);b.appendChild(el("small","",x[1]));b.onclick=function(){ac();SFX.click();start(x[2]())};m.appendChild(b)});
+ a.appendChild(m);
+ var c=el("div","card");
+ [["timer","⏱ Timer (faster answers = bonus points)"],["sound","🔊 Sound effects"],["voice","🗣 Read questions aloud (tap 🔊 Listen)"]].forEach(function(x){
+  var l=el("label","o"),i=el("input");i.type="checkbox";i.checked=cfg[x[0]];i.onchange=function(){cfg[x[0]]=i.checked;ac();SFX.click()};l.appendChild(i);l.appendChild(el("span","",x[1]));c.appendChild(l)});
+ a.appendChild(c);
+}
+/* ---------- Game ---------- */
+function start(list){G={list:list.map(function(q){return q}),i:0,score:0,streak:0,best:0,ok:0,miss:[],fifty:2,res:[],ans:false,limit:20,left:20};show()}
+function stopT(){if(tmr){clearInterval(tmr);tmr=null}}
+function hud(){var h=$("hud");if(!h)return;h.innerHTML="";var s=el("span","pill","⭐ "+G.score);var f=el("span","pill fire",G.streak>=2?"🔥 "+G.streak:"🔥 0");var b=el("button","snd",cfg.sound?"🔊":"🔇");b.setAttribute("aria-label","Toggle sound");b.onclick=function(){cfg.sound=!cfg.sound;b.textContent=cfg.sound?"🔊":"🔇";SFX.click()};h.appendChild(s);h.appendChild(f);h.appendChild(b)}
+function show(){
+ stopT();if(G.i>=G.list.length)return end();
+ var q=G.list[G.i],a=$("app");a.innerHTML="";G.ans=false;
+ var h=el("div","hud");h.id="hud";a.appendChild(h);hud();
+ var d=el("div","dots");G.list.forEach(function(_,k){d.appendChild(el("span","dot"+(k===G.i?" now":"")+(G.res[k]===true?" ok":"")+(G.res[k]===false?" no":"")))});a.appendChild(d);
+ if(cfg.timer){var tb=el("div","tbar");tb.id="tb";tb.appendChild(el("i"));a.appendChild(tb)}
+ var c=el("div","card");c.id="card";c.appendChild(el("span","badge",q.t));
+ var p=el("p","q"),parts=q.q.split("___");p.appendChild(document.createTextNode(parts[0]));
+ if(parts.length>1){var bl=el("span","blank","?");bl.id="bl";p.appendChild(bl);p.appendChild(document.createTextNode(parts[1]))}
+ c.appendChild(p);
+ var order=shuf(q.o),op=el("div","opts");op.id="opts";
+ order.forEach(function(w,k){var b=el("button","opt");b.dataset.w=w;b.appendChild(el("span","L","ABCD".charAt(k)));b.appendChild(el("span","",w));b.onclick=function(){pick(w,b)};op.appendChild(b)});
+ c.appendChild(op);
+ var r=el("div","row");r.id="pw";
+ var f5=el("button","sm","✂ 50/50 ("+G.fifty+")");f5.disabled=G.fifty<1;f5.onclick=fifty;r.appendChild(f5);
+ if(cfg.voice&&window.speechSynthesis){var ls=el("button","sm","🔊 Listen");ls.onclick=function(){say(q.q)};r.appendChild(ls)}
+ c.appendChild(r);a.appendChild(c);
+ if(cfg.timer){G.left=G.limit;var last=-1;tmr=setInterval(function(){G.left-=.1;var tb=$("tb");if(tb){tb.firstChild.style.width=Math.max(G.left/G.limit*100,0)+"%";tb.className=G.left<=5?"tbar low":"tbar"}
+  var sec=Math.ceil(G.left);if(G.left<=5&&sec!==last&&G.left>0){last=sec;SFX.tick()}
+  if(G.left<=0){stopT();timeout()}},100)}
+}
+function fifty(){
+ if(G.ans||G.fifty<1)return;var q=G.list[G.i];G.fifty--;G.usedFifty=true;SFX.click();
+ var wr=Array.prototype.filter.call($("opts").children,function(b){return b.dataset.w!==q.o[0]&&!b.disabled});
+ shuf(wr).slice(0,2).forEach(function(b){b.disabled=true;b.classList.add("gone")});
+ var btn=$("pw").firstChild;btn.textContent="✂ 50/50 ("+G.fifty+")";btn.disabled=true;
+}
+function reveal(q,good,msg){
+ var op=$("opts");Array.prototype.forEach.call(op.children,function(b){b.disabled=true;if(b.dataset.w===q.o[0])b.classList.add("right")});
+ var bl=$("bl");if(bl)bl.textContent=q.o[0];
+ var pw=$("pw");if(pw)pw.remove();
+ var c=$("card"),fb=el("div","fb "+(good?"ok":"no"));fb.appendChild(el("b","",msg+" "));fb.appendChild(document.createTextNode(q.e));c.appendChild(fb);
+ var r=el("div","row"),n=el("button","sm main",G.i===G.list.length-1?"See results ▶":"Next ▶");n.onclick=next;r.appendChild(n);c.appendChild(r);n.focus();
+ hud();
+}
+function pick(w,b){
+ if(G.ans)return;G.ans=true;stopT();var q=G.list[G.i];
+ if(w===q.o[0]){
+  G.streak++;G.best=Math.max(G.best,G.streak);G.ok++;G.res[G.i]=true;
+  var pts=G.usedFifty?50:100;if(cfg.timer&&!G.usedFifty)pts+=Math.round(Math.max(G.left,0)/G.limit*50);
+  var bonus=G.streak>=3?50:0;pts+=bonus;G.score+=pts;
+  b.classList.add("right");
+  var pop=el("div","pop","+"+pts);$("card").appendChild(pop);
+  if(G.streak>0&&G.streak%3===0){SFX.streak();confetti(30)}else SFX.ok();
+  reveal(q,true,bonus?"Correct! 🔥 Streak bonus.":"Correct!");
+ }else{
+  G.streak=0;G.res[G.i]=false;G.miss.push(q);b.classList.add("wrong");SFX.bad();reveal(q,false,"Not quite. The answer is “"+q.o[0]+"”.");
+ }
+ G.usedFifty=false;
+}
+function timeout(){if(G.ans)return;G.ans=true;var q=G.list[G.i];G.streak=0;G.res[G.i]=false;G.miss.push(q);G.usedFifty=false;SFX.bad();reveal(q,false,"Time’s up! The answer is “"+q.o[0]+"”.")}
+function next(){SFX.click();G.i++;show()}
+document.addEventListener("keydown",function(e){
+ if(!G||!$("opts"))return;
+ if(G.ans){if(e.key==="Enter"||e.key===" "){e.preventDefault();var n=document.querySelector(".fb ~ .row .main");if(n)n.click()}return}
+ var k="abcd1234".indexOf(e.key.toLowerCase());if(k>-1){var bs=$("opts").children[k%4];if(bs&&!bs.disabled)bs.click()}
+});
+function end(){
+ stopT();var a=$("app");a.innerHTML="";var n=G.list.length,acc=Math.round(G.ok/n*100);
+ var st=acc>=90?3:acc>=70?2:acc>=40?1:0,rank=acc>=90?"Culture Master 🏆":acc>=70?"Sanshin Star 🌟":acc>=40?"Bagpipe Beginner 🎵":"Keep Practicing 💪";
+ if(st>=2){SFX.win();confetti(60)}else SFX.click();
+ var c=el("div","card end");c.appendChild(el("div","stars","★".repeat(st)+"☆".repeat(3-st)));
+ c.appendChild(el("h2","","Quest complete!"));c.appendChild(el("div","big",rank));
+ var s=el("div","stats");[["Score",G.score],["Correct",G.ok+"/"+n],["Best streak","🔥 "+G.best]].forEach(function(x){var d=el("div","stat",x[0]);d.appendChild(el("b","",String(x[1])));s.appendChild(d)});c.appendChild(s);
+ if(G.miss.length){c.appendChild(el("p","sub","Review these:"));G.miss.forEach(function(q){var m=el("div","miss");m.appendChild(el("b","",q.q.replace("___","_____")));m.appendChild(el("div","","✓ "+q.o[0]));c.appendChild(m)})}
+ else c.appendChild(el("p","sub","Perfect! No mistakes to review."));
+ var r=el("div","row");r.style.justifyContent="center";
+ if(G.miss.length){var rb=el("button","sm main","Replay missed ("+G.miss.length+")");rb.onclick=function(){SFX.click();start(G.miss.slice())};r.appendChild(rb)}
+ var pa=el("button","sm","Play again");pa.onclick=function(){SFX.click();var l=G.list;start(l.length>12?shuf(l):l)};r.appendChild(pa);
+ var hb=el("button","sm","Home");hb.onclick=home;r.appendChild(hb);c.appendChild(r);a.appendChild(c);
+}
+home();
+</script>
+</body>
+</html>
