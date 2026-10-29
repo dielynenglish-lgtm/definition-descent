@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Compound Word Chain</title>
+<style>
+:root{--bg:#faf6ee;--card:#fff;--ink:#2b2622;--mut:#7a6f64;--acc:#b5342c;--ok:#2e7d4f;--bad:#c0392b;--gold:#c98a00;--line:#e3d9c8;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1d1a17;--card:#2a2521;--ink:#f1e9dd;--mut:#a79b8c;--acc:#e8776c;--ok:#6cc58b;--bad:#ef7d70;--gold:#f0b43c;--line:#41392f;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#1d1a17;--card:#2a2521;--ink:#f1e9dd;--mut:#a79b8c;--acc:#e8776c;--ok:#6cc58b;--bad:#ef7d70;--gold:#f0b43c;--line:#41392f;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;padding:16px;max-width:680px;margin:0 auto}
+h1{font-size:1.4rem;margin:4px 0;color:var(--acc)}
+p.sub{margin:0 0 12px;color:var(--mut);font-size:.9rem}
+.bar{display:flex;justify-content:space-between;align-items:center;font-size:.9rem;color:var(--mut);margin-bottom:6px;gap:8px}
+.timer{font-size:1.6rem;font-weight:700;color:var(--ink);min-width:3.2ch}
+.timer.low{color:var(--bad);animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.5}}
+.tbar{height:8px;border-radius:6px;background:var(--line);margin-bottom:12px;overflow:hidden}
+.tbar div{height:100%;width:100%;background:var(--ok);transition:width .25s linear,background .3s}
+.chain{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.slot{min-width:52px;padding:8px 10px;border:2px dashed var(--line);border-radius:10px;text-align:center;font-weight:600;background:var(--card);font-size:.95rem}
+.slot.on{border:2px solid var(--ok)}
+.slot.art{background:color-mix(in srgb,var(--ok) 14%,var(--card))}
+.slot small{display:block;font-weight:400;color:var(--mut);font-size:.65rem}
+.slot.cur{border:2px solid var(--acc)}
+.prompt{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px;text-align:center}
+.prompt b.k{color:var(--acc);font-size:2.2rem}
+#q{font-size:1.2rem}
+#fb{min-height:3.2em;margin-top:6px;font-size:.95rem;line-height:1.35}
+#fb .cw{font-weight:700;font-size:1.6rem}
+#fb .mn{color:var(--mut)}
+.pool{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.w{font-size:1.5rem;padding:12px 22px;border-radius:999px;border:2px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;font-weight:600}
+.w:active{transform:scale(.96)}
+.w.bad{animation:sh .35s;border-color:var(--bad);color:var(--bad)}
+@keyframes sh{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.ctl{margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.ctl button,.start button{padding:9px 16px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;font-size:.95rem}
+.ctl button.main,.start button{background:var(--acc);color:#fff;border-color:var(--acc)}
+.start{text-align:center;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:12px}
+.start button{font-size:1.15rem;padding:12px 28px;margin-top:8px}
+.done{display:none;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:12px}
+.done h2{margin:0 0 6px;text-align:center}
+.done ul{padding-left:18px;margin:8px 0 0;font-size:.9rem;line-height:1.5}
+.done li span{color:var(--mut)}
+.hint{font-size:.8rem;color:var(--mut);margin-top:10px;text-align:center}
+.flash{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%) scale(.8);opacity:0;pointer-events:none;background:var(--card);border:3px solid var(--acc);border-radius:20px;padding:20px 28px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.35);transition:opacity .2s,transform .2s;z-index:20;max-width:90vw}
+.flash.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.fw{font-size:3.2rem;font-weight:800;line-height:1.1;word-break:break-word}
+.fp{font-size:1.1rem;color:var(--mut);margin-bottom:4px}
+.fm{font-size:1.25rem;margin-top:8px}
+</style></head><body>
+<h1>Compound Word Chain</h1>
+<p class="sub">Join the highlighted word with another word to make a new word. Some words have more than one answer. Find bonus words too!</p>
+<div class="bar"><span id="prog">Step 1 / 9</span><span class="timer" id="tm">15</span><span id="sc">Score: 0</span></div>
+<div class="tbar"><div id="tb"></div></div>
+<div class="chain" id="chain"></div>
+<div class="start" id="start"><div><b>15 seconds</b> for each word. Can you finish the chain?<br><span style="color:var(--mut);font-size:.9rem">+10 chain word · +5 bonus word · −2 mistake</span></div><button id="go">▶ Start</button></div>
+<div class="prompt" id="pr" style="display:none"><div id="q"></div><div id="fb"></div></div>
+<div class="done" id="done"></div>
+<div class="flash" id="flash"></div>
+<div class="pool" id="pool"></div>
+<div class="ctl"><button id="hintBtn">Hint</button><button id="mus">🎵 Music: On</button><button id="again" class="main">Restart</button></div>
+<div class="hint">Green slots = words from the article “When Musical Instruments Become Cultural Symbols”.</div>
+<script>
+var chain=["Air","Bag","Pipe","Line","Up","Hold","Over","Time","Piece","Work"];
+var article={Air:"blowing air into a leather bag",Bag:"a leather bag",Pipe:"several pipes",Hold:"hold together through war",Over:"Over time, it became...",Time:"difficult times"};
+var extras=["Bell","Pink","Lamp","Hat","Tent"];
+var alts={Air:["Port"],Line:["Man"],Up:["Date"],Hold:["Out"],Over:["Night"],Time:["Table"],Piece:["Meal"]};
+var mean={airbag:"a safety cushion in a car that fills with air in a crash",bagpipe:"a Scottish instrument played by blowing air into a bag",pipeline:"a long pipe that carries oil, gas or water",lineup:"a row of people or things; the players on a team",uphold:"to support or keep a rule or decision",holdover:"something left from an earlier time",overtime:"extra time worked after normal hours",timepiece:"a clock or a watch",piecework:"work paid by the number of items finished",airport:"a place where planes take off and land",lineman:"a worker who repairs power or phone lines",update:"to make something newer with the latest information",holdout:"a person who refuses to agree",overnight:"during the night; for one night",timetable:"a list showing when things happen",piecemeal:"done a little at a time"};
+var step,mistakes,score,bonus,missed,running,t0,timer,total=15;
+var allBonus=0;for(var k in alts)allBonus+=alts[k].length;
+function $(i){return document.getElementById(i)}
+function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t}return a}
+function buildPool(){
+  var bw=[];for(var k in alts)bw=bw.concat(alts[k]);
+  $("pool").innerHTML="";
+  shuffle(chain.slice(1).concat(extras,bw)).forEach(function(w){
+    var b=document.createElement("button");b.className="w";b.textContent=w;b.onclick=function(){pick(w,b)};$("pool").appendChild(b)});
+}
+function init(){
+  clearInterval(timer);running=false;step=1;mistakes=0;score=0;bonus=0;missed=0;
+  $("done").style.display="none";$("pr").style.display="none";$("start").style.display="block";
+  $("tm").textContent=total;$("tm").className="timer";$("tb").style.width="100%";$("tb").style.background="var(--ok)";
+  $("fb").innerHTML="";$("pool").innerHTML="";render();
+}
+function begin(){
+  startMusic();buildPool();
+  $("start").style.display="none";$("pr").style.display="block";
+  running=true;t0=Date.now();
+  clearInterval(timer);timer=setInterval(tick,200);render();
+}
+function tick(){
+  var left=Math.max(0,total-(Date.now()-t0)/1000);
+  $("tm").textContent=Math.ceil(left);
+  $("tb").style.width=(left/total*100)+"%";
+  $("tb").style.background=left<=5?"var(--bad)":left<=9?"var(--gold)":"var(--ok)";
+  $("tm").className="timer"+(left<=5?" low":"");
+  if(left<=0)timeout();
+}
+function render(){
+  var c=$("chain");c.innerHTML="";
+  chain.forEach(function(w,i){
+    var d=document.createElement("div");
+    if(i<step){d.className="slot on"+(article[w]?" art":"");d.innerHTML=w+(article[w]?"<small>article</small>":"")}
+    else{d.className="slot";d.textContent=i+1}
+    if(i===step-1&&running)d.className+=" cur";
+    c.appendChild(d)});
+  $("prog").textContent=step<chain.length?"Step "+step+" / 9":"Complete!";
+  $("sc").textContent="Score: "+score;
+  if(step<chain.length)$("q").innerHTML="Which word joins with <b class='k'>"+chain[step-1]+"</b>?";
+}
+function show(word,color,pre){
+  var m=mean[word.toLowerCase()]||"";
+  $("fb").innerHTML=(pre?pre+" ":"")+"<span class='cw' style='color:"+color+"'>"+word.toLowerCase()+"</span><br><span class='mn'>= "+m+"</span>";
+}
+function pick(w,b){
+  if(!running)return;
+  var cur=chain[step-1],joined=cur.toLowerCase()+w.toLowerCase();
+  if(w===chain[step]){
+    score+=10;sfx([660,880]);show(joined,"var(--ok)","✓");flash(joined,"var(--ok)","✓ Correct!");
+    b.remove();step++;t0=Date.now();render();
+    if(step>=chain.length)finish(true);
+  }else if(alts[cur]&&alts[cur].indexOf(w)>=0){
+    score+=5;bonus++;sfx([523,659,784]);show(joined,"var(--gold)","⭐ Bonus word!");flash(joined,"var(--gold)","⭐ Bonus word!");
+    b.remove();render();
+    $("fb").innerHTML+="<br><span class='mn'>Now find the chain word for “"+cur+"”.</span>";
+  }else{
+    mistakes++;score=Math.max(0,score-2);sfx([180]);
+    $("fb").innerHTML="<span style='color:var(--bad)'>✗ “"+joined+"” isn’t a word. Try again!</span>";
+    b.classList.add("bad");setTimeout(function(){b.classList.remove("bad")},400);render();
+  }
+}
+function finish(win){
+  if(!running)return;running=false;clearInterval(timer);
+  $("pool").innerHTML="";$("pr").style.display="none";render();
+  var s=missed>0?"⏰ Finished: "+missed+" word"+(missed>1?"s":"")+" timed out":mistakes===0?"⭐⭐⭐ Perfect!":mistakes<4?"⭐⭐ Great job!":"⭐ Well done!";
+  if(win)sfx([523,659,784,1047]);else sfx([300,220]);
+  var li="";for(var i=0;i<chain.length-1;i++){var c=(chain[i]+chain[i+1]).toLowerCase();li+="<li><b>"+c+"</b> <span>– "+mean[c]+"</span></li>"}
+  var d=$("done");d.style.display="block";
+  d.innerHTML="<h2>"+s+"</h2><p style='text-align:center;margin:0'>Score: <b>"+score+"</b> · Chain: "+(9-missed)+"/9 · Bonus words: "+bonus+"/"+allBonus+" · Mistakes: "+mistakes+"</p><ul>"+li+"</ul>";
+}
+function timeout(){
+  var cur=chain[step-1],nxt=chain[step],joined=(cur+nxt).toLowerCase();
+  missed++;sfx([300,220]);
+  flash(joined,"var(--bad)","⏰ Time’s up! The answer was “"+nxt+"”");
+  show(joined,"var(--bad)","⏰");
+  step++;t0=Date.now();render();
+  if(step>=chain.length)finish(true);
+}
+var fT;
+function flash(word,color,pre){
+  var m=mean[word]||"",f=$("flash");
+  f.innerHTML="<div class='fp'>"+(pre||"")+"</div><div class='fw' style='color:"+color+"'>"+word+"</div><div class='fm'>"+m+"</div>";
+  f.className="flash show";clearTimeout(fT);fT=setTimeout(function(){f.className="flash"},2600);
+}
+/* Music: gentle looping pentatonic tune with Web Audio */
+var ac,mTimer,mOn=true,ni=0;
+var mel=[523,587,659,784,659,587,523,392,440,523,587,523,440,392,330,392];
+var bass=[131,131,175,175,131,131,196,196];
+function tone(f,dur,vol,type){
+  if(!ac)return;var o=ac.createOscillator(),g=ac.createGain(),t=ac.currentTime;
+  o.type=type||"triangle";o.frequency.value=f;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+.03);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  o.connect(g);g.connect(ac.destination);o.start(t);o.stop(t+dur+.05);
+}
+function startMusic(){
+  try{if(!ac)ac=new(window.AudioContext||window.webkitAudioContext)();if(ac.resume)ac.resume();}catch(e){return}
+  clearInterval(mTimer);if(!mOn)return;
+  mTimer=setInterval(function(){
+    tone(mel[ni%mel.length],.5,.05);
+    if(ni%2===0)tone(bass[(ni/2)%bass.length],.9,.06,"sine");
+    ni++;
+  },running&&false?250:320);
+}
+function sfx(fs){try{if(!ac)return;fs.forEach(function(f,i){setTimeout(function(){tone(f,.25,.12,"square")},i*110)})}catch(e){}}
+$("mus").onclick=function(){mOn=!mOn;$("mus").textContent="🎵 Music: "+(mOn?"On":"Off");if(mOn)startMusic();else clearInterval(mTimer)};
+$("go").onclick=begin;
+$("again").onclick=function(){init();begin()};
+$("hintBtn").onclick=function(){
+  if(!running||step>=chain.length)return;
+  var n=chain[step];
+  $("fb").innerHTML="<span class='mn'>Hint: the chain word starts with “"+n[0]+"” and has "+n.length+" letters."+(article[n]?" Article: “"+article[n]+"”":"")+"</span>";
+};
+init();
+</script></body></html>
